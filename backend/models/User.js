@@ -1,38 +1,113 @@
 // backend/models/User.js
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
-const UserSchema = new mongoose.Schema({
-    username: { 
-        type: String, 
-        required: true, 
-        unique: true 
-    },
-    email: { 
-        type: String, 
-        required: true, 
+const userSchema = new mongoose.Schema({
+    username: {
+        type: String,
+        required: [true, 'Tên đăng nhập là bắt buộc'],
         unique: true,
-        match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Vui lòng nhập một email hợp lệ']
+        trim: true
     },
-    password: { 
-        type: String, 
-        required: true,
-        minlength: 6
+    email: {
+        type: String,
+        required: [true, 'Email là bắt buộc'],
+        unique: true,
+        trim: true,
+        lowercase: true,
+        match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Email không hợp lệ']
     },
+    password: {
+        type: String,
+        required: [true, 'Mật khẩu là bắt buộc'],
+        minlength: [6, 'Mật khẩu phải có ít nhất 6 ký tự']
+    },
+    fullName: {
+        type: String,
+        trim: true
+    },
+    phoneNumber: {
+        type: String,
+        trim: true
+    },
+    avatar: String,
     role: {
         type: String,
-        enum: ['customer', 'event_owner', 'admin'],
-        default: 'customer'
+        enum: ['user', 'event_owner', 'admin'],
+        default: 'user',
+        index: true
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    }
-});
+    googleId: String,
+    status: {
+        type: String,
+        enum: ['active', 'blocked', 'pending'],
+        default: 'active',
+        index: true
+    },
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
+    twoFactorAuth: {
+        type: Boolean,
+        default: false
+    },
+    lastLoginAt: Date,
+    preferences: {
+        notifications: {
+            type: Boolean,
+            default: true
+        },
+        language: {
+            type: String,
+            default: 'vi'
+        },
+        darkMode: {
+            type: Boolean,
+            default: false
+        }
+    },
+    savedPaymentMethods: [{
+        type: {
+            type: String,
+            required: true
+        },
+        lastFour: String,
+        expiryDate: String,
+        isDefault: {
+            type: Boolean,
+            default: false
+        }
+    }],
+    favorites: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Event'
+    }],
+    friends: [{
+        user: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        status: {
+            type: String,
+            enum: ['pending', 'accepted', 'blocked'],
+            default: 'pending'
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now
+        }
+    }]
+}, { timestamps: true });
 
-// Mã hóa mật khẩu trước khi lưu
-UserSchema.pre('save', async function(next) {
+// Indexes
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ username: 1 }, { unique: true });
+userSchema.index({ googleId: 1 }, { sparse: true });
+userSchema.index({ 'friends.user': 1 });
+
+// Hash mật khẩu trước khi lưu
+userSchema.pre('save', async function(next) {
     if (!this.isModified('password')) return next();
+    
     try {
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);
@@ -43,8 +118,10 @@ UserSchema.pre('save', async function(next) {
 });
 
 // Phương thức so sánh mật khẩu
-UserSchema.methods.comparePassword = async function(password) {
-    return await bcrypt.compare(password, this.password);
+userSchema.methods.comparePassword = async function(candidatePassword) {
+    return bcrypt.compare(candidatePassword, this.password);
 };
 
-module.exports = mongoose.model('User', UserSchema);
+const User = mongoose.model('User', userSchema);
+
+module.exports = User;
