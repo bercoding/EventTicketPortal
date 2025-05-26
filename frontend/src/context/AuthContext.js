@@ -1,6 +1,6 @@
 // frontend/src/context/AuthContext.js
 import React, { createContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { authAPI } from '../services/api';
 
 export const AuthContext = createContext();
 
@@ -9,20 +9,39 @@ export const AuthProvider = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isBanned, setIsBanned] = useState(false);
+    const [banReason, setBanReason] = useState('');
 
     useEffect(() => {
         // Kiểm tra xem người dùng đã đăng nhập chưa
         const checkLoggedIn = async () => {
-            if (localStorage.getItem('token')) {
-                setAuthToken(localStorage.getItem('token'));
+            const token = localStorage.getItem('token');
+            if (token) {
                 try {
-                    const res = await axios.get('/api/auth/me');
+                    console.log('Checking auth with token:', token.substring(0, 20) + '...');
+                    const res = await authAPI.getProfile();
+                    console.log('Profile response:', res.data);
+                    // Backend trả về { success: true, data: user }
                     setUser(res.data.data);
                     setIsAuthenticated(true);
+                    setIsBanned(false);
+                    setBanReason('');
                 } catch (err) {
-                    localStorage.removeItem('token');
-                    setUser(null);
-                    setIsAuthenticated(false);
+                    console.error('Auth check failed:', err);
+                    
+                    // Kiểm tra nếu user bị ban
+                    if (err.response?.status === 403 && err.response?.data?.banned) {
+                        setIsBanned(true);
+                        setBanReason(err.response.data.banReason || 'Vi phạm điều khoản sử dụng');
+                        setIsAuthenticated(false);
+                        setUser(null);
+                    } else {
+                        localStorage.removeItem('token');
+                        setUser(null);
+                        setIsAuthenticated(false);
+                        setIsBanned(false);
+                        setBanReason('');
+                    }
                 }
             }
             setLoading(false);
@@ -31,53 +50,71 @@ export const AuthProvider = ({ children }) => {
         checkLoggedIn();
     }, []);
 
-    // Thiết lập token cho tất cả các request
-    const setAuthToken = (token) => {
-        if (token) {
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        } else {
-            delete axios.defaults.headers.common['Authorization'];
-        }
-    };
-
     // Đăng ký
     const register = async (formData) => {
         try {
-            const res = await axios.post('http://localhost:5001/api/auth/register', formData);
+            console.log('Attempting register with:', formData);
+            const res = await authAPI.register(formData);
+            console.log('Register response:', res.data);
+            
             localStorage.setItem('token', res.data.token);
-            setAuthToken(res.data.token);
             setUser(res.data.user);
             setIsAuthenticated(true);
             setError(null);
-            return res.data;
+            setIsBanned(false);
+            setBanReason('');
+            return { success: true, ...res.data };
         } catch (err) {
-            setError(err.response?.data?.message || 'Đăng ký thất bại');
-            return { success: false, error: err.response?.data?.message || 'Đăng ký thất bại' };
+            console.error('Register error:', err);
+            const errorMessage = err.response?.data?.message || err.message || 'Đăng ký thất bại';
+            setError(errorMessage);
+            return { success: false, error: errorMessage };
         }
     };
 
     // Đăng nhập
     const login = async (formData) => {
         try {
-            const res = await axios.post('http://localhost:5001/api/auth/login', formData);
+            console.log('Attempting login with:', { ...formData, password: '***' });
+            const res = await authAPI.login(formData);
+            console.log('Login response:', res.data);
+            
             localStorage.setItem('token', res.data.token);
-            setAuthToken(res.data.token); 
             setUser(res.data.user);
             setIsAuthenticated(true);
             setError(null);
-            return res.data;
+            setIsBanned(false);
+            setBanReason('');
+            return { success: true, ...res.data };
         } catch (err) {
-            setError(err.response.data.message || 'Đăng nhập thất bại');
-            return { success: false, error: err.response.data.message };
+            console.error('Login error:', err);
+            
+            // Kiểm tra nếu user bị ban
+            if (err.response?.status === 403 && err.response?.data?.banned) {
+                setIsBanned(true);
+                setBanReason(err.response.data.banReason || 'Vi phạm điều khoản sử dụng');
+                setIsAuthenticated(false);
+                setUser(null);
+                return { 
+                    success: false, 
+                    banned: true, 
+                    banReason: err.response.data.banReason || 'Vi phạm điều khoản sử dụng'
+                };
+            }
+            
+            const errorMessage = err.response?.data?.message || err.message || 'Đăng nhập thất bại';
+            setError(errorMessage);
+            return { success: false, error: errorMessage };
         }
     };
 
     // Đăng xuất
     const logout = () => {
         localStorage.removeItem('token');
-        setAuthToken(null);
         setUser(null);
         setIsAuthenticated(false);
+        setIsBanned(false);
+        setBanReason('');
     };
 
     return (
@@ -87,6 +124,8 @@ export const AuthProvider = ({ children }) => {
                 isAuthenticated,
                 loading,
                 error,
+                isBanned,
+                banReason,
                 register,
                 login,
                 logout

@@ -2,6 +2,7 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import BannedUser from './BannedUser';
 
 const Login = () => {
     const [formData, setFormData] = useState({
@@ -9,6 +10,8 @@ const Login = () => {
         password: ''
     });
     const [error, setError] = useState('');
+    const [showBannedPage, setShowBannedPage] = useState(false);
+    const [banReason, setBanReason] = useState('');
     const { login } = useContext(AuthContext);
     const navigate = useNavigate();
 
@@ -27,12 +30,25 @@ const Login = () => {
         });
 
         if (result.success) {
-            // Chuyển đến trang chính sau khi đăng nhập thành công
-            navigate('/');
+            // Check user role and redirect accordingly
+            if (result.user && result.user.role === 'admin') {
+                navigate('/admin');
+            } else {
+                navigate('/');
+            }
+        } else if (result.banned) {
+            // User is banned, show banned page
+            setShowBannedPage(true);
+            setBanReason(result.banReason);
         } else {
             setError(result.error || 'Đăng nhập thất bại');
         }
     };
+
+    // If user is banned, show banned page
+    if (showBannedPage) {
+        return <BannedUser banReason={banReason} />;
+    }
 
     return (
         <div className="login-container">
