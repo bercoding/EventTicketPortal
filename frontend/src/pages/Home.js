@@ -1,10 +1,13 @@
 import React, { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import NavigationBar from '../components/NavigationBar';
 
 const Home = () => {
     const { user, logout } = useContext(AuthContext);
 
     return (
+        <>
+        <NavigationBar />
         <div className="container">
             <h1>Trang chủ - Nền tảng đặt vé sự kiện</h1>
             {user && (
@@ -22,6 +25,7 @@ const Home = () => {
                 <p>Chưa có sự kiện nào. Vui lòng quay lại sau.</p>
             </div>
         </div>
+        </>
     );
 };
 

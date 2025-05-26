@@ -4,6 +4,8 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const eventRoutes = require('./routes/event');
+const reviewRoutes = require('./routes/review');
+
 require('dotenv').config();
 
 const app = express();
@@ -29,6 +31,7 @@ connectDB();
 
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 app.use(express.static('public', {
   maxAge: '1d',

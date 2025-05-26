@@ -6,6 +6,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import UserManagement from './components/admin/UserManagement';
 import Home from './pages/Home';
+
 import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './components/admin/AdminDashboard';
 import EventManagement from './components/admin/EventManagement';
@@ -42,6 +43,12 @@ const App = () => {
                         </Route>
                     </Routes>
                 </BannedUserGuard>
+                <Routes>
+                    <Route path="/events/:eventId/review" element={<PrivateRoute><Review /></PrivateRoute>} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                    <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
+                </Routes>
             </Router>
         </AuthProvider>
     );
