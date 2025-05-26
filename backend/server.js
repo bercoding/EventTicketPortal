@@ -5,6 +5,7 @@ const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const eventRoutes = require('./routes/event');
 const reviewRoutes = require('./routes/review');
+const adminRoutes = require('./routes/admin');
 
 require('dotenv').config();
 
@@ -32,6 +33,7 @@ connectDB();
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use(express.static('public', {
   maxAge: '1d',

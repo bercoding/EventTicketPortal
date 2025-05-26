@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { adminAPI } from '../../services/api';
+// import { adminAPI } from '../../services/api'; // adminAPI không còn được sử dụng sau khi comment fetchRevenue
 
 const RevenueReport = () => {
   const [revenue, setRevenue] = useState(null);
@@ -12,8 +12,8 @@ const RevenueReport = () => {
   const fetchRevenue = async () => {
     try {
       setLoading(true);
-      const response = await adminAPI.getRevenue();
-      setRevenue(response.data);
+      // const response = await adminAPI.getRevenue(); // Dữ liệu response chưa được sử dụng
+      // setRevenue(response.data); // Dữ liệu revenue chưa được sử dụng trong component này
     } catch (error) {
       console.error('Error fetching revenue:', error);
     } finally {

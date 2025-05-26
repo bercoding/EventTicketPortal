@@ -108,6 +108,42 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // Google Login
+    const googleLogin = async (credential) => {
+        try {
+            console.log('Attempting Google login with credential');
+            const res = await authAPI.googleAuth(credential);
+            console.log('Google login response:', res.data);
+            
+            localStorage.setItem('token', res.data.token);
+            setUser(res.data.user);
+            setIsAuthenticated(true);
+            setError(null);
+            setIsBanned(false);
+            setBanReason('');
+            return { success: true, ...res.data };
+        } catch (err) {
+            console.error('Google login error:', err);
+            
+            // Kiểm tra nếu user bị ban
+            if (err.response?.status === 403 && err.response?.data?.banned) {
+                setIsBanned(true);
+                setBanReason(err.response.data.banReason || 'Vi phạm điều khoản sử dụng');
+                setIsAuthenticated(false);
+                setUser(null);
+                return { 
+                    success: false, 
+                    banned: true, 
+                    banReason: err.response.data.banReason || 'Vi phạm điều khoản sử dụng'
+                };
+            }
+            
+            const errorMessage = err.response?.data?.message || err.message || 'Đăng nhập Google thất bại';
+            setError(errorMessage);
+            return { success: false, error: errorMessage };
+        }
+    };
+
     // Đăng xuất
     const logout = () => {
         localStorage.removeItem('token');
@@ -128,6 +164,7 @@ export const AuthProvider = ({ children }) => {
                 banReason,
                 register,
                 login,
+                googleLogin,
                 logout
             }}
         >

@@ -2,6 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import Login from './components/Login';
 import Register from './components/Register';
 import UserManagement from './components/admin/UserManagement';
@@ -20,31 +21,35 @@ import PrivateRoute from './components/routing/PrivateRoute';
 import BannedUserGuard from './components/routing/BannedUserGuard';
 
 const App = () => {
+    const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || 'YOUR_DEFAULT_GOOGLE_CLIENT_ID';
+
     return (
-        <AuthProvider>
-            <Router>
-                <BannedUserGuard>
-                    <Routes>
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/register" element={<Register />} />
-                        <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
-                        <Route path="/events/:eventId/review" element={<PrivateRoute><Review /></PrivateRoute>} />
-                        
-                        {/* Admin Routes */}
-                        <Route path="/admin" element={<PrivateRoute><AdminLayout /></PrivateRoute>}>
-                            <Route index element={<AdminDashboard />} />
-                            <Route path="users" element={<UserManagement />} />
-                            <Route path="events" element={<EventManagement />} />
-                            <Route path="complaints" element={<ComplaintManagement />} />
-                            <Route path="posts" element={<PostManagement />} />
-                            <Route path="violations" element={<ViolationReports />} />
-                            <Route path="revenue" element={<RevenueReport />} />
-                            <Route path="owner-requests" element={<OwnerRequests />} />
-                        </Route>
-                    </Routes>
-                </BannedUserGuard>
-            </Router>
-        </AuthProvider>
+        <GoogleOAuthProvider clientId={googleClientId}>
+            <AuthProvider>
+                <Router>
+                    <BannedUserGuard>
+                        <Routes>
+                            <Route path="/login" element={<Login />} />
+                            <Route path="/register" element={<Register />} />
+                            <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
+                            <Route path="/events/:eventId/review" element={<PrivateRoute><Review /></PrivateRoute>} />
+                            
+                            {/* Admin Routes */}
+                            <Route path="/admin" element={<PrivateRoute><AdminLayout /></PrivateRoute>}>
+                                <Route index element={<AdminDashboard />} />
+                                <Route path="users" element={<UserManagement />} />
+                                <Route path="events" element={<EventManagement />} />
+                                <Route path="complaints" element={<ComplaintManagement />} />
+                                <Route path="posts" element={<PostManagement />} />
+                                <Route path="violations" element={<ViolationReports />} />
+                                <Route path="revenue" element={<RevenueReport />} />
+                                <Route path="owner-requests" element={<OwnerRequests />} />
+                            </Route>
+                        </Routes>
+                    </BannedUserGuard>
+                </Router>
+            </AuthProvider>
+        </GoogleOAuthProvider>
     );
 };
 
