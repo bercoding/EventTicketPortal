@@ -14,7 +14,23 @@ exports.protect = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = await User.findById(decoded.id).select('-password');
+        const user = await User.findById(decoded.id).select('-password');
+        
+        if (!user) {
+            return res.status(401).json({ message: 'Người dùng không tồn tại' });
+        }
+        
+        // Kiểm tra user có bị ban không
+        if (user.isBanned) {
+            return res.status(403).json({ 
+                success: false,
+                message: 'Tài khoản của bạn đã bị khóa',
+                banned: true,
+                banReason: user.banReason || 'Vi phạm điều khoản sử dụng'
+            });
+        }
+        
+        req.user = user;
         next();
     } catch (error) {
         return res.status(401).json({ message: 'Token không hợp lệ' });
@@ -30,4 +46,15 @@ exports.authorize = (...roles) => {
         }
         next();
     };
+};
+
+// Alias for protect function
+exports.authenticateToken = exports.protect;
+
+// Admin authorization middleware
+exports.requireAdmin = (req, res, next) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+    }
+    next();
 }; 
