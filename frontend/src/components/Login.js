@@ -3,6 +3,7 @@ import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import BannedUser from './BannedUser';
+import GoogleLoginButton from './GoogleLoginButton';
 
 const Login = () => {
     const [formData, setFormData] = useState({
@@ -131,6 +132,8 @@ const Login = () => {
                             Đăng nhập
                         </button>
                     </form>
+
+                    <GoogleLoginButton />
 
                     {/* Links */}
                     <div className="mt-6 text-center space-y-2">
