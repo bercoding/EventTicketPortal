@@ -24,7 +24,7 @@ exports.register = async (req, res) => {
             username,
             email,
             password,
-            role: role || 'customer'
+            role: role || 'user'
         });
         
         // Trả về token
@@ -54,6 +54,8 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
     
     try {
+        console.log('Login attempt:', { email, password: '***' });
+        
         // Kiểm tra email và password
         if (!email || !password) {
             return res.status(400).json({ message: 'Vui lòng nhập email và mật khẩu' });
@@ -61,13 +63,25 @@ exports.login = async (req, res) => {
         
         // Tìm user
         const user = await User.findOne({ email });
+        console.log('User found:', !!user);
         
         if (!user) {
             return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
         }
         
+        // Kiểm tra user có bị ban không
+        if (user.isBanned) {
+            return res.status(403).json({ 
+                success: false,
+                message: 'Tài khoản của bạn đã bị khóa',
+                banned: true,
+                banReason: user.banReason || 'Vi phạm điều khoản sử dụng'
+            });
+        }
+        
         // Kiểm tra mật khẩu
         const isMatch = await user.comparePassword(password);
+        console.log('Password match:', isMatch);
         
         if (!isMatch) {
             return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
@@ -87,6 +101,7 @@ exports.login = async (req, res) => {
             }
         });
     } catch (error) {
+        console.error('Login error:', error);
         res.status(400).json({ 
             success: false,
             message: 'Đăng nhập thất bại',

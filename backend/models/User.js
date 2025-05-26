@@ -44,6 +44,23 @@ const userSchema = new mongoose.Schema({
         default: 'active',
         index: true
     },
+    // Admin ban/unban fields
+    isBanned: {
+        type: Boolean,
+        default: false,
+        index: true
+    },
+    banReason: {
+        type: String,
+        trim: true
+    },
+    bannedAt: {
+        type: Date
+    },
+    bannedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
     resetPasswordToken: String,
     resetPasswordExpires: Date,
     twoFactorAuth: {
