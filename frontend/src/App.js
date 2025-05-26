@@ -14,6 +14,7 @@ import PostManagement from './components/admin/PostManagement';
 import ViolationReports from './components/admin/ViolationReports';
 import RevenueReport from './components/admin/RevenueReport';
 import OwnerRequests from './components/admin/OwnerRequests';
+import Review from './pages/Review';
 import PrivateRoute from './components/routing/PrivateRoute';
 import BannedUserGuard from './components/routing/BannedUserGuard';
 
@@ -26,6 +27,7 @@ const App = () => {
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
                         <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
+                        <Route path="/events/:eventId/review" element={<PrivateRoute><Review /></PrivateRoute>} />
                         
                         {/* Admin Routes */}
                         <Route path="/admin" element={<PrivateRoute><AdminLayout /></PrivateRoute>}>
