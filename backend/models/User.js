@@ -61,6 +61,13 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
+    otp: {
+        type: String,
+        trim: true
+    },
+    otpExpires: {
+        type: Date
+    },
     resetPasswordToken: String,
     resetPasswordExpires: Date,
     twoFactorAuth: {

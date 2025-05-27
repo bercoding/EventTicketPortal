@@ -74,6 +74,9 @@ export const authAPI = {
   googleAuth: (credential) => api.post('/auth/google', { credential }),
   logout: () => api.post('/auth/logout'),
   getProfile: () => api.get('/auth/me'),
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  verifyOtp: (data) => api.post('/auth/verify-otp', data),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
 };
 
 export const adminAPI = {

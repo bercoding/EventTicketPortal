@@ -3,8 +3,13 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Login from './components/Login';
 import Register from './components/Register';
+import ForgotPassword from './components/ForgotPassword';
+import VerifyOtp from './components/VerifyOtp';
+import ResetPassword from './components/ResetPassword';
 import UserManagement from './components/admin/UserManagement';
 import Home from './pages/Home';
 
@@ -27,10 +32,25 @@ const App = () => {
         <GoogleOAuthProvider clientId={googleClientId}>
             <AuthProvider>
                 <Router>
+                    <ToastContainer
+                        position="top-right"
+                        autoClose={5000}
+                        hideProgressBar={false}
+                        newestOnTop={false}
+                        closeOnClick
+                        rtl={false}
+                        pauseOnFocusLoss
+                        draggable
+                        pauseOnHover
+                        theme="colored"
+                    />
                     <BannedUserGuard>
                         <Routes>
                             <Route path="/login" element={<Login />} />
                             <Route path="/register" element={<Register />} />
+                            <Route path="/forgot-password" element={<ForgotPassword />} />
+                            <Route path="/verify-otp" element={<VerifyOtp />} />
+                            <Route path="/reset-password" element={<ResetPassword />} />
                             <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
                             <Route path="/events/:eventId/review" element={<PrivateRoute><Review /></PrivateRoute>} />
                             
