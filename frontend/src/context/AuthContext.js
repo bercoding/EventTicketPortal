@@ -51,6 +51,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     // Đăng ký
+    /* // Comment out hàm register cũ vì quy trình đăng ký mới được xử lý trong Register.js
     const register = async (formData) => {
         try {
             console.log('Attempting register with:', formData);
@@ -71,21 +72,31 @@ export const AuthProvider = ({ children }) => {
             return { success: false, error: errorMessage };
         }
     };
+    */
 
     // Đăng nhập
-    const login = async (formData) => {
+    const login = async (formDataOrToken, userDataIfToken) => { // Sửa đổi để chấp nhận token và user
         try {
-            console.log('Attempting login with:', { ...formData, password: '***' });
-            const res = await authAPI.login(formData);
-            console.log('Login response:', res.data);
+            let token, user;
+            if (typeof formDataOrToken === 'string') { // Trường hợp đăng nhập sau khi đăng ký thành công
+                token = formDataOrToken;
+                user = userDataIfToken;
+                console.log('Logging in with token after registration:', { token: token.substring(0,10)+'... ', user });
+            } else { // Trường hợp đăng nhập bình thường
+                console.log('Attempting login with:', { ...formDataOrToken, password: '***' });
+                const res = await authAPI.login(formDataOrToken);
+                console.log('Login response:', res.data);
+                token = res.data.token;
+                user = res.data.user;
+            }
             
-            localStorage.setItem('token', res.data.token);
-            setUser(res.data.user);
+            localStorage.setItem('token', token);
+            setUser(user);
             setIsAuthenticated(true);
             setError(null);
             setIsBanned(false);
             setBanReason('');
-            return { success: true, ...res.data };
+            return { success: true, token, user };
         } catch (err) {
             console.error('Login error:', err);
             
@@ -157,12 +168,13 @@ export const AuthProvider = ({ children }) => {
         <AuthContext.Provider
             value={{
                 user,
+                setUser,
                 isAuthenticated,
                 loading,
                 error,
                 isBanned,
                 banReason,
-                register,
+                // register, // Xóa hoặc comment out
                 login,
                 googleLogin,
                 logout

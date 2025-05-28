@@ -70,13 +70,26 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
-  register: (userData) => api.post('/auth/register', userData),
+  // register: (userData) => api.post('/auth/register', userData), // Comment out or remove old register
+  registerRequestOtp: (userData) => api.post('/auth/register/request-otp', userData), // New
+  registerVerifyOtpAndCreateUser: (userData) => api.post('/auth/register/verify-otp', userData), // New
   googleAuth: (credential) => api.post('/auth/google', { credential }),
   logout: () => api.post('/auth/logout'),
   getProfile: () => api.get('/auth/me'),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   verifyOtp: (data) => api.post('/auth/verify-otp', data),
   resetPassword: (data) => api.post('/auth/reset-password', data),
+};
+
+// User Profile API (Mới)
+export const userProfileAPI = {
+  getCurrentUserProfile: () => api.get('/users/profile/me'),
+  updateUserProfile: (profileData) => api.put('/users/profile/me', profileData),
+  updateUserAvatar: (formData) => api.put('/users/profile/avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data', // Quan trọng cho việc upload file
+    }
+  }),
 };
 
 export const adminAPI = {
@@ -113,6 +126,22 @@ export const adminAPI = {
   getOwnerRequests: (params) => api.get('/admin/owner-requests', { params }),
   approveOwnerRequest: (requestId) => api.post(`/admin/owner-requests/${requestId}/approve`),
   rejectOwnerRequest: (requestId, data) => api.post(`/admin/owner-requests/${requestId}/reject`, data),
+};
+
+// Hàm mới để tìm kiếm người dùng, sử dụng instance api đã cấu hình
+export const searchUsersAPI = async (searchTerm) => {
+    try {
+        // Token đã được tự động thêm bởi interceptor của instance api
+        const response = await api.get('/users/search', {
+            params: { q: searchTerm },
+        });
+        return response.data; // Axios response.data chứa dữ liệu trả về từ server
+    } catch (error) {
+        // Interceptor cũng đã xử lý lỗi chung, nhưng có thể log thêm ở đây nếu cần
+        console.error('Error in searchUsersAPI function:', error.response ? error.response.data : error.message);
+        // Ném lại lỗi để component gọi có thể xử lý
+        throw error.response ? error.response.data : new Error('Lỗi khi tìm kiếm người dùng từ API');
+    }
 };
 
 export default api; 

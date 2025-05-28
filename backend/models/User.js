@@ -31,6 +31,14 @@ const userSchema = new mongoose.Schema({
         trim: true
     },
     avatar: String,
+    bio: {
+        type: String,
+        trim: true,
+        maxlength: [500, 'Tiểu sử không được vượt quá 500 ký tự']
+    },
+    dateOfBirth: {
+        type: Date
+    },
     role: {
         type: String,
         enum: ['user', 'event_owner', 'admin'],
