@@ -4,7 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faUserCircle, faSignOutAlt, faSignInAlt, faUserPlus, 
-    faSearch, faTicketAlt, faPlusCircle, faGlobeAsia, faMapMarkerAlt
+    faSearch, faTicketAlt, faPlusCircle, faGlobeAsia, faMapMarkerAlt, faComments
 } from '@fortawesome/free-solid-svg-icons';
 
 const NavigationBar = () => {
@@ -16,10 +16,8 @@ const NavigationBar = () => {
         navigate('/login');
     };
 
-    // Placeholder for search functionality
     const handleSearch = (e) => {
         e.preventDefault();
-        // Implement search logic here
         console.log("Search triggered");
     };
 
@@ -70,6 +68,11 @@ const NavigationBar = () => {
                         Vé đã mua
                     </Link>
 
+                    <Link to="/forum" className="flex items-center hover:text-gray-200 text-sm">
+                        <FontAwesomeIcon icon={faComments} className="mr-1.5" />
+                        Diễn đàn
+                    </Link>
+
                     {user ? (
                         <>
                             <button onClick={handleLogout} className="hover:text-gray-200 text-sm flex items-center">
@@ -95,7 +98,6 @@ const NavigationBar = () => {
                         </>
                     )}
                     
-                    {/* Language Selector - Placeholder */}
                     <button className="flex items-center hover:text-gray-200 text-sm">
                         <FontAwesomeIcon icon={faGlobeAsia} className="mr-1" />
                         VN

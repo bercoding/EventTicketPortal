@@ -9,8 +9,15 @@ const createPost = [
   upload.array('images'),
   asyncHandler(async (req, res) => {
     console.log('Files received:', req.files);
-    const { title, content, event, tags, status, visibility } = req.body;
-    const user = req.user.id; // Lấy từ middleware protect
+    const { title, content, eventId, tags, status, visibility } = req.body;
+    
+    // Ensure user is authenticated
+    if (!req.user || !req.user.id) {
+      res.status(401);
+      throw new Error('Not authenticated');
+    }
+    
+    const userId = req.user.id; // Lấy từ middleware protect
     const images = req.files ? req.files.map(file => file.path) : [];
 
     if (images.length > 10) {
@@ -19,18 +26,21 @@ const createPost = [
     }
 
     const post = await Post.create({
-      user,
-      event,
+      userId,
+      eventId,
       title,
       content,
       tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
-      status: status || 'draft',
+      status: status || 'pending',
       visibility: visibility || 'public',
       images
     });
 
     // Populate user and event
-    const populatedPost = await Post.findById(post._id).populate('user', 'username email').populate('event', 'title').lean();
+    const populatedPost = await Post.findById(post._id)
+      .populate('userId', 'username email')
+      .populate('eventId', 'title')
+      .lean();
 
     res.status(201).json({
       success: true,
@@ -42,8 +52,8 @@ const createPost = [
 // Get all posts
 const getPosts = asyncHandler(async (req, res) => {
   const posts = await Post.find()
-    .populate('user', 'username email')
-    .populate('event', 'title')
+    .populate('userId', 'username email')
+    .populate('eventId', 'title')
     .lean();
   if (!posts) {
     return res.status(200).json({ success: true, data: [] }); // Trả về mảng rỗng nếu không có post
@@ -57,8 +67,8 @@ const getPosts = asyncHandler(async (req, res) => {
 // Get a single post by ID
 const getPostById = asyncHandler(async (req, res) => {
   const post = await Post.findById(req.params.id)
-    .populate('user', 'username email')
-    .populate('event', 'title')
+    .populate('userId', 'username email')
+    .populate('eventId', 'title')
     .lean();
   if (!post) {
     res.status(404);
@@ -74,7 +84,7 @@ const getPostById = asyncHandler(async (req, res) => {
 const updatePost = [
   upload.array('images'),
   asyncHandler(async (req, res) => {
-    const { title, content, event, tags, status, visibility } = req.body;
+    const { title, content, eventId, tags, status, visibility } = req.body;
     const post = await Post.findById(req.params.id);
 
     if (!post) {
@@ -82,14 +92,20 @@ const updatePost = [
       throw new Error('Post not found');
     }
 
-    if (post.user.toString() !== req.user.id) {
+    if (!req.user || !req.user.id) {
+      res.status(401);
+      throw new Error('Not authenticated');
+    }
+
+    // Only allow post creator to update
+    if (post.userId.toString() !== req.user.id.toString()) {
       res.status(403);
       throw new Error('Not authorized to update this post');
     }
 
     post.title = title || post.title;
     post.content = content || post.content;
-    post.event = event || post.event;
+    post.eventId = eventId || post.eventId;
     post.tags = tags ? tags.split(',').map(tag => tag.trim()) : post.tags;
     post.status = status || post.status;
     post.visibility = visibility || post.visibility;
@@ -112,7 +128,10 @@ const updatePost = [
     const updatedPost = await post.save();
 
     // Populate user and event
-    const populatedPost = await Post.findById(updatedPost._id).populate('user', 'username email').populate('event', 'title').lean();
+    const populatedPost = await Post.findById(updatedPost._id)
+      .populate('userId', 'username email')
+      .populate('eventId', 'title')
+      .lean();
 
     res.status(200).json({
       success: true,
@@ -130,7 +149,7 @@ const deletePost = asyncHandler(async (req, res) => {
     throw new Error('Post not found');
   }
 
-  if (post.user.toString() !== req.user.id) {
+  if (!req.user || !req.user.id || post.userId.toString() !== req.user.id.toString()) {
     res.status(403);
     throw new Error('Not authorized to delete this post');
   }
