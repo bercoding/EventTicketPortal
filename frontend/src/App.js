@@ -1,4 +1,3 @@
-// frontend/src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -12,7 +11,7 @@ import VerifyOtp from './components/VerifyOtp';
 import ResetPassword from './components/ResetPassword';
 import UserManagement from './components/admin/UserManagement';
 import Home from './pages/Home';
-
+import Forum from './pages/Forum'; // Import Forum page
 import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './components/admin/AdminDashboard';
 import EventManagement from './components/admin/EventManagement';
@@ -46,14 +45,18 @@ const App = () => {
                     />
                     <BannedUserGuard>
                         <Routes>
+                            {/* Public Routes */}
                             <Route path="/login" element={<Login />} />
                             <Route path="/register" element={<Register />} />
                             <Route path="/forgot-password" element={<ForgotPassword />} />
                             <Route path="/verify-otp" element={<VerifyOtp />} />
                             <Route path="/reset-password" element={<ResetPassword />} />
+
+                            {/* Protected Routes */}
                             <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
+                            <Route path="/forum" element={<PrivateRoute><Forum /></PrivateRoute>} />
                             <Route path="/events/:eventId/review" element={<PrivateRoute><Review /></PrivateRoute>} />
-                            
+
                             {/* Admin Routes */}
                             <Route path="/admin" element={<PrivateRoute><AdminLayout /></PrivateRoute>}>
                                 <Route index element={<AdminDashboard />} />

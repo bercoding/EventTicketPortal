@@ -1,48 +1,65 @@
 import axios from 'axios';
 
-// Hardcode API URL để debug
-const API_BASE_URL = 'http://localhost:5001/api';
+// API URL configuration
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 console.log('🔧 API Configuration:');
 console.log('- REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
 console.log('- Final API_BASE_URL:', API_BASE_URL);
 
-// Create axios instance
+// Create axios instance with better error handling
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json'
   },
+  timeout: 10000,
+  withCredentials: false
 });
 
 // Add token to requests
 api.interceptors.request.use(
   (config) => {
-    console.log('🚀 API Request:', {
-      method: config.method?.toUpperCase(),
-      url: config.url,
-      baseURL: config.baseURL,
-      fullURL: `${config.baseURL}${config.url}`
-    });
-    
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    let token;
+    try {
+      token = localStorage.getItem('token');
+      console.log('🔒 Token status:', token ? 'found' : 'not found');
+      
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log('🔑 Added token to request headers');
+      }
+
+      // For FormData requests, don't set Content-Type
+      if (config.data instanceof FormData) {
+        delete config.headers['Content-Type'];
+        console.log('📦 FormData detected, removed Content-Type header');
+      }
+    } catch (error) {
+      console.error('❌ Storage access error:', error);
     }
+
+    console.log('📝 Request config:', {
+      method: config.method?.toUpperCase(),
+      url: `${config.baseURL}${config.url}`,
+      hasToken: !!token
+    });
+
     return config;
   },
   (error) => {
+    console.error('❌ Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
-// Handle response errors
+// Handle response with better error logging
 api.interceptors.response.use(
   (response) => {
     console.log('✅ API Response:', {
       status: response.status,
-      url: response.config.url,
-      data: response.data
+      url: response.config.url
     });
     return response;
   },
@@ -50,35 +67,74 @@ api.interceptors.response.use(
     console.error('❌ API Error:', {
       message: error.message,
       status: error.response?.status,
-      url: error.config?.url,
-      baseURL: error.config?.baseURL,
-      fullURL: error.config ? `${error.config.baseURL}${error.config.url}` : 'unknown'
+      data: error.response?.data,
+      url: error.config?.url
     });
-    
+
+    // Handle authentication errors
     if (error.response?.status === 401) {
+      console.log('🚫 Authentication failed, clearing token...');
       localStorage.removeItem('token');
-      window.location.href = '/login';
-    } else if (error.response?.status === 403 && error.response?.data?.banned) {
-      // User is banned, don't redirect automatically
-      // Let the component handle this case
-      console.log('🚫 User is banned:', error.response.data);
+      // Redirect to login only if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
     }
+
     return Promise.reject(error);
   }
 );
 
-// Auth API
+// Auth API with better error handling
 export const authAPI = {
-  login: (credentials) => api.post('/auth/login', credentials),
+  login: async (credentials) => {
+    try {
+      const response = await api.post('/auth/login', credentials);
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        console.log('Token saved after login');
+      }
+      return response;
+    } catch (error) {
+      console.error('Login failed:', error.response?.data || error.message);
+      throw error;
+    }
+  },
   register: (userData) => api.post('/auth/register', userData),
-  googleAuth: (credential) => api.post('/auth/google', { credential }),
-  logout: () => api.post('/auth/logout'),
+  logout: () => {
+    localStorage.removeItem('token');
+    return api.post('/auth/logout');
+  },
   getProfile: () => api.get('/auth/me'),
-  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
-  verifyOtp: (data) => api.post('/auth/verify-otp', data),
-  resetPassword: (data) => api.post('/auth/reset-password', data),
 };
 
+// Post API
+export const postAPI = {
+  // Lấy tất cả posts
+  getPosts: () => api.get('/posts'),
+  
+  // Lấy post theo ID
+  getPostById: (id) => api.get(`/posts/${id}`),
+  
+  // Tạo post mới
+  createPost: (formData) => api.post('/posts', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  
+  // Cập nhật post
+  updatePost: (id, formData) => api.put(`/posts/${id}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  
+  // Xóa post
+  deletePost: (id) => api.delete(`/posts/${id}`),
+};
+
+// Admin API
 export const adminAPI = {
   // Dashboard
   getDashboardStats: () => api.get('/admin/dashboard/stats'),
@@ -115,4 +171,4 @@ export const adminAPI = {
   rejectOwnerRequest: (requestId, data) => api.post(`/admin/owner-requests/${requestId}/reject`, data),
 };
 
-export default api; 
+export default api;
