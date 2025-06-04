@@ -7,6 +7,8 @@ const eventRoutes = require('./routes/event');
 const reviewRoutes = require('./routes/review');
 const adminRoutes = require('./routes/admin');
 const postRoutes = require('./routes/post');
+const commentRoutes = require('./routes/comment');
+const venueRoutes = require('./routes/venue');
 
 require('dotenv').config();
 
@@ -30,6 +32,8 @@ app.use('/api/events', eventRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/venues', venueRoutes);
 
 app.use(express.static('public', {
   maxAge: '1d',

@@ -25,16 +25,13 @@ const eventSchema = new mongoose.Schema({
       ref: 'Venue'
     },
     address: {
-      type: String,
-      required: [true, 'Địa chỉ là bắt buộc']
+      type: String // Đã loại bỏ required
     },
     city: {
-      type: String,
-      required: [true, 'Thành phố là bắt buộc']
+      type: String // Đã loại bỏ required
     },
     country: {
-      type: String,
-      required: [true, 'Quốc gia là bắt buộc']
+      type: String // Đã loại bỏ required
     },
     coordinates: {
       type: {
@@ -67,11 +64,11 @@ const eventSchema = new mongoose.Schema({
     enum: ['public', 'private', 'featured'],
     default: 'public'
   },
-  organizer: {
+  organizers: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: [true, 'Chủ sự kiện là bắt buộc']
-  },
+  }],
   capacity: {
     type: Number,
     min: 1
@@ -171,10 +168,11 @@ const eventSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes
-eventSchema.index({ organizer: 1 });
+eventSchema.index({ organizers: 1 });
 eventSchema.index({ startDate: 1 });
 eventSchema.index({ status: 1 });
 eventSchema.index({ category: 1 });
+eventSchema.index({ visibility: 1 });
 eventSchema.index({ 'location.city': 1 });
 eventSchema.index({ 'location.coordinates.coordinates': '2dsphere' });
 eventSchema.index({ title: 'text', description: 'text', tags: 'text' });
@@ -183,6 +181,18 @@ eventSchema.index({ title: 'text', description: 'text', tags: 'text' });
 eventSchema.pre('save', function(next) {
   if (this.endDate < this.startDate) {
     return next(new Error('Ngày kết thúc phải sau ngày bắt đầu'));
+  }
+  next();
+});
+
+// Validation cho seatingMap
+eventSchema.pre('save', function(next) {
+  if (this.seatingMap && this.seatingMap.sections) {
+    this.seatingMap.sections.forEach(section => {
+      if (section.availableSeats > section.totalSeats) {
+        return next(new Error('Available seats in section cannot exceed total seats'));
+      }
+    });
   }
   next();
 });

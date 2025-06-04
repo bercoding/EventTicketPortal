@@ -5,6 +5,7 @@ import { postAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaPlus, FaTimes } from 'react-icons/fa';
 import PostCard from '../components/forum/PostCard';
+import CreatePostModal from '../components/forum/CreatePostModal';
 
 const Forum = () => {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ const Forum = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [deleteModal, setDeleteModal] = useState({ open: false, postId: null });
 
   useEffect(() => {
     if (successMessage) {
@@ -122,9 +124,12 @@ const Forum = () => {
     formDataToSend.append('title', editFormData.title);
     formDataToSend.append('content', editFormData.content);
     formDataToSend.append('tags', editFormData.tags);
-    editFormData.images.forEach((file) => {
-      formDataToSend.append('images', file);
-    });
+    
+    if (editFormData.images && editFormData.images.length > 0) {
+      editFormData.images.forEach((file) => {
+        formDataToSend.append('images', file);
+      });
+    }
 
     try {
       const response = await postAPI.updatePost(editPostId, formDataToSend);
@@ -140,10 +145,12 @@ const Forum = () => {
     }
   };
 
-  const handleDeletePost = async (postId) => {
-    if (!window.confirm('Are you sure you want to delete this post?')) {
-      return;
-    }
+  const handleDeletePost = (postId) => {
+    setDeleteModal({ open: true, postId });
+  };
+
+  const confirmDeletePost = async () => {
+    const postId = deleteModal.postId;
     setIsDeleting(postId);
     setError(null);
     try {
@@ -155,6 +162,7 @@ const Forum = () => {
       setError(err.response?.data?.message || 'Failed to delete post');
     } finally {
       setIsDeleting(null);
+      setDeleteModal({ open: false, postId: null });
     }
   };
 
@@ -182,7 +190,7 @@ const Forum = () => {
               className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <FaPlus className="mr-2" />
-              Create Post
+              Tạo bài viết mới
             </motion.button>
           )}
         </div>
@@ -201,111 +209,23 @@ const Forum = () => {
 
         <AnimatePresence>
           {showCreateForm && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="mb-6 bg-white rounded-xl shadow-lg p-6"
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Create New Post</h2>
-                <button
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    setFormData({ title: '', content: '', tags: '', images: [] });
-                    setImagePreview([]);
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <FaTimes />
-                </button>
-              </div>
-              <form onSubmit={handleCreatePost} className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <textarea
-                  placeholder="Content"
-                  value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-lg h-32 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <input
-                  type="text"
-                  placeholder="Tags (comma separated)"
-                  value={formData.tags}
-                  onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Images (max 10)</label>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={(e) => handleFileChange(e)}
-                    className="w-full"
-                  />
-                  {imagePreview.length > 0 && (
-                    <div className="grid grid-cols-4 gap-2 mt-2">
-                      {imagePreview.map((preview, index) => (
-                        <div key={index} className="relative aspect-square">
-                          <img
-                            src={preview}
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-full object-cover rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newPreviews = imagePreview.filter((_, i) => i !== index);
-                              const newFiles = Array.from(formData.images).filter((_, i) => i !== index);
-                              setImagePreview(newPreviews);
-                              setFormData(prev => ({ ...prev, images: newFiles }));
-                            }}
-                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                          >
-                            <FaTimes size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateForm(false);
-                      setFormData({ title: '', content: '', tags: '', images: [] });
-                      setImagePreview([]);
-                    }}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                    disabled={isCreating}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isCreating}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                  >
-                    {isCreating ? (
-                      <>
-                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                        <span>Creating...</span>
-                      </>
-                    ) : (
-                      <span>Post</span>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
+            <CreatePostModal
+              open={showCreateForm}
+              onClose={() => {
+                setShowCreateForm(false);
+                setFormData({ title: '', content: '', tags: '', images: [] });
+                setImagePreview([]);
+                setError(null);
+              }}
+              onSubmit={handleCreatePost}
+              user={user}
+              formData={formData}
+              setFormData={setFormData}
+              imagePreview={imagePreview}
+              setImagePreview={setImagePreview}
+              isCreating={isCreating}
+              error={error}
+            />
           )}
         </AnimatePresence>
 
@@ -315,106 +235,122 @@ const Forum = () => {
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="mb-6 bg-white rounded-xl shadow-lg p-6"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30"
             >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800">Edit Post</h2>
-                <button
-                  onClick={() => {
-                    setEditPostId(null);
-                    setEditFormData({ title: '', content: '', tags: '', images: [] });
-                    setImagePreview([]);
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <FaTimes />
-                </button>
-              </div>
-              <form onSubmit={handleEditPost} className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Title"
-                  value={editFormData.title}
-                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <textarea
-                  placeholder="Content"
-                  value={editFormData.content}
-                  onChange={(e) => setEditFormData({ ...editFormData, content: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-lg h-32 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <input
-                  type="text"
-                  placeholder="Tags (comma separated)"
-                  value={editFormData.tags}
-                  onChange={(e) => setEditFormData({ ...editFormData, tags: e.target.value })}
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">Images (max 10)</label>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={(e) => handleFileChange(e, true)}
-                    className="w-full"
-                  />
-                  {imagePreview.length > 0 && (
-                    <div className="grid grid-cols-4 gap-2 mt-2">
-                      {imagePreview.map((preview, index) => (
-                        <div key={index} className="relative aspect-square">
-                          <img
-                            src={preview}
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-full object-cover rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newPreviews = imagePreview.filter((_, i) => i !== index);
-                              const newFiles = Array.from(editFormData.images).filter((_, i) => i !== index);
-                              setImagePreview(newPreviews);
-                              setEditFormData(prev => ({ ...prev, images: newFiles }));
-                            }}
-                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                          >
-                            <FaTimes size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="flex justify-end space-x-3">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-xl relative animate-fade-in">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b px-6 py-4">
+                  <h2 className="text-xl font-bold text-gray-800">Chỉnh sửa bài viết</h2>
                   <button
-                    type="button"
                     onClick={() => {
                       setEditPostId(null);
                       setEditFormData({ title: '', content: '', tags: '', images: [] });
                       setImagePreview([]);
                     }}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                    disabled={isUpdating}
+                    className="text-gray-400 hover:text-gray-700 text-2xl font-bold"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isUpdating}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                  >
-                    {isUpdating ? (
-                      <>
-                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <span>Save Changes</span>
-                    )}
+                    &times;
                   </button>
                 </div>
-              </form>
+                {/* User info */}
+                <div className="flex items-center gap-3 px-6 py-4">
+                  <img src={user?.avatar || 'https://via.placeholder.com/40'} alt="avatar" className="w-11 h-11 rounded-full object-cover border" />
+                  <div>
+                    <div className="font-semibold text-gray-900">{user?.fullName || user?.username || 'User'}</div>
+                    <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded w-fit mt-1">
+                      <span className="font-medium">{editFormData.visibility === 'private' ? 'Riêng tư' : 'Công khai'}</span>
+                    </div>
+                  </div>
+                </div>
+                {/* Form */}
+                <form onSubmit={handleEditPost} className="px-6 pb-6 space-y-4">
+                  <input
+                    type="text"
+                    placeholder="Tiêu đề"
+                    value={editFormData.title}
+                    onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <textarea
+                    placeholder="Nội dung"
+                    value={editFormData.content}
+                    onChange={(e) => setEditFormData({ ...editFormData, content: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-lg h-32 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Thẻ (phân tách bằng dấu phẩy)"
+                    value={editFormData.tags}
+                    onChange={(e) => setEditFormData({ ...editFormData, tags: e.target.value })}
+                    className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {/* Image preview */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Ảnh (tối đa 10 ảnh)</label>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, true)}
+                      className="w-full"
+                    />
+                    {imagePreview.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                        {imagePreview.map((preview, index) => (
+                          <div key={index} className="relative w-full aspect-video bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                            <img
+                              src={preview}
+                              alt={`Preview ${index + 1}`}
+                              className="object-contain max-h-60 w-full"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newPreviews = imagePreview.filter((_, i) => i !== index);
+                                const newFiles = Array.from(editFormData.images).filter((_, i) => i !== index);
+                                setImagePreview(newPreviews);
+                                setEditFormData(prev => ({ ...prev, images: newFiles }));
+                              }}
+                              className="absolute top-2 right-2 bg-white border border-gray-300 text-gray-600 rounded-full p-1 hover:bg-red-500 hover:text-white transition"
+                            >
+                              <FaTimes size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* Action buttons */}
+                  <div className="flex justify-end gap-3 pt-2 border-t mt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditPostId(null);
+                        setEditFormData({ title: '', content: '', tags: '', images: [] });
+                        setImagePreview([]);
+                      }}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                      disabled={isUpdating}
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isUpdating}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 font-semibold"
+                    >
+                      {isUpdating ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                          <span>Đang lưu...</span>
+                        </>
+                      ) : (
+                        <span>Lưu</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -450,6 +386,21 @@ const Forum = () => {
         {posts.length === 0 && !loading && (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">No posts yet. Be the first to create one!</p>
+          </div>
+        )}
+
+        {/* Modal xác nhận xóa post */}
+        {deleteModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative animate-fade-in">
+              <button onClick={() => setDeleteModal({ open: false, postId: null })} className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-xl font-bold">&times;</button>
+              <h2 className="text-lg font-bold text-center mb-2">Xóa bài viết?</h2>
+              <p className="text-gray-700 text-center mb-6">Bạn có chắc chắn muốn xóa bài viết này?</p>
+              <div className="flex justify-end gap-4">
+                <button onClick={() => setDeleteModal({ open: false, postId: null })} className="text-blue-600 font-semibold px-4 py-2 rounded hover:underline">Không</button>
+                <button onClick={confirmDeletePost} className="bg-blue-600 text-white font-semibold px-6 py-2 rounded hover:bg-blue-700 transition" disabled={isDeleting}>Có</button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -132,6 +132,17 @@ export const postAPI = {
   
   // Xóa post
   deletePost: (id) => api.delete(`/posts/${id}`),
+
+  // Like/Unlike post
+  likePost: (id) => api.post(`/posts/${id}/like`),
+  // Get users who liked post
+  getPostLikes: (id) => api.get(`/posts/${id}/likes`),
+};
+
+// Comment API
+export const commentAPI = {
+  likeComment: (id) => api.post(`/comments/${id}/like`),
+  getCommentLikes: (id) => api.get(`/comments/${id}/likes`),
 };
 
 // Admin API
