@@ -67,7 +67,7 @@ export const AuthProvider = ({ children }) => {
             console.log('Register response:', res.data);
             
             localStorage.setItem('token', res.data.token);
-            setUser(res.data.user);
+            setUser({ ...res.data.user, _id: res.data.user.id });
             setIsAuthenticated(true);
             setError(null);
             setIsBanned(false);
@@ -89,7 +89,7 @@ export const AuthProvider = ({ children }) => {
             console.log('Login response:', res.data);
             
             localStorage.setItem('token', res.data.token);
-            setUser(res.data.user);
+            setUser({ ...res.data.user, _id: res.data.user.id });
             setIsAuthenticated(true);
             setError(null);
             setIsBanned(false);
@@ -125,7 +125,7 @@ export const AuthProvider = ({ children }) => {
             console.log('Google login response:', res.data);
             
             localStorage.setItem('token', res.data.token);
-            setUser(res.data.user);
+            setUser({ ...res.data.user, _id: res.data.user.id });
             setIsAuthenticated(true);
             setError(null);
             setIsBanned(false);
