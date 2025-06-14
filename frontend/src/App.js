@@ -21,6 +21,11 @@ import ViolationReports from './components/admin/ViolationReports';
 import RevenueReport from './components/admin/RevenueReport';
 import OwnerRequests from './components/admin/OwnerRequests';
 import Review from './pages/Review';
+import CreateEvent from './pages/event/CreateEvent';
+import ManageEvent from './pages/event/ManageEvent';
+import EventList from './pages/event/EventList'; // Import EventList page
+import ReportManagement from './pages/event/ReportManagement'; // Import ReportManagement page
+import OrganizerForms from './pages/event/OrganizerForms'; // Import OrganizerForms page
 import PrivateRoute from './components/routing/PrivateRoute';
 import BannedUserGuard from './components/routing/BannedUserGuard';
 
@@ -56,6 +61,11 @@ const App = () => {
                             <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
                             <Route path="/forum" element={<PrivateRoute><Forum /></PrivateRoute>} />
                             <Route path="/events/:eventId/review" element={<PrivateRoute><Review /></PrivateRoute>} />
+                            <Route path="/events/create" element={<PrivateRoute><CreateEvent /></PrivateRoute>} />
+                            <Route path="/events/manage/:eventId" element={<PrivateRoute><ManageEvent /></PrivateRoute>} />
+                            <Route path="/events/my-events" element={<PrivateRoute><EventList /></PrivateRoute>} />
+                            <Route path="/organizer/reports" element={<PrivateRoute><ReportManagement /></PrivateRoute>} />
+                            <Route path="/organizer/forms" element={<PrivateRoute><OrganizerForms /></PrivateRoute>} />
 
                             {/* Admin Routes */}
                             <Route path="/admin" element={<PrivateRoute><AdminLayout /></PrivateRoute>}>
