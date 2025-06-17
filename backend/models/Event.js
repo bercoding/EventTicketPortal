@@ -10,7 +10,10 @@ const eventSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Mô tả sự kiện là bắt buộc']
   },
-  images: [String],
+  images: {
+    logo: String,
+    banner: String
+  },
   startDate: {
     type: Date,
     required: [true, 'Ngày bắt đầu là bắt buộc']
@@ -20,18 +23,33 @@ const eventSchema = new mongoose.Schema({
     required: [true, 'Ngày kết thúc là bắt buộc']
   },
   location: {
+    type: {
+      type: String,
+      enum: ['offline', 'online'],
+      default: 'offline'
+    },
     venue: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Venue'
     },
+    venueName: {
+      type: String,
+      trim: true
+    },
     address: {
-      type: String // Đã loại bỏ required
+      type: String
+    },
+    ward: {
+      type: String
+    },
+    district: {
+      type: String
     },
     city: {
-      type: String // Đã loại bỏ required
+      type: String
     },
     country: {
-      type: String // Đã loại bỏ required
+      type: String
     },
     coordinates: {
       type: {
@@ -44,9 +62,12 @@ const eventSchema = new mongoose.Schema({
         index: '2dsphere'
       }
     },
-    location: {
-      latitude: Number,
-      longitude: Number
+    latitude: Number,
+    longitude: Number,
+    venueLayout: {
+      type: String,
+      enum: ['hall', 'cinema', 'stadium'],
+      default: 'hall'
     }
   },
   category: [{
@@ -56,8 +77,8 @@ const eventSchema = new mongoose.Schema({
   tags: [String],
   status: {
     type: String,
-    enum: ['draft', 'pending', 'approved', 'cancelled', 'completed'],
-    default: 'draft'
+    enum: ['pending', 'approved', 'cancelled', 'completed'],
+    default: 'pending'
   },
   visibility: {
     type: String,
@@ -76,6 +97,11 @@ const eventSchema = new mongoose.Schema({
   availableSeats: {
     type: Number,
     min: 0
+  },
+  eventOrganizerDetails: {
+    logo: String,
+    name: String,
+    info: String
   },
   seatingMap: {
     layout: Object,
@@ -143,6 +169,12 @@ const eventSchema = new mongoose.Schema({
     },
     expiryDate: Date
   }],
+  detailedDescription: {
+    mainProgram: String,
+    guests: String,
+    specialExperiences: String
+  },
+  termsAndConditions: String,
   views: {
     type: Number,
     default: 0

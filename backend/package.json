@@ -28,6 +28,7 @@
     "google-auth-library": "^9.15.1",
     "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.0",
+    "mermaid": "^11.6.0",
     "mongoose": "^6.9.1",
     "multer": "^2.0.0",
     "multer-storage-cloudinary": "^4.0.0",

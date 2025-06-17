@@ -55,13 +55,15 @@ const NavigationBar = () => {
 
                 {/* Action Buttons & User Info */}
                 <div className="flex-shrink-0 flex items-center space-x-3">
-                    <Link 
-                        to="/create-event" 
-                        className="bg-white text-green-600 border border-white rounded-full px-4 py-1.5 text-sm font-semibold hover:bg-green-100 hover:text-green-700 transition-colors"
-                    >
-                        <FontAwesomeIcon icon={faPlusCircle} className="mr-1.5" />
-                        Tạo sự kiện
-                    </Link>
+                    {user && user.role === 'event_owner' && (
+                        <Link 
+                            to="/events/create" 
+                            className="bg-white text-green-600 border border-white rounded-full px-4 py-1.5 text-sm font-semibold hover:bg-green-100 hover:text-green-700 transition-colors"
+                        >
+                            <FontAwesomeIcon icon={faPlusCircle} className="mr-1.5" />
+                            Tạo sự kiện
+                        </Link>
+                    )}
                     
                     <Link to="/my-tickets" className="flex items-center hover:text-gray-200 text-sm">
                         <FontAwesomeIcon icon={faTicketAlt} className="mr-1.5" />

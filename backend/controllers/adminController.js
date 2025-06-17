@@ -540,43 +540,42 @@ exports.rejectOwnerRequest = async (req, res) => {
 // Get admin dashboard stats
 exports.getDashboardStats = async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments();
-    const bannedUsers = await User.countDocuments({ isBanned: true });
-    const totalEvents = await Event.countDocuments();
-    const pendingEvents = await Event.countDocuments({ status: 'pending' });
-    const totalComplaints = await Complaint.countDocuments();
-    const pendingComplaints = await Complaint.countDocuments({ status: 'pending' });
-    const totalViolationReports = await ViolationReport.countDocuments();
-    const pendingViolationReports = await ViolationReport.countDocuments({ status: 'pending' });
-    const totalOwnerRequests = await OwnerRequest.countDocuments();
-    const pendingOwnerRequests = await OwnerRequest.countDocuments({ status: 'pending' });
-    
-    // Recent activity
-    const recentComplaints = await Complaint.find()
-      .populate('user', 'username email')
-      .sort({ createdAt: -1 })
-      .limit(5);
-    
-    const recentViolationReports = await ViolationReport.find()
-      .populate('reporter', 'username email')
-      .populate('reportedUser', 'username email')
-      .sort({ createdAt: -1 })
-      .limit(5);
-    
+    const totalUsersPromise = User.countDocuments();
+    const totalEventsPromise = Event.countDocuments();
+    const pendingOwnerRequestsPromise = OwnerRequest.countDocuments({ status: 'pending' });
+    const pendingComplaintsPromise = Complaint.countDocuments({ status: 'pending' });
+    const pendingEventsPromise = Event.countDocuments({ status: 'pending' });
+    const pendingReportsPromise = ViolationReport.countDocuments({ status: 'pending' });
+    const pendingPostsPromise = Post.countDocuments({ moderationStatus: 'pending' });
+
+    const [
+        totalUsers,
+        totalEvents,
+        pendingOwnerRequests,
+        pendingComplaints,
+        pendingEvents,
+        pendingReports,
+        pendingPosts
+    ] = await Promise.all([
+        totalUsersPromise,
+        totalEventsPromise,
+        pendingOwnerRequestsPromise,
+        pendingComplaintsPromise,
+        pendingEventsPromise,
+        pendingReportsPromise,
+        pendingPostsPromise
+    ]);
+
     res.json({
-      stats: {
-        users: { total: totalUsers, banned: bannedUsers },
-        events: { total: totalEvents, pending: pendingEvents },
-        complaints: { total: totalComplaints, pending: pendingComplaints },
-        violationReports: { total: totalViolationReports, pending: pendingViolationReports },
-        ownerRequests: { total: totalOwnerRequests, pending: pendingOwnerRequests }
-      },
-      recentActivity: {
-        complaints: recentComplaints,
-        violationReports: recentViolationReports
-      }
+        totalUsers,
+        totalEvents,
+        pendingOwnerRequests,
+        pendingComplaints,
+        pendingEvents,
+        pendingReports,
+        pendingPosts,
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching dashboard stats', error: error.message });
   }
-}; 
+};
