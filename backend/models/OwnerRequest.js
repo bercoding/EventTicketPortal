@@ -128,4 +128,4 @@ ownerRequestSchema.index({ businessType: 1 });
 
 const OwnerRequest = mongoose.model('OwnerRequest', ownerRequestSchema);
 
-module.exports = OwnerRequest; 
+module.exports = OwnerRequest;
