@@ -9,6 +9,7 @@ const adminRoutes = require('./routes/admin');
 const postRoutes = require('./routes/post');
 const commentRoutes = require('./routes/comment');
 const venueRoutes = require('./routes/venue');
+const friendRoutes = require('./routes/friendRoutes'); 
 
 require('dotenv').config();
 
@@ -34,6 +35,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/venues', venueRoutes);
+app.use('/api/friends', friendRoutes); 
 
 app.use(express.static('public', {
   maxAge: '1d',
