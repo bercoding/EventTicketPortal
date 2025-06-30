@@ -1,0 +1,30 @@
+
+> event-ticketing-platform@1.0.0 start
+> npm run start:backend
+
+
+> event-ticketing-platform@1.0.0 start:backend
+> cd backend && npm start
+
+
+> event-ticketing-platform-backend@1.0.0 start
+> node server.js
+
+Cloudinary config: {
+  cloud_name: 'dvp5ddhdp',
+  api_key: '723493681476978',
+  api_secret: 'Set'
+}
+PayOS config: { client_id: 'Set', api_key: 'Set', checksum_key: 'Set' }
+VietQR Bank config: { accountNo: '1234567890', accountName: 'SHOP ABC', acqId: '970422' }
+Server running on port 5001 and WebSocket is ready
+MongoDB connected
+🔍 getEvents called with query params: {}
+📝 MongoDB query object: {
+  "status": "approved"
+}
+🔄 Sort query: {
+  "createdAt": -1
+}
+📊 Found events count: 0
+sh: line 1: 33923 Terminated: 15          npm start

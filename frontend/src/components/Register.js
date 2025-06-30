@@ -1,203 +1,391 @@
 // frontend/src/components/Register.js
-import React, { useState, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import GoogleLoginButton from './GoogleLoginButton';
+import { FaEnvelope, FaLock, FaUser, FaCheck, FaEye, FaEyeSlash, FaTicketAlt, FaShieldAlt } from 'react-icons/fa';
 
 const Register = () => {
+    const navigate = useNavigate();
+    const { register, verifyOTP } = useAuth();
     const [formData, setFormData] = useState({
-        username: '',
         email: '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        username: ''
     });
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const { register } = useContext(AuthContext);
-    const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
+    const [registerError, setRegisterError] = useState('');
+    const [showOTPForm, setShowOTPForm] = useState(false);
+    const [otp, setOTP] = useState('');
+    const [otpError, setOTPError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    const { username, email, password, confirmPassword } = formData;
-
-    const onChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+    const handleChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+        setRegisterError('');
     };
 
-    const onSubmit = async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        if (password !== confirmPassword) {
-            setError('Mật khẩu không khớp');
+        setLoading(true);
+        setRegisterError('');
+
+        if (formData.password !== formData.confirmPassword) {
+            setRegisterError('Mật khẩu xác nhận không khớp');
+            setLoading(false);
             return;
         }
 
-        const result = await register({
-            username,
-            email,
-            password
-        });
-
-        if (result.success) {
-            setSuccess('Đăng ký thành công!');
-            // Chuyển đến trang chính sau khi đăng ký thành công
-            setTimeout(() => {
-                navigate('/');
-            }, 1500);
-        } else {
-            setError(result.error || 'Đăng ký thất bại');
+        try {
+            const { email, password, username } = formData;
+            const response = await register({ email, password, username });
+            
+            if (response.success) {
+                setShowOTPForm(true);
+            } else {
+                setRegisterError(response.error || 'Đăng ký thất bại');
+            }
+        } catch (error) {
+            setRegisterError(error.message || 'Đăng ký thất bại');
         }
+        setLoading(false);
     };
 
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 flex items-center justify-center p-4">
-            <div className="max-w-md w-full space-y-8">
-                {/* Header */}
-                <div className="text-center">
-                    <div className="mx-auto h-20 w-20 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center mb-4">
-                        <svg className="h-10 w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                        </svg>
-                    </div>
-                    <h2 className="text-3xl font-bold text-gray-900">Đăng ký</h2>
-                    <p className="mt-2 text-gray-600">Tạo tài khoản mới để bắt đầu!</p>
+    const handleOTPSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setOTPError('');
+
+        try {
+            const response = await verifyOTP({
+                email: formData.email,
+                otp
+            });
+
+            if (response.success) {
+                navigate('/');
+            } else {
+                setOTPError(response.error || 'Xác thực OTP thất bại');
+            }
+        } catch (error) {
+            setOTPError(error.message || 'Xác thực OTP thất bại');
+        }
+        setLoading(false);
+    };
+
+    if (showOTPForm) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+                {/* Background decorative elements */}
+                <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-green-400 to-blue-500 rounded-full opacity-10 animate-pulse"></div>
+                    <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-blue-400 to-purple-500 rounded-full opacity-10 animate-pulse" style={{animationDelay: '1s'}}></div>
                 </div>
 
-                {/* Form */}
-                <div className="bg-white rounded-2xl shadow-xl p-8">
-                    {error && (
-                        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                            <div className="flex items-center">
-                                <svg className="h-5 w-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span className="text-red-700 text-sm">{error}</span>
-                            </div>
+                <div className="max-w-md w-full space-y-8 relative z-10">
+                    {/* Logo and Header */}
+                    <div className="text-center">
+                        <div className="mx-auto w-20 h-20 bg-gradient-to-r from-green-600 to-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg transform hover:scale-105 transition-transform duration-300">
+                            <FaShieldAlt className="text-white text-3xl" />
                         </div>
-                    )}
+                        <h2 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                            Xác thực OTP
+                        </h2>
+                        <p className="mt-2 text-gray-600">
+                            Vui lòng nhập mã OTP đã được gửi đến email của bạn
+                        </p>
+                    </div>
 
-                    {success && (
-                        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="flex items-center">
-                                <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span className="text-green-700 text-sm">{success}</span>
+                    {/* OTP Form Card */}
+                    <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/20">
+                        <form className="space-y-6" onSubmit={handleOTPSubmit}>
+                            {otpError && (
+                                <div className="rounded-xl bg-red-50 border border-red-200 p-4 animate-shake">
+                                    <div className="text-sm text-red-700 flex items-center">
+                                        <div className="w-2 h-2 bg-red-500 rounded-full mr-3"></div>
+                                        {otpError}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-1">
+                                <label htmlFor="otp" className="text-sm font-medium text-gray-700 ml-1">
+                                    Mã OTP
+                                </label>
+                                <input
+                                    id="otp"
+                                    name="otp"
+                                    type="text"
+                                    required
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70 text-center text-lg font-mono tracking-widest"
+                                    placeholder="000000"
+                                    value={otp}
+                                    onChange={(e) => setOTP(e.target.value)}
+                                    maxLength="6"
+                                />
                             </div>
-                        </div>
-                    )}
 
-                    <form onSubmit={onSubmit} className="space-y-6">
-                        <div>
-                            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-sm font-medium text-white bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg"
+                            >
+                                {loading ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                                        Đang xử lý...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaCheck className="h-4 w-4 mr-2" />
+                                        Xác nhận
+                                    </>
+                                )}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <style jsx>{`
+                    @keyframes shake {
+                        0%, 100% { transform: translateX(0); }
+                        25% { transform: translateX(-5px); }
+                        75% { transform: translateX(5px); }
+                    }
+                    .animate-shake {
+                        animation: shake 0.5s ease-in-out;
+                    }
+                `}</style>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+            {/* Background decorative elements */}
+            <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full opacity-10 animate-pulse"></div>
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-pink-400 to-blue-500 rounded-full opacity-10 animate-pulse" style={{animationDelay: '1s'}}></div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-5 animate-spin" style={{animationDuration: '20s'}}></div>
+            </div>
+
+            <div className="max-w-md w-full space-y-8 relative z-10">
+                {/* Logo and Header */}
+                <div className="text-center">
+                    <div className="mx-auto w-20 h-20 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg transform hover:scale-105 transition-transform duration-300">
+                        <FaTicketAlt className="text-white text-3xl" />
+                    </div>
+                    <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                        Tham gia cùng chúng tôi
+                    </h2>
+                    <p className="mt-2 text-gray-600">
+                        Tạo tài khoản để khám phá thế giới sự kiện tuyệt vời
+                    </p>
+                </div>
+
+                {/* Register Form Card */}
+                <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/20">
+                    <form className="space-y-6" onSubmit={handleSubmit}>
+                        {registerError && (
+                            <div className="rounded-xl bg-red-50 border border-red-200 p-4 animate-shake">
+                                <div className="text-sm text-red-700 flex items-center">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full mr-3"></div>
+                                    {registerError}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Username Input */}
+                        <div className="space-y-1">
+                            <label htmlFor="username" className="text-sm font-medium text-gray-700 ml-1">
                                 Tên đăng nhập
                             </label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                    </svg>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <FaUser className="h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors duration-200" />
                                 </div>
-                                <input 
+                                <input
                                     id="username"
-                                    type="text" 
-                                    placeholder="Nhập tên đăng nhập"
                                     name="username"
-                                    value={username}
-                                    onChange={onChange}
+                                    type="text"
                                     required
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-200 ease-in-out"
+                                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70"
+                                    placeholder="your_username"
+                                    value={formData.username}
+                                    onChange={handleChange}
                                 />
                             </div>
                         </div>
 
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                        {/* Email Input */}
+                        <div className="space-y-1">
+                            <label htmlFor="email" className="text-sm font-medium text-gray-700 ml-1">
                                 Email
                             </label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                                    </svg>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <FaEnvelope className="h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors duration-200" />
                                 </div>
-                                <input 
+                                <input
                                     id="email"
-                                    type="email" 
-                                    placeholder="Nhập email"
                                     name="email"
-                                    value={email}
-                                    onChange={onChange}
+                                    type="email"
+                                    autoComplete="email"
                                     required
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-200 ease-in-out"
+                                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70"
+                                    placeholder="your@email.com"
+                                    value={formData.email}
+                                    onChange={handleChange}
                                 />
                             </div>
                         </div>
 
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                        {/* Password Input */}
+                        <div className="space-y-1">
+                            <label htmlFor="password" className="text-sm font-medium text-gray-700 ml-1">
                                 Mật khẩu
                             </label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <FaLock className="h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors duration-200" />
                                 </div>
-                                <input 
+                                <input
                                     id="password"
-                                    type="password" 
-                                    placeholder="Nhập mật khẩu"
                                     name="password"
-                                    value={password}
-                                    onChange={onChange}
-                                    minLength="6"
+                                    type={showPassword ? "text" : "password"}
+                                    autoComplete="new-password"
                                     required
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-200 ease-in-out"
+                                    className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70"
+                                    placeholder="••••••••"
+                                    value={formData.password}
+                                    onChange={handleChange}
                                 />
+                                <button
+                                    type="button"
+                                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                >
+                                    {showPassword ? <FaEyeSlash className="h-5 w-5" /> : <FaEye className="h-5 w-5" />}
+                                </button>
                             </div>
                         </div>
 
-                        <div>
-                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                        {/* Confirm Password Input */}
+                        <div className="space-y-1">
+                            <label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700 ml-1">
                                 Xác nhận mật khẩu
                             </label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                    </svg>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <FaLock className="h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors duration-200" />
                                 </div>
-                                <input 
+                                <input
                                     id="confirmPassword"
-                                    type="password" 
-                                    placeholder="Xác nhận mật khẩu"
                                     name="confirmPassword"
-                                    value={confirmPassword}
-                                    onChange={onChange}
-                                    minLength="6"
+                                    type={showConfirmPassword ? "text" : "password"}
+                                    autoComplete="new-password"
                                     required
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-200 ease-in-out"
+                                    className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70"
+                                    placeholder="••••••••"
+                                    value={formData.confirmPassword}
+                                    onChange={handleChange}
                                 />
+                                <button
+                                    type="button"
+                                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                >
+                                    {showConfirmPassword ? <FaEyeSlash className="h-5 w-5" /> : <FaEye className="h-5 w-5" />}
+                                </button>
                             </div>
                         </div>
 
-                        <button 
-                            type="submit" 
-                            className="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:from-green-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transform transition duration-200 ease-in-out hover:scale-105 shadow-lg"
+                        {/* Register Button */}
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg"
                         >
-                            Đăng ký
+                            {loading ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                                    Đang xử lý...
+                                </>
+                            ) : (
+                                <>
+                                    <FaUser className="h-4 w-4 mr-2" />
+                                    Đăng ký
+                                </>
+                            )}
                         </button>
-                    </form>
 
-                    {/* Links */}
-                    <div className="mt-6 text-center">
-                        <p className="text-sm text-gray-600">
-                            Đã có tài khoản? 
-                            <a href="/login" className="ml-1 text-green-600 hover:text-green-700 font-medium transition duration-200">
+                        {/* Login Link */}
+                        <div className="text-center">
+                            <span className="text-gray-600">Đã có tài khoản? </span>
+                            <Link
+                                to="/login"
+                                className="font-medium text-purple-600 hover:text-purple-500 transition-colors duration-200"
+                            >
                                 Đăng nhập ngay
-                            </a>
-                        </p>
+                            </Link>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="relative my-6">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-gray-200"></div>
+                            </div>
+                            <div className="relative flex justify-center text-sm">
+                                <span className="px-4 bg-white/80 text-gray-500 rounded-full">
+                                    Hoặc đăng ký với
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Google Register */}
+                        <div className="w-full">
+                            <GoogleLoginButton />
+                        </div>
+                    </form>
+                </div>
+
+                {/* Footer */}
+                <div className="text-center text-sm text-gray-500">
+                    <p>Bằng cách đăng ký, bạn đồng ý với</p>
+                    <div className="mt-1">
+                        <Link to="/terms" className="text-purple-600 hover:text-purple-500 transition-colors duration-200">
+                            Điều khoản dịch vụ
+                        </Link>
+                        <span className="mx-2">và</span>
+                        <Link to="/privacy" className="text-purple-600 hover:text-purple-500 transition-colors duration-200">
+                            Chính sách bảo mật
+                        </Link>
                     </div>
                 </div>
             </div>
+
+            <style jsx>{`
+                @keyframes fade-in {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    25% { transform: translateX(-5px); }
+                    75% { transform: translateX(5px); }
+                }
+                .animate-fade-in {
+                    animation: fade-in 0.3s ease-out;
+                }
+                .animate-shake {
+                    animation: shake 0.5s ease-in-out;
+                }
+            `}</style>
         </div>
     );
 };

@@ -27,6 +27,7 @@ const PostCard = ({
   const [showComments, setShowComments] = useState(false);
   const [commentSectionKey, setCommentSectionKey] = useState(Date.now());
   const [commenters, setCommenters] = useState([]);
+  const [isLiking, setIsLiking] = useState(false);
   const optionsRef = useRef(null);
 
   useEffect(() => {
@@ -45,7 +46,10 @@ const PostCard = ({
   useEffect(() => {
     // Kiểm tra user đã like chưa
     if (user && post.likes) {
-      setIsLiked(post.likes.some(like => like.userId?._id === user._id || like.userId === user._id));
+      setIsLiked(post.likes.some(like => {
+        const likeUserId = like.userId?._id || like.userId;
+        return likeUserId === user._id;
+      }));
     } else {
       setIsLiked(false);
     }
@@ -63,15 +67,37 @@ const PostCard = ({
   };
 
   const handleLike = async () => {
-    if (!user) return;
+    if (!user || isLiking) return;
+    
+    setIsLiking(true);
+    
+    // Optimistic update
+    const previousLikeState = isLiked;
+    const previousLikeCount = likeCount;
+    
+    setIsLiked(!isLiked);
+    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
+    
     try {
+      console.log('Sending like request for post:', post._id);
       const res = await postAPI.likePost(post._id);
+      console.log('Like response:', res.data);
+      
       if (res.data.success) {
         setIsLiked(res.data.liked);
         setLikeCount(res.data.likesCount);
+      } else {
+        // Revert optimistic update if failed
+        setIsLiked(previousLikeState);
+        setLikeCount(previousLikeCount);
       }
     } catch (err) {
-      // Có thể show toast lỗi
+      console.error('Error liking post:', err);
+      // Revert optimistic update
+      setIsLiked(previousLikeState);
+      setLikeCount(previousLikeCount);
+    } finally {
+      setIsLiking(false);
     }
   };
 
@@ -117,10 +143,10 @@ const PostCard = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300"
+      className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden"
     >
       {/* Header */}
-      <div className="p-4 border-b">
+      <div className="p-6 border-b border-gray-50">
         <PostHeader
           post={post}
           user={user}
@@ -132,9 +158,13 @@ const PostCard = ({
           optionsRef={optionsRef}
         />
       </div>
+      
       {/* Content */}
-      <div className="p-4">
+      <div className="p-6">
         <PostContent post={post} handleImageClick={handleImageClick} />
+        
+        {/* Actions */}
+        <div className="mt-6 pt-4 border-t border-gray-50">
         <PostActions
           isLiked={isLiked}
           likeCount={likeCount}
@@ -148,10 +178,18 @@ const PostCard = ({
           loadingLikers={loadingLikers}
           postId={post._id}
           commenters={commenters}
+            isLiking={isLiking}
         />
-        {/* Comment Section chỉ hiện khi showComments = true */}
+        </div>
+        
+        {/* Comment Section */}
         {showComments && (
-          <div className="mt-2">
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-6 pt-4 border-t border-gray-50"
+          >
             <CommentSection
               key={commentSectionKey}
               postId={post._id}
@@ -159,9 +197,10 @@ const PostCard = ({
               setTotalCount={setCommentCount}
               onCommentsFetched={handleUpdateCommenters}
             />
-          </div>
+          </motion.div>
         )}
       </div>
+      
       {/* Image Viewer */}
       {showViewer && (
         <ImageViewer

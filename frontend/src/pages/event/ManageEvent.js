@@ -6,6 +6,9 @@ import useManageEventLogic from '../../hooks/useManageEventLogic';
 import ImageUpload from '../../components/event/ImageUpload';
 
 const ManageEvent = () => {
+  const { id: eventId } = useParams();
+  
+  // Call hooks first, before any early returns
   const {
     loading,
     event,
@@ -18,7 +21,22 @@ const ManageEvent = () => {
     user,
     handleCategoryChange,
     handleTagsChange,
-  } = useManageEventLogic();
+  } = useManageEventLogic(eventId);
+
+  // Early validation to prevent null eventId API calls
+  if (!eventId || eventId === 'null' || eventId === 'undefined') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100 font-sans p-10">
+        <div className="text-center text-red-600">
+          <h2 className="text-2xl font-bold mb-4">🚫 URL không hợp lệ</h2>
+          <p className="mb-4">ID sự kiện không tồn tại hoặc không hợp lệ</p>
+          <Link to="/events" className="bg-green-500 px-6 py-3 rounded-lg hover:bg-green-600 text-white">
+            Về trang sự kiện
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -279,44 +297,7 @@ const ManageEvent = () => {
               </div>
             </div>
 
-            <div className="bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-700">
-              <h2 className="text-2xl font-bold mb-6 text-green-400 flex items-center">
-                <FontAwesomeIcon icon={faUserTie} className="mr-3" /> Thông tin ban tổ chức
-              </h2>
-              <div className="space-y-6">
-                <ImageUpload
-                  image={formData.organizer.logo}
-                  handleImageUpload={(e) => handleChange({ target: { name: 'organizer.logo', value: e.target.files[0] } })}
-                  type="organizerLogo"
-                  title="Logo nhà tổ chức"
-                  description="PNG, JPG (Tối đa 5MB)"
-                  aspectRatio="1/1"
-                />
-                <div>
-                  <label htmlFor="organizerName" className="block text-sm font-medium text-gray-300 mb-2">Tên ban tổ chức</label>
-                  <input
-                    type="text"
-                    id="organizerName"
-                    name="organizer.name"
-                    value={formData.organizer.name}
-                    onChange={handleChange}
-                    required
-                    className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="organizerInfo" className="block text-sm font-medium text-gray-300 mb-2">Thông tin</label>
-                  <textarea
-                    id="organizerInfo"
-                    name="organizer.info"
-                    value={formData.organizer.info}
-                    onChange={handleChange}
-                    rows={4}
-                    className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  />
-                </div>
-              </div>
-            </div>
+
 
             <div className="bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-700">
               <h2 className="text-2xl font-bold mb-6 text-green-400 flex items-center">
@@ -501,23 +482,7 @@ const ManageEvent = () => {
               <p className="text-gray-300">{event.termsAndConditions}</p>
             </div>
 
-            {/* organizer infor */}
-            <div className="bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-700">
-              <h2 className="text-2xl font-bold mb-6 text-green-400 flex items-center">
-                <FontAwesomeIcon icon={faUserTie} className="mr-3" /> Thông tin ban tổ chức
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center text-gray-300">
-                {event.organizer.logo && (
-                  <div className="flex justify-center md:justify-start">
-                    <img src={event.organizer.logo} alt="Logo ban tổ chức" className="h-32 w-32 object-contain rounded-lg shadow-md" />
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <p><strong>Tên ban tổ chức:</strong> {event.eventOrganizerDetails?.name || 'N/A'}</p>
-                  <p><strong>Thông tin:</strong> {event.eventOrganizerDetails?.info || 'N/A'}</p>
-                </div>
-              </div>
-            </div>
+
 
             {/* payment infor */}
             <div className="bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-700">

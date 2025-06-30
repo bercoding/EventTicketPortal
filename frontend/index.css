@@ -1,0 +1,18 @@
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px; /* Độ rộng của scrollbar */
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1; /* Màu nền của track */
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1; /* Màu của thumb (con trượt) */
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1; /* Màu của thumb khi hover */
+}

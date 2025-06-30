@@ -1,39 +1,66 @@
+require('dotenv').config();
+
 // backend/server.js
 const express = require('express');
+const http = require('http'); // Import http
+const { Server } = require("socket.io"); // Import Server from socket.io
 const cors = require('cors');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
 const eventRoutes = require('./routes/event');
 const reviewRoutes = require('./routes/review');
 const adminRoutes = require('./routes/admin');
-const postRoutes = require('./routes/post');
-const commentRoutes = require('./routes/comment');
-const venueRoutes = require('./routes/venue');
-
-require('dotenv').config();
+const userRoutes = require('./routes/userRoutes'); // Import userRoutes
+const ticketRoutes = require('./routes/ticketRoutes'); // Import ticketRoutes
+const bookingRoutes = require('./routes/bookingRoutes'); // Import bookingRoutes
+const postRoutes = require('./routes/post'); // Add missing import
+const commentRoutes = require('./routes/comment'); // Add missing import
+const venueRoutes = require('./routes/venue'); // Add missing import
+const socketHandler = require('./socket/socketHandler'); // Sẽ tạo file này sau
+const contentRoutes = require('./routes/contentRoutes');
 
 const app = express();
+const server = http.createServer(app); // Tạo HTTP server từ Express app
+const io = new Server(server, { // Khởi tạo Socket.IO server
+    cors: {
+        origin: "http://localhost:3000", // Cho phép từ frontend localhost:3000
+        methods: ["GET", "POST"]
+    }
+});
 
-// CORS configuration
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+    return res.status(200).json({});
+  }
+  next();
+});
 app.use(cors({
-  origin: 'http://localhost:3000', // Frontend URL
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true
 }));
-
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 connectDB();
 
 app.use('/api/auth', authRoutes);
+app.use('/api/test-upload', require('./test-upload-route')); // Test route
 app.use('/api/events', eventRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/venues', venueRoutes);
+app.use('/api/users', userRoutes); // Sử dụng userRoutes
+app.use('/api/tickets', ticketRoutes); // Sử dụng ticketRoutes
+app.use('/api/bookings', bookingRoutes); // Sử dụng bookingRoutes
+app.use('/api/payments', require('./routes/payment')); // Sử dụng paymentRoutes
+app.use('/api/content', contentRoutes);
 
 app.use(express.static('public', {
   maxAge: '1d',
@@ -42,5 +69,17 @@ app.use(express.static('public', {
   }
 }));
 
+// Serve uploaded files
+app.use('/uploads', express.static('uploads', {
+  maxAge: '1d',
+  setHeaders: (res) => {
+    res.set('Cache-Control', 'public, max-age=86400');
+  }
+}));
+
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Khởi chạy socket handler
+socketHandler(io);
+
+server.listen(PORT, () => console.log(`Server running on port ${PORT} and WebSocket is ready`)); // Lắng nghe trên server thay vì app

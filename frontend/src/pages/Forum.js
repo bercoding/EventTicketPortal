@@ -3,16 +3,20 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { postAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaPlus, FaTimes } from 'react-icons/fa';
+import { FaPlus, FaTimes, FaSearch, FaFilter, FaTrendingUp, FaFire, FaClock, FaUsers } from 'react-icons/fa';
 import PostCard from '../components/forum/PostCard';
 import CreatePostModal from '../components/forum/CreatePostModal';
 
 const Forum = () => {
   const { user } = useAuth();
   const [posts, setPosts] = useState([]);
+  const [filteredPosts, setFilteredPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('newest'); // newest, popular, trending
+  const [filterTag, setFilterTag] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -33,6 +37,54 @@ const Forum = () => {
   const [isDeleting, setIsDeleting] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [deleteModal, setDeleteModal] = useState({ open: false, postId: null });
+  const [allTags, setAllTags] = useState([]);
+
+  // Extract all unique tags from posts
+  useEffect(() => {
+    const tags = [...new Set(posts.flatMap(post => post.tags || []))];
+    setAllTags(tags);
+  }, [posts]);
+
+  // Filter and sort posts
+  useEffect(() => {
+    let filtered = [...posts];
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(post => 
+        post.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        post.content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        post.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    // Apply tag filter
+    if (filterTag) {
+      filtered = filtered.filter(post => 
+        post.tags?.some(tag => tag.toLowerCase() === filterTag.toLowerCase())
+      );
+    }
+
+    // Apply sorting
+    switch (sortBy) {
+      case 'popular':
+        filtered.sort((a, b) => (b.likesCount || b.likes?.length || 0) - (a.likesCount || a.likes?.length || 0));
+        break;
+      case 'trending':
+        filtered.sort((a, b) => {
+          const scoreA = (a.likesCount || a.likes?.length || 0) + (a.commentsCount || 0);
+          const scoreB = (b.likesCount || b.likes?.length || 0) + (b.commentsCount || 0);
+          return scoreB - scoreA;
+        });
+        break;
+      case 'newest':
+      default:
+        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        break;
+    }
+
+    setFilteredPosts(filtered);
+  }, [posts, searchTerm, sortBy, filterTag]);
 
   useEffect(() => {
     if (successMessage) {
@@ -50,7 +102,7 @@ const Forum = () => {
         console.log('Fetched posts:', response.data.data);
         setPosts(response.data.data);
       } catch (err) {
-        setError('Failed to fetch posts');
+        setError('Không thể tải bài viết');
         console.error('Error fetching posts:', err);
       } finally {
         setLoading(false);
@@ -81,23 +133,37 @@ const Forum = () => {
     e.preventDefault();
     setIsCreating(true);
     setError(null);
+    
+    console.log('Creating post with data:', formData);
+    console.log('Images to upload:', formData.images);
+    
     const formDataToSend = new FormData();
     formDataToSend.append('title', formData.title);
     formDataToSend.append('content', formData.content);
     formDataToSend.append('tags', formData.tags);
     
-    formData.images.forEach((file) => {
+    formData.images.forEach((file, index) => {
+      console.log(`Appending image ${index}:`, file);
       formDataToSend.append('images', file);
     });
 
+    // Log FormData contents
+    for (let pair of formDataToSend.entries()) {
+      console.log(pair[0] + ': ' + pair[1]);
+    }
+
     try {
+      console.log('Sending request to create post...');
       const response = await postAPI.createPost(formDataToSend);
+      console.log('Post created successfully:', response.data);
       setPosts([response.data.data, ...posts]);
       setShowCreateForm(false);
       setFormData({ title: '', content: '', tags: '', images: [] });
       setImagePreview([]);
       setSuccessMessage('Post created successfully!');
     } catch (err) {
+      console.error('Error creating post:', err);
+      console.error('Error response:', err.response);
       setError(err.response?.data?.message || 'Failed to create post');
     } finally {
       setIsCreating(false);
@@ -172,22 +238,37 @@ const Forum = () => {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600 font-medium">Đang tải diễn đàn...</p>
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Forum</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      {/* Hero Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-6xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-4">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-3 rounded-xl">
+                <FaUsers className="text-white text-2xl" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                  Diễn Đàn Cộng Đồng
+                </h1>
+                <p className="text-gray-500 mt-1">Chia sẻ, thảo luận và kết nối với cộng đồng</p>
+              </div>
+            </div>
           {user && (
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowCreateForm(true)}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl"
             >
               <FaPlus className="mr-2" />
               Tạo bài viết mới
@@ -195,16 +276,92 @@ const Forum = () => {
           )}
         </div>
 
-        {error && (
-          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
-            {error}
+          {/* Search and Filter Bar */}
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
+            <div className="relative flex-1 max-w-md">
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm bài viết..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+              />
+            </div>
+
+            <div className="flex gap-3 items-center">
+              {/* Sort Options */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                <option value="newest">🕒 Mới nhất</option>
+                <option value="popular">❤️ Phổ biến</option>
+                <option value="trending">🔥 Thịnh hành</option>
+              </select>
+
+              {/* Tag Filter */}
+              <select
+                value={filterTag}
+                onChange={(e) => setFilterTag(e.target.value)}
+                className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                <option value="">🏷️ Tất cả chủ đề</option>
+                {allTags.map(tag => (
+                  <option key={tag} value={tag}>#{tag}</option>
+                ))}
+              </select>
+            </div>
           </div>
+
+          {/* Stats Bar */}
+          <div className="flex gap-6 mt-6 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <FaClock className="text-blue-500" />
+              <span>{posts.length} bài viết</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <FaFire className="text-orange-500" />
+              <span>{filteredPosts.length} kết quả</span>
+            </div>
+            {searchTerm && (
+              <div className="flex items-center gap-2">
+                <FaSearch className="text-green-500" />
+                <span>Tìm kiếm: "{searchTerm}"</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto px-4 py-8">
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-3"
+          >
+            <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-sm">!</span>
+            </div>
+            {error}
+          </motion.div>
         )}
 
         {successMessage && (
-          <div className="mb-4 p-4 bg-green-100 text-green-700 rounded-lg transition-opacity duration-500">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl flex items-center gap-3"
+          >
+            <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-sm">✓</span>
+            </div>
             {successMessage}
-          </div>
+          </motion.div>
         )}
 
         <AnimatePresence>
@@ -360,7 +517,7 @@ const Forum = () => {
           animate={{ opacity: 1 }}
           className="space-y-6"
         >
-          {posts.map((post) => (
+          {filteredPosts.map((post) => (
             <div key={post._id} className="relative">
               {isDeleting === post._id && (
                 <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-xl">
@@ -383,10 +540,37 @@ const Forum = () => {
           ))}
         </motion.div>
 
-        {posts.length === 0 && !loading && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">No posts yet. Be the first to create one!</p>
+        {filteredPosts.length === 0 && !loading && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-16"
+          >
+            <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md mx-auto">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaUsers className="text-gray-400 text-3xl" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                {searchTerm || filterTag ? 'Không tìm thấy bài viết' : 'Chưa có bài viết nào'}
+              </h3>
+              <p className="text-gray-500 mb-6">
+                {searchTerm || filterTag 
+                  ? 'Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc' 
+                  : 'Hãy là người đầu tiên chia sẻ với cộng đồng!'
+                }
+              </p>
+              {user && !searchTerm && !filterTag && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowCreateForm(true)}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300"
+                >
+                  Tạo bài viết đầu tiên
+                </motion.button>
+              )}
           </div>
+          </motion.div>
         )}
 
         {/* Modal xác nhận xóa post */}
