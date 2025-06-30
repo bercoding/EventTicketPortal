@@ -1,7 +1,5 @@
 # 🎯 Tóm tắt tính năng đã hoàn thành: Cải thiện UI và Quản lý Admin
 
-## 📋 Yêu cầu ban đầu
-User muốn "sửa lại UI cho các sự kiện hiển thị ra ở các trang sự kiện đặc biệt, sự kiện xu hướng,.. và tôi muốn là admin có thể custom được các sự kiện xuất hiện"
 
 ## ✅ Các tính năng đã hoàn thành
 
