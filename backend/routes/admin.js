@@ -41,4 +41,4 @@ router.get('/owner-requests', adminController.getOwnerRequests);
 router.post('/owner-requests/:id/approve', adminController.approveOwnerRequest);
 router.post('/owner-requests/:id/reject', adminController.rejectOwnerRequest);
 
-module.exports = router; 
+module.exports = router;

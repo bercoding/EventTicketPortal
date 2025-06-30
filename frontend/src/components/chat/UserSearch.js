@@ -87,4 +87,5 @@ const UserSearch = ({ onSelectUser, currentUser }) => {
     );
 };
 
+
 export default UserSearch; 
