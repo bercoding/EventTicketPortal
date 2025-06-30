@@ -1,12 +1,71 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import './PaymentCallback.css';
+import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
+import { toast } from 'react-hot-toast';
 
 const PaymentCallback = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const [paymentResult, setPaymentResult] = useState(null);
     const [loading, setLoading] = useState(true);
+    const { socket } = useSocket();
+    const { user } = useAuth();
+
+    // Log socket và user state khi component mount
+    useEffect(() => {
+        console.log('🔄 Component mounted. Socket state:', {
+            isConnected: socket?.connected,
+            socketId: socket?.id
+        });
+        console.log('👤 User state:', user);
+    }, [socket, user]);
+
+    // Xử lý socket connection và authentication
+    useEffect(() => {
+        if (socket && user) {
+            console.log('🔌 Setting up socket connection...');
+            
+            // Đăng ký các event listeners
+            socket.on('connect', () => {
+                console.log('✅ Socket connected:', socket.id);
+                // Authenticate socket connection
+                socket.emit('authenticate', user._id);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('❌ Socket disconnected');
+            });
+
+            // Lắng nghe sự kiện payment_success
+            socket.on('payment_success', (data) => {
+                console.log('💰 Received payment success notification:', data);
+                toast.success(data.message);
+                
+                console.log('🔄 Redirecting to my-tickets page...');
+                // Thêm timeout để đảm bảo toast message hiển thị
+                setTimeout(() => {
+                    navigate('/my-tickets', { 
+                        state: { highlightNewTickets: true },
+                        replace: true
+                    });
+                }, 1500);
+            });
+
+            return () => {
+                console.log('🧹 Cleaning up socket listeners...');
+                socket.off('connect');
+                socket.off('disconnect');
+                socket.off('payment_success');
+            };
+        } else {
+            console.log('⚠️ Socket or user not available:', {
+                socketAvailable: !!socket,
+                userAvailable: !!user
+            });
+        }
+    }, [socket, user, navigate]);
 
     // Thêm hàm kiểm tra trạng thái thanh toán
     const checkPaymentStatus = async (txnRef) => {

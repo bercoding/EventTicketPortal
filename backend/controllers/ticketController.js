@@ -8,15 +8,30 @@ const User = require('../models/User');
 const getUserTickets = async (req, res) => {
     try {
         console.log('=== GET USER TICKETS DEBUG ===');
-        console.log('User ID from request:', req.user.id);
+        console.log('User ID from request:', req.user._id);
         console.log('User object:', JSON.stringify(req.user, null, 2));
+        console.log('Request headers:', JSON.stringify(req.headers, null, 2));
         
-        // Try both req.user.id and req.user._id for compatibility
-        const userId = req.user.id || req.user._id;
-        console.log('Final user ID used for query:', userId);
-        
-        const tickets = await Ticket.find({ user: userId })
-            .populate('event', 'title startDate images venue'); // Populate event details
+        // Kiểm tra user có tồn tại không
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            console.log('❌ User not found in database');
+            return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
+        }
+        console.log('✅ Found user in database:', user.email);
+
+        console.log('🔍 Searching for tickets with query:', { user: req.user._id });
+        const tickets = await Ticket.find({ user: req.user._id })
+            .populate({
+                path: 'event',
+                select: 'title startDate images venue'
+            })
+            .populate({
+                path: 'bookingId',
+                select: 'status'
+            })
+            .select('event bookingId seat price status qrCode isUsed')
+            .lean();
 
         console.log('Found tickets count:', tickets.length);
         console.log('Tickets found:', JSON.stringify(tickets, null, 2));
@@ -28,13 +43,14 @@ const getUserTickets = async (req, res) => {
 
         // Format tickets with seat information
         const formattedTickets = tickets.map(ticket => ({
-            ...ticket.toObject(),
+            ...ticket,
             section: ticket.seat?.section || null,
             seatNumber: ticket.seat?.seatNumber || null,
-            row: ticket.seat?.row || null
+            row: ticket.seat?.row || null,
+            bookingStatus: ticket.bookingId?.status || null
         }));
 
-        console.log('✅ Returning tickets to frontend');
+        console.log('✅ Returning formatted tickets to frontend:', formattedTickets.length);
         res.json(formattedTickets);
     } catch (error) {
         console.error('Error fetching user tickets:', error);

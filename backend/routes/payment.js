@@ -23,6 +23,15 @@ router.get('/methods', getPaymentMethods);
 router.get('/payos-return', handlePayOSReturn);
 router.post('/payos-webhook', handlePayOSWebhook);
 
+// POS Confirm route - placed before router.use(protect) with proper auth
+router.put('/pos/:paymentId/confirm', protect, authorize('admin', 'event_owner'), (req, res, next) => {
+    console.log('🔍 Route hit: /pos/:paymentId/confirm');
+    console.log('📋 PaymentId:', req.params.paymentId);
+    console.log('👤 User:', req.user?.email);
+    console.log('🔒 Role:', req.user?.role);
+    next();
+}, confirmPOSPayment);
+
 // Protected routes
 router.use(protect);
 router.post('/create-pos-payment', createPOSPayment);
@@ -32,7 +41,6 @@ router.get('/detail/:paymentId', getPaymentDetail);
 // Admin POS Management Routes
 router.get('/pos', authorize('admin', 'event_owner'), getPOSPayments);
 router.get('/status/:txnRef', getPaymentStatus);
-router.put('/pos/:paymentId/confirm', authorize('admin', 'event_owner'), confirmPOSPayment);
 router.put('/pos/:paymentId/cancel', authorize('admin', 'event_owner'), cancelPOSPayment);
 
 module.exports = router; 

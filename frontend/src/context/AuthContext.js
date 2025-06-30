@@ -18,18 +18,30 @@ export const AuthProvider = ({ children }) => {
             const token = localStorage.getItem('token');
             console.log('🔍 Checking user with token:', token ? 'exists' : 'none');
             
-            if (token) {
+            if (!token) {
+                console.log('❌ No token found');
+                setUser(null);
+                setLoading(false);
+                return;
+            }
+
+            // Kiểm tra token có hợp lệ không
+            try {
                 const response = await authAPI.getMe();
                 console.log('👤 User check response:', response);
                 
-                if (response.success) {
+                if (response.success && response.data) {
                     console.log('✅ Setting user:', response.data.email, response.data.id);
                     setUser(response.data);
                 } else {
-                    console.log('❌ User check failed, clearing token');
+                    console.log('❌ Invalid user data, clearing token');
                     localStorage.removeItem('token');
                     setUser(null);
                 }
+            } catch (error) {
+                console.error('❌ Token validation failed:', error);
+                localStorage.removeItem('token');
+                setUser(null);
             }
         } catch (error) {
             console.error('❌ Error checking user:', error);
@@ -119,16 +131,66 @@ export const AuthProvider = ({ children }) => {
     const register = async (userData) => {
         try {
             setError(null);
+            console.log('Starting registration with data:', userData.email);
             const response = await authAPI.register(userData);
-            if (response.data.success) {
-                const { token, user } = response.data;
-                localStorage.setItem('token', token);
-                setUser(user);
-                return { success: true };
+            console.log('Registration response:', response);
+            
+            if (response.success) {
+                // Không set user và token ở bước đăng ký
+                // Token và user sẽ được set sau khi xác minh OTP
+                return { 
+                    success: true, 
+                    message: response.message || 'Đăng ký thành công. Vui lòng xác thực OTP.'
+                };
+            } else {
+                setError(response.error || 'Đăng ký thất bại');
+                return { 
+                    success: false, 
+                    error: response.error || 'Đăng ký thất bại'
+                };
             }
         } catch (error) {
-            setError(error.response?.data?.message || 'Đăng ký thất bại');
-            return { success: false, error: error.response?.data?.message };
+            console.error('Registration error:', error);
+            const errorMessage = error.response?.data?.message || error.message || 'Đăng ký thất bại';
+            setError(errorMessage);
+            return { success: false, error: errorMessage };
+        }
+    };
+
+    // Thêm hàm xác thực OTP
+    const verifyOTP = async (otpData) => {
+        try {
+            setError(null);
+            console.log('Starting OTP verification for:', otpData.email);
+            const response = await authAPI.verifyOTP(otpData);
+            console.log('OTP verification response:', response);
+            
+            if (response.success) {
+                // Lưu token và user sau khi xác thực OTP thành công
+                const { token, user: userData } = response;
+                
+                console.log('✅ OTP verification successful for user:', userData.email);
+                console.log('🔑 Storing token and setting user');
+                
+                localStorage.setItem('token', token);
+                setUser(userData);
+                
+                return { 
+                    success: true, 
+                    message: response.message || 'Xác thực OTP thành công.'
+                };
+            } else {
+                setError(response.error || 'Xác thực OTP thất bại');
+                return { 
+                    success: false, 
+                    error: response.error || 'Xác thực OTP thất bại'
+                };
+            }
+        } catch (error) {
+            console.error('OTP verification error:', error);
+            const errorMessage = error.message || 'Xác thực OTP thất bại';
+            setError(errorMessage);
+            return { success: false, error: errorMessage };
         }
     };
 
@@ -207,6 +269,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!user,
         login,
         register,
+        verifyOTP,
         logout,
         googleLogin,
         forgotPassword,

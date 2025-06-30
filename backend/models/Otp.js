@@ -24,6 +24,12 @@ const otpSchema = new mongoose.Schema({
     isVerified: {
         type: Boolean,
         default: false
+    },
+    userData: {
+        type: Object,
+        default: null,
+        // Lưu thông tin người dùng để tạo sau khi xác thực OTP
+        // Ví dụ: { fullName, email, username, password (đã hash) }
     }
 }, { timestamps: true }); // createdAt sẽ cho biết OTP được tạo khi nào
 

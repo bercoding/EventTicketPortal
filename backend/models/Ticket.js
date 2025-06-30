@@ -13,6 +13,12 @@ const ticketSchema = new mongoose.Schema({
     required: false,
     default: null
   },
+  payment: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Payment',
+    required: false,
+    default: null
+  },
   price: {
     type: Number,
     required: true
@@ -23,7 +29,7 @@ const ticketSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['available', 'active', 'returned'],
+    enum: ['available', 'pending', 'active', 'returned', 'cancelled'],
     default: 'available'
   },
   qrCode: {
@@ -75,6 +81,7 @@ const ticketSchema = new mongoose.Schema({
 ticketSchema.index({ bookingId: 1 });
 ticketSchema.index({ event: 1 });
 ticketSchema.index({ user: 1 });
+ticketSchema.index({ payment: 1 });
 ticketSchema.index({ qrCode: 1 }, { unique: true });
 ticketSchema.index({ isUsed: 1 });
 ticketSchema.index({ status: 1 });

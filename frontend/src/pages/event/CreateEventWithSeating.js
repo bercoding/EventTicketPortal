@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { toast } from 'react-toastify';
 import ImageUpload from '../../components/event/ImageUpload';
 import SeatingPreview from '../../components/seating/SeatingPreview';
 import InteractiveSeatingDesigner from '../../components/seating/InteractiveSeatingDesigner';
 import './CreateEvent.css';
+import { uploadImage } from '../../services/api';
 
 // Venue templates với layout thông minh
 const VENUE_TEMPLATES = {
@@ -20,7 +20,8 @@ const VENUE_TEMPLATES = {
       { name: 'VIP Tier 2', price: 600000, description: 'Khu VIP phía sau', percentage: 20, color: '#3B82F6' },
       { name: 'Thường A', price: 400000, description: 'Khu khán đài chính', percentage: 35, color: '#10B981' },
       { name: 'Thường B', price: 250000, description: 'Khu khán đài phụ', percentage: 30, color: '#F97316' }
-    ]
+    ],
+    stageSize: { width: 200, height: 60 }
   },
   theater: {
     name: 'Nhà hát / Hội trường',
@@ -31,7 +32,8 @@ const VENUE_TEMPLATES = {
     ticketTypeTemplates: [
       { name: 'VIP', price: 500000, description: 'Ghế hạng sang phía trước', percentage: 30, color: '#8B5CF6' },
       { name: 'Thường', price: 300000, description: 'Ghế thông thường', percentage: 70, color: '#3B82F6' }
-    ]
+    ],
+    stageSize: { width: 200, height: 60 }
   },
   concert: {
     name: 'Concert Hall',
@@ -44,7 +46,8 @@ const VENUE_TEMPLATES = {
       { name: 'VIP', price: 800000, description: 'Khu VIP với dịch vụ đặc biệt', percentage: 20, color: '#8B5CF6' },
       { name: 'Thường A', price: 500000, description: 'Khu khán đài chính', percentage: 40, color: '#3B82F6' },
       { name: 'Thường B', price: 300000, description: 'Khu khán đài xa', percentage: 30, color: '#10B981' }
-    ]
+    ],
+    stageSize: { width: 200, height: 60 }
   },
   outdoor: {
     name: 'Sự kiện ngoài trời',
@@ -55,7 +58,8 @@ const VENUE_TEMPLATES = {
     ticketTypeTemplates: [
       { name: 'VIP Front', price: 600000, description: 'Khu vực phía trước', percentage: 25, color: '#8B5CF6' },
       { name: 'General', price: 350000, description: 'Khu vực chung', percentage: 75, color: '#3B82F6' }
-    ]
+    ],
+    stageSize: { width: 200, height: 60 }
   },
   footballStadium: {
     name: 'Sân vận động bóng đá',
@@ -69,7 +73,8 @@ const VENUE_TEMPLATES = {
       { name: 'Khán đài Chính', price: 1000000, description: 'Khán đài chính hai bên (DA3, DA4)', percentage: 30, color: '#2563EB' },
       { name: 'Khán đài Góc', price: 700000, description: 'Khu vực góc sân (KD_A, KD_B, KD_C)', percentage: 20, color: '#059669' },
       { name: 'FOH', price: 400000, description: 'Khu vực FOH và các khu xa', percentage: 10, color: '#D97706' }
-    ]
+    ],
+    stageSize: { width: 400, height: 200 }
   },
   basketballArena: {
     name: 'Sân bóng rổ',
@@ -82,21 +87,59 @@ const VENUE_TEMPLATES = {
       { name: 'Lower Bowl', price: 800000, description: 'Tầng dưới gần sân', percentage: 30, color: '#7C3AED' },
       { name: 'Club Level', price: 600000, description: 'Tầng club với tiện ích', percentage: 25, color: '#2563EB' },
       { name: 'Upper Bowl', price: 350000, description: 'Tầng trên với giá hợp lý', percentage: 35, color: '#059669' }
-    ]
+    ],
+    stageSize: { width: 350, height: 180 }
   }
+};
+
+// Define constants for seating layout
+const CANVAS_WIDTH = 1200;
+const CANVAS_HEIGHT = 1000;
+
+// Stage dimensions based on venue type
+const STAGE_DIMENSIONS = {
+  footballStadium: { width: 320, height: 220, x: 440, y: 50 }, // Sân bóng đá - lớn nhất
+  basketballArena: { width: 280, height: 180, x: 460, y: 70 }, // Sân bóng rổ - trung bình
+  theater: { width: 240, height: 80, x: 480, y: 50 }, // Nhà hát - nhỏ, rộng
+  concert: { width: 220, height: 80, x: 490, y: 50 }, // Concert - nhỏ, rộng
+  conference: { width: 200, height: 60, x: 500, y: 50 }, // Hội nghị - nhỏ nhất
+  outdoor: { width: 250, height: 80, x: 475, y: 50 }, // Ngoài trời - trung bình
+  custom: { width: 200, height: 60, x: 500, y: 50 }, // Tùy chỉnh - mặc định
+};
+
+// Create initial stage based on venue type
+const getInitialStage = (venueType) => {
+  const dimensions = STAGE_DIMENSIONS[venueType] || STAGE_DIMENSIONS.custom;
+  return {
+    ...dimensions,
+    type: venueType === 'footballStadium' ? 'footballField' : 
+          venueType === 'basketballArena' ? 'basketballCourt' : 'stage'
+  };
 };
 
 const CreateEventWithSeating = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const templateInfo = location.state;
+  const initialEventData = location.state?.eventData || {
+    title: '',
+    description: '',
+    startDate: '',
+    endDate: '',
+    location: {
+      venueName: '',
+      address: ''
+    },
+    images: {
+      logo: '',
+      banner: ''
+    }
+  };
   
+  const [eventData, setEventData] = useState(initialEventData);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedVenueTemplate, setSelectedVenueTemplate] = useState(null);
-  const [previewSeatingMap, setPreviewSeatingMap] = useState(null);
-  const [designMode, setDesignMode] = useState('template'); // 'template' or 'custom'
+  const [designMode, setDesignMode] = useState('custom'); // Luôn là 'custom'
   const [customSeatingMap, setCustomSeatingMap] = useState({
     layoutType: 'custom',
     sections: [],
@@ -104,42 +147,12 @@ const CreateEventWithSeating = () => {
   });
   const [isEditingTicketTypesManually, setIsEditingTicketTypesManually] = useState(false);
   
-  const [eventData, setEventData] = useState({
-    title: '',
-    description: '',
-    startDate: '',
-    endDate: '',
-    location: {
-      type: 'offline',
-      venueName: '',
-      address: '',
-      city: 'TP.HCM'
-    },
-    category: [],
-    tags: [],
-    visibility: 'public',
-    status: 'pending',
-    detailedDescription: {
-      mainProgram: '',
-      guests: '',
-      specialExperiences: ''
-    },
-    termsAndConditions: '',
-    images: {
-      logo: '',
-      banner: ''
-    },
-    organizer: {
-      logo: '',
-      name: '',
-      info: ''
-    }
-  });
-
   const [seatOptions, setSeatOptions] = useState({
-    totalSeats: 200,
-    totalSections: 6,
-    venueType: 'theater'
+    venueType: 'custom',
+    hasSeatingChart: true,
+    ticketTypes: [
+      { name: 'Standard', price: 0, color: '#3B82F6' }
+    ]
   });
 
   const [ticketTypes, setTicketTypes] = useState([
@@ -159,39 +172,10 @@ const CreateEventWithSeating = () => {
     }
   ]);
 
-  // Apply venue template
-  const applyVenueTemplate = (templateKey) => {
-    const template = VENUE_TEMPLATES[templateKey];
-    setSelectedVenueTemplate(templateKey);
-    
-    // Reset manual editing flag when applying template
-    setIsEditingTicketTypesManually(false);
-    
-    setSeatOptions({
-      totalSeats: template.defaultSeats,
-      totalSections: template.defaultSections,
-      venueType: template.layoutType
-    });
-
-    // Calculate ticket quantities based on percentages and preserve colors
-    const calculatedTicketTypes = template.ticketTypeTemplates.map(tt => ({
-      ...tt,
-      quantity: Math.floor(template.defaultSeats * tt.percentage / 100)
-    }));
-
-    setTicketTypes(calculatedTicketTypes);
-    console.log('🎨 Applied template with colored ticket types:', calculatedTicketTypes);
-    
-    // Generate preview với template mới
-    setTimeout(() => {
-      generatePreviewMap(template.defaultSeats, template.defaultSections, template.layoutType);
-    }, 100);
-  };
-
   // Smart seat distribution when changing total seats - preserve colors
   const handleSeatChange = (newTotalSeats) => {
-    if (selectedVenueTemplate) {
-      const template = VENUE_TEMPLATES[selectedVenueTemplate];
+    if (seatOptions.venueType) {
+      const template = VENUE_TEMPLATES[seatOptions.venueType];
       const updatedTicketTypes = ticketTypes.map(tt => {
         const templateTT = template.ticketTypeTemplates.find(t => t.name === tt.name);
         const percentage = templateTT ? templateTT.percentage : (tt.quantity / seatOptions.totalSeats * 100);
@@ -209,9 +193,14 @@ const CreateEventWithSeating = () => {
   };
 
   // Generate preview seating map
-  const generatePreviewMap = async (totalSeats = seatOptions.totalSeats, totalSections = seatOptions.totalSections, venueType = seatOptions.venueType) => {
+  const generatePreviewMap = async (
+    totalSeats = seatOptions.totalSeats, 
+    totalSections = seatOptions.totalSections, 
+    venueType = seatOptions.venueType,
+    stageSize
+  ) => {
     try {
-      console.log('🔄 Generating preview...', { totalSeats, totalSections, venueType });
+      console.log('🔄 Generating preview...', { totalSeats, totalSections, venueType, stageSize });
       
       const response = await axios.post('http://localhost:5001/api/events/preview-seating', {
         seatOptions: { totalSeats, totalSections, venueType },
@@ -224,7 +213,7 @@ const CreateEventWithSeating = () => {
       
       if (response.data.success) {
         console.log('✅ Preview generated successfully');
-        setPreviewSeatingMap(response.data.data);
+        setCustomSeatingMap(response.data.data);
       }
     } catch (error) {
       console.error('❌ Error generating preview:', error);
@@ -254,27 +243,28 @@ const CreateEventWithSeating = () => {
         });
       }
       
-      setPreviewSeatingMap({
+      // Kích thước stage tùy chỉnh theo loại sân
+      const defaultStageSize = {
+        width: venueType === 'footballStadium' ? 400 :
+               venueType === 'basketballArena' ? 350 :
+               200,
+        height: venueType === 'footballStadium' ? 200 :
+                venueType === 'basketballArena' ? 180 :
+                60
+      };
+      
+      const stageDimensions = stageSize || defaultStageSize;
+      
+      setCustomSeatingMap({
         layoutType: venueType,
         sections: mockSections,
-        stage: { x: 250, y: 20, width: 300, height: 60 }
-      });
-    }
-  };
-
-  const handleEventDataChange = (e) => {
-    const { name, value } = e.target;
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setEventData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
+        stage: { 
+          x: 400 - (stageDimensions.width / 2), // Căn giữa theo chiều ngang
+          y: 20, 
+          width: stageDimensions.width, 
+          height: stageDimensions.height 
         }
-      }));
-    } else {
-      setEventData(prev => ({ ...prev, [name]: value }));
+      });
     }
   };
 
@@ -282,51 +272,26 @@ const CreateEventWithSeating = () => {
     const file = e.target.files[0];
     if (file) {
       try {
-        // Show preview immediately
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setEventData(prev => ({
-            ...prev,
-            images: {
-              ...prev.images,
-              [imageType]: reader.result
-            }
-          }));
-        };
-        reader.readAsDataURL(file);
-
-        // Upload to server
-        const formData = new FormData();
-        formData.append(imageType, file);
-
-        const token = localStorage.getItem('token');
-        const response = await axios.post(
-          'http://localhost:5001/api/events/upload-images',
-          formData,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'multipart/form-data'
-            }
-          }
-        );
-
-        if (response.data.success) {
-          // Update with server URL
-          setEventData(prev => ({
-            ...prev,
-            images: {
-              ...prev.images,
-              [`${imageType}_url`]: `http://localhost:5001${response.data.data[imageType]}`
-            }
-          }));
-          toast.success(`Upload ${imageType} thành công!`);
+        // Upload to server using helper function
+        const result = await uploadImage(file, imageType);
+        
+        if (result.success) {
+          // Thông báo thành công
+          alert(`Upload ${imageType} thành công!`);
+          return result.url;
+        } else {
+          alert(`Lỗi upload ${imageType}: ${result.message}`);
         }
       } catch (error) {
         console.error('Upload error:', error);
-        toast.error(`Lỗi upload ${imageType}`);
+        if (error.response?.status === 401) {
+          alert(`Lỗi xác thực, vui lòng đăng nhập lại để upload ${imageType}`);
+        } else {
+          alert(`Lỗi upload ${imageType}: ${error.message}`);
+        }
       }
     }
+    return null;
   };
 
   const handleSeatOptionsChange = (e) => {
@@ -393,8 +358,8 @@ const CreateEventWithSeating = () => {
   };
 
   const nextStep = () => {
-    // Validation cho step 2 (thông tin cơ bản)
-    if (currentStep === 2) {
+    // Validation cho step 1 (thông tin cơ bản)
+    if (currentStep === 1) {
       if (!eventData.startDate || !eventData.endDate) {
         setMessage('Vui lòng điền đầy đủ Ngày bắt đầu và Ngày kết thúc với giờ cụ thể.');
         return;
@@ -426,11 +391,33 @@ const CreateEventWithSeating = () => {
       setMessage('');
     }
     
-    if (currentStep < 4) setCurrentStep(currentStep + 1);
+    if (currentStep < 3) setCurrentStep(currentStep + 1);
   };
 
   const prevStep = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  // Handle event data change
+  const handleEventDataChange = (e) => {
+    const { name, value } = e.target;
+    
+    // Handle nested properties like location.venueName
+    if (name.includes('.')) {
+      const [parent, child] = name.split('.');
+      setEventData(prev => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: value
+        }
+      }));
+    } else {
+      setEventData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -441,31 +428,21 @@ const CreateEventWithSeating = () => {
     try {
       // Debug: Log current state before validation
       console.log('🎛️ Form submit debug:');
-      console.log('  - designMode:', designMode);
-      console.log('  - seatOptions:', seatOptions);
       console.log('  - customSeatingMap sections:', customSeatingMap?.sections?.length || 0);
       console.log('  - ticketTypes:', ticketTypes.length);
 
       // Validate input
-      if (!eventData.title || !eventData.description || !eventData.startDate || !eventData.endDate) {
-        setMessage('Vui lòng điền đầy đủ thông tin cơ bản của sự kiện.');
+      if (!eventData) {
+        setMessage('Không có dữ liệu sự kiện. Vui lòng quay lại bước trước.');
         setLoading(false);
         return;
       }
 
-      // Validate design mode specific requirements
-      if (designMode === 'template') {
-      if (seatOptions.totalSeats < 1 || seatOptions.totalSections < 1) {
-        setMessage('Số ghế và số khu phải lớn hơn 0.');
+      // Validate seating map
+      if (!customSeatingMap || !customSeatingMap.sections || customSeatingMap.sections.length === 0) {
+        setMessage('Vui lòng thiết kế sơ đồ chỗ ngồi.');
         setLoading(false);
         return;
-        }
-      } else if (designMode === 'custom') {
-        if (!customSeatingMap || !customSeatingMap.sections || customSeatingMap.sections.length === 0) {
-          setMessage('Vui lòng thiết kế sơ đồ chỗ ngồi hoặc chuyển về template mode.');
-          setLoading(false);
-          return;
-        }
       }
 
       if (ticketTypes.some(tt => !tt.name || tt.price <= 0 || tt.quantity <= 0)) {
@@ -474,37 +451,33 @@ const CreateEventWithSeating = () => {
         return;
       }
 
-      // Calculate total capacity based on design mode
+      // Calculate total capacity
       let totalCapacity;
       let finalCustomSeatingMap = customSeatingMap;
       
-      if (designMode === 'custom') {
-        // Auto-arrange sections to prevent overlapping
-        console.log('🔧 Auto-arranging sections to prevent overlaps...');
-        finalCustomSeatingMap = autoArrangeSections(customSeatingMap);
+      // Auto-arrange sections to prevent overlapping
+      console.log('🔧 Auto-arranging sections to prevent overlaps...');
+      finalCustomSeatingMap = autoArrangeSections(customSeatingMap);
+      
+      // Log changes if any
+      const hasChanges = finalCustomSeatingMap.sections.some((section, index) => {
+        const original = customSeatingMap.sections[index];
+        return original && (section.x !== original.x || section.y !== original.y);
+      });
+      
+      if (hasChanges) {
+        console.log('✅ Sections auto-arranged to prevent overlaps');
+        // Update state to show arranged positions (optional)
+        setCustomSeatingMap(finalCustomSeatingMap);
         
-        // Log changes if any
-        const hasChanges = finalCustomSeatingMap.sections.some((section, index) => {
-          const original = customSeatingMap.sections[index];
-          return original && (section.x !== original.x || section.y !== original.y);
-        });
-        
-        if (hasChanges) {
-          console.log('✅ Sections auto-arranged to prevent overlaps');
-          // Update state to show arranged positions (optional)
-          setCustomSeatingMap(finalCustomSeatingMap);
-          
-          // Show success message
-          setMessage('🔧 Các sections đã được tự động căn chỉnh để tránh chồng lấp. Vị trí tổng thể vẫn được giữ nguyên.');
-          setTimeout(() => setMessage(''), 3000);
-        } else {
-          console.log('✅ No overlapping sections detected');
-        }
-        
-        totalCapacity = finalCustomSeatingMap.sections.reduce((total, section) => total + (section.capacity || 0), 0);
+        // Show success message
+        setMessage('🔧 Các sections đã được tự động căn chỉnh để tránh chồng lấp. Vị trí tổng thể vẫn được giữ nguyên.');
+        setTimeout(() => setMessage(''), 3000);
       } else {
-        totalCapacity = seatOptions.totalSeats;
+        console.log('✅ No overlapping sections detected');
       }
+      
+      totalCapacity = finalCustomSeatingMap.sections.reduce((total, section) => total + (section.capacity || 0), 0);
 
       const totalTicketQuantity = ticketTypes.reduce((sum, tt) => sum + tt.quantity, 0);
       if (totalTicketQuantity !== totalCapacity) {
@@ -515,36 +488,17 @@ const CreateEventWithSeating = () => {
 
       const token = localStorage.getItem('token');
       
-      // Prepare images data với server URLs
-      const imagesToSend = {
-        logo: eventData.images.logo_url || eventData.images.logo || '',
-        banner: eventData.images.banner_url || eventData.images.banner || ''
-      };
-      
-      // Prepare organizer data với server URL  
-      const organizerToSend = {
-        ...eventData.organizer,
-        logo: eventData.organizer.logo_url || eventData.organizer.logo || ''
-      };
-      
-      console.log('📸 Images to send:', imagesToSend);
-      console.log('👥 Organizer to send:', organizerToSend);
-      
-      // Debug: Log request payload
+      // Prepare request payload
       const requestPayload = {
-          ...eventData,
-          images: imagesToSend,
-          organizer: organizerToSend,
-        seatOptions: designMode === 'template' ? seatOptions : undefined,
-        customSeatingMap: designMode === 'custom' ? finalCustomSeatingMap : undefined,
-        designMode,
-          ticketTypes,
-        templateType: 'seating'
+        ...eventData,
+        seatingMap: finalCustomSeatingMap,
+        ticketTypes: ticketTypes
       };
+      
       console.log('📤 Request payload:', JSON.stringify(requestPayload, null, 2));
       
       const response = await axios.post(
-        'http://localhost:5001/api/events/create-with-seating',
+        'http://localhost:5001/api/events',
         requestPayload,
         {
           headers: {
@@ -554,10 +508,10 @@ const CreateEventWithSeating = () => {
         }
       );
 
-      if (response.data.success) {
+      if (response.data) {
         setMessage('Tạo sự kiện thành công!');
         setTimeout(() => {
-          navigate(`/events/${response.data.data._id}`);
+          navigate('/my-events');
         }, 2000);
       }
     } catch (error) {
@@ -642,138 +596,217 @@ const CreateEventWithSeating = () => {
   // Auto-arrange sections to prevent overlapping
   const autoArrangeSections = (seatingMap) => {
     if (!seatingMap || !seatingMap.sections || seatingMap.sections.length === 0) {
-      return seatingMap;
+      return seatingMap; // Nothing to arrange
     }
 
-    const arrangedMap = { ...seatingMap };
-    let sections = [...arrangedMap.sections];
+    // Clone to avoid mutation
+    const clonedMap = JSON.parse(JSON.stringify(seatingMap));
     
-    // Helper function to check if two rectangles overlap
     const isOverlapping = (rect1, rect2) => {
-      const margin = 30; // Minimum margin between sections
-      return !(
-        rect1.x + (rect1.width || 150) + margin <= rect2.x ||
-        rect2.x + (rect2.width || 150) + margin <= rect1.x ||
-        rect1.y + (rect1.height || 100) + margin <= rect2.y ||
-        rect2.y + (rect2.height || 100) + margin <= rect1.y
-      );
+      // Thêm margin để đảm bảo khoảng cách an toàn
+      const margin = 25; // Tăng lên từ 15 để đảm bảo khoảng cách lớn hơn
+      return rect1.x < rect2.x + rect2.width + margin &&
+         rect1.x + rect1.width + margin > rect2.x &&
+         rect1.y < rect2.y + rect2.height + margin &&
+         rect1.y + rect1.height + margin > rect2.y;
     };
-
-    // Smart grid-based arrangement
-    const arrangeInGrid = (sections) => {
-      // Calculate stage position for reference
-      const stage = seatingMap.stage || { x: 400, y: 50, width: 200, height: 60 };
-      
-      // Sort sections by distance from stage (VIP sections closer)
-      const sortedSections = [...sections].sort((a, b) => {
-        const distA = Math.sqrt(Math.pow(a.x - stage.x, 2) + Math.pow(a.y - stage.y, 2));
-        const distB = Math.sqrt(Math.pow(b.x - stage.x, 2) + Math.pow(b.y - stage.y, 2));
-        return distA - distB;
-      });
-
-      const arrangedSections = [];
-      const sectionWidth = 180; // Standard width with margin
-      const sectionHeight = 130; // Standard height with margin
-      const startX = Math.max(50, stage.x - sectionWidth * 2);
-      const startY = stage.y + (stage.height || 60) + 50; // Below stage
-      
-      let currentRow = 0;
-      let currentCol = 0;
-      const maxCols = Math.floor(1000 / sectionWidth); // Max sections per row
-      
-      sortedSections.forEach((section, index) => {
-        // Try original position first if it doesn't overlap
-        let finalX = section.x;
-        let finalY = section.y;
-        let needsRepositioning = false;
-        
-        // Check if original position overlaps with arranged sections
-        const testSection = { ...section, x: finalX, y: finalY };
-        const hasOverlap = arrangedSections.some(arranged => 
-          isOverlapping(testSection, arranged)
-        );
-        
-        // Also check if too close to stage
-        const tooCloseToStage = isOverlapping(testSection, stage);
-        
-        if (hasOverlap || tooCloseToStage) {
-          needsRepositioning = true;
-          
-          // Use grid positioning
-          finalX = startX + (currentCol * sectionWidth);
-          finalY = startY + (currentRow * sectionHeight);
-          
-          // If still overlaps, try next position
-          let attempts = 0;
-          while (attempts < maxCols * 5) {
-            const gridTestSection = { ...section, x: finalX, y: finalY };
-            const gridHasOverlap = arrangedSections.some(arranged => 
-              isOverlapping(gridTestSection, arranged)
-            );
-            
-            if (!gridHasOverlap && !isOverlapping(gridTestSection, stage)) {
-              break;
-            }
-            
-            // Move to next grid position
-            currentCol++;
-            if (currentCol >= maxCols) {
-              currentCol = 0;
-              currentRow++;
-            }
-            
-            finalX = startX + (currentCol * sectionWidth);
-            finalY = startY + (currentRow * sectionHeight);
-            attempts++;
-          }
-          
-          console.log(`🔧 Auto-arranged section "${section.name}" from (${section.x}, ${section.y}) to (${finalX}, ${finalY})`);
-        }
-        
-        arrangedSections.push({
-          ...section,
-          x: finalX,
-          y: finalY
-        });
-        
-        // Move to next grid position for next section that needs repositioning
-        if (needsRepositioning) {
-          currentCol++;
-          if (currentCol >= maxCols) {
-            currentCol = 0;
-            currentRow++;
-          }
-        }
-      });
-      
-      return arrangedSections;
-    };
-
-    // Apply smart arrangement
-    const finalSections = arrangeInGrid(sections);
-    arrangedMap.sections = finalSections;
     
-    console.log(`🎯 Auto-arrange completed: ${finalSections.length} sections arranged`);
-    return arrangedMap;
+    const arrangeInGrid = (sections) => {
+      // Calculate optimal spacing based on layout type
+      const layoutType = clonedMap.layoutType || 'custom';
+      
+      // Xác định khoảng cách giữa các khu vực dựa trên loại layout
+      const spacingConfig = {
+        footballStadium: {
+          horizontalGap: 150,  // Tăng từ 100
+          verticalGap: 120,    // Tăng từ 80
+          stagePadding: 300,   // Tăng từ 250
+          startX: 100,
+          startY: 300,
+          sectionPadding: 30   // Tăng từ 15
+        },
+        basketballArena: {
+          horizontalGap: 120,  // Tăng từ 80
+          verticalGap: 100,    // Tăng từ 70
+          stagePadding: 250,   // Tăng từ 220
+          startX: 120,
+          startY: 280,
+          sectionPadding: 25   // Tăng từ 12
+        },
+        default: {
+          horizontalGap: 80,   // Tăng từ 60
+          verticalGap: 70,     // Tăng từ 50
+          stagePadding: 150,   // Tăng từ 120
+          startX: 50,
+          startY: 200,
+          sectionPadding: 20   // Tăng từ 10
+        }
+      };
+      
+      const config = spacingConfig[layoutType] || spacingConfig.default;
+
+      // Define stage padding - space around the stage
+      const stage = clonedMap.stage || { x: 400, y: 50, width: 200, height: 60 };
+      const stageBottom = stage.y + stage.height;
+
+      // Get max width and height of sections for better arrangement
+      let maxSectionWidth = 0;
+      let maxSectionHeight = 0;
+      sections.forEach(section => {
+        maxSectionWidth = Math.max(maxSectionWidth, section.width || 120);
+        maxSectionHeight = Math.max(maxSectionHeight, section.height || 100);
+      });
+
+      // Tăng kích thước tối thiểu để giảm chồng lấn
+      maxSectionWidth = Math.max(maxSectionWidth, 180);  // Tăng từ 150
+      maxSectionHeight = Math.max(maxSectionHeight, 150); // Tăng từ 120
+
+      // Determine column count based on screen space
+      const totalWidth = CANVAS_WIDTH - config.startX * 2;
+      const columnsCount = Math.floor(totalWidth / (maxSectionWidth + config.horizontalGap));
+      const columns = Math.max(1, Math.min(columnsCount, 3)); // Giảm từ 4 xuống 3 cột
+
+      // Special layout for stadium/arena types
+      if (['footballStadium', 'basketballArena'].includes(layoutType)) {
+        // Place sections in U shape around the stage/field
+        const leftStart = stage.x - config.stagePadding;
+        const rightStart = stage.x + stage.width + config.horizontalGap;
+        const bottomStart = stageBottom + config.verticalGap;
+        
+        // Calculate how many sections on each side
+        const totalSections = sections.length;
+        const sectionsPerSide = Math.max(1, Math.ceil(totalSections / 3));
+        
+        // Phân bổ lại các khu vực xung quanh sân
+        sections.forEach((section, index) => {
+          // Đặt độ rộng và cao tối thiểu để tránh sections quá nhỏ
+          section.width = Math.max(section.width || 180, 180);
+          section.height = Math.max(section.height || 150, 150);
+          
+          // Tính toán vị trí dựa trên index
+          const groupIndex = Math.floor(index / sectionsPerSide);
+          const indexInGroup = index % sectionsPerSide;
+          
+          if (groupIndex === 0) {
+            // Left side sections - Đặt các khu vực bên trái cách xa hơn
+            section.x = leftStart - section.width - config.sectionPadding * (indexInGroup + 1) * 1.5;
+            section.y = stageBottom + indexInGroup * (section.height + config.verticalGap);
+          } else if (groupIndex === 1) {
+            // Bottom sections - Đặt các khu vực dưới cùng cách xa hơn
+            const totalWidth = sectionsPerSide * section.width + (sectionsPerSide - 1) * config.horizontalGap * 1.5;
+            const startX = stage.x + (stage.width - totalWidth) / 2;
+            
+            section.x = startX + indexInGroup * (section.width + config.horizontalGap * 1.5);
+            section.y = bottomStart + config.stagePadding;
+          } else {
+            // Right side sections - Đặt các khu vực bên phải cách xa hơn
+            section.x = rightStart + config.sectionPadding * (indexInGroup + 1) * 1.5;
+            section.y = stageBottom + indexInGroup * (section.height + config.verticalGap);
+          }
+          
+          // Đảm bảo nhãn khu vực được đặt ở vị trí phù hợp
+          section.labelX = section.x + section.width / 2;
+          section.labelY = section.y - 20;
+        });
+      } else {
+        // Non-sports venues - standard grid layout with improved spacing
+        const rows = Math.ceil(sections.length / columns);
+        const horizontalSpacing = config.horizontalGap + maxSectionWidth;
+        const verticalSpacing = config.verticalGap + maxSectionHeight;
+        
+        sections.forEach((section, index) => {
+          // Đặt độ rộng và cao tối thiểu để tránh sections quá nhỏ
+          section.width = Math.max(section.width || 180, 180);
+          section.height = Math.max(section.height || 150, 150);
+          
+          // Calculate position based on grid pattern
+          const row = Math.floor(index / columns);
+          const col = index % columns;
+          
+          // Position below stage with padding
+          const topStart = stageBottom + config.stagePadding;
+          
+          section.x = config.startX + col * (horizontalSpacing + 20); // Thêm 20px spacing
+          section.y = topStart + row * (verticalSpacing + 20); // Thêm 20px spacing
+          
+          // Đảm bảo nhãn khu vực được đặt ở vị trí phù hợp
+          section.labelX = section.x + section.width / 2;
+          section.labelY = section.y - 20;
+        });
+      }
+      
+      // Check for any overlaps and fix them
+      let hasOverlap = true;
+      const maxIterations = 15; // Tăng từ 10 lên 15
+      let iteration = 0;
+      
+      while (hasOverlap && iteration < maxIterations) {
+        hasOverlap = false;
+        iteration++;
+        
+        // Check all pairs of sections for overlaps
+        for (let i = 0; i < sections.length; i++) {
+          for (let j = i + 1; j < sections.length; j++) {
+            const section1 = sections[i];
+            const section2 = sections[j];
+            
+            if (isOverlapping(section1, section2)) {
+              hasOverlap = true;
+              // Move section2 to avoid overlap - sử dụng chiến lược phân tán
+              if (section1.x <= section2.x) {
+                // section2 nằm bên phải section1
+                section2.x = section1.x + section1.width + config.sectionPadding * 2;
+              } else {
+                // section2 nằm bên trái section1
+                section2.x = section1.x - section2.width - config.sectionPadding * 2;
+              }
+              
+              // Nếu vẫn chồng lên theo chiều dọc
+              if (isOverlapping(section1, section2)) {
+                if (section1.y <= section2.y) {
+                  // section2 nằm bên dưới section1
+                  section2.y = section1.y + section1.height + config.sectionPadding * 2;
+                } else {
+                  // section2 nằm bên trên section1
+                  section2.y = section1.y - section2.height - config.sectionPadding * 2;
+                }
+              }
+              
+              // Cập nhật lại vị trí nhãn
+              section2.labelX = section2.x + section2.width / 2;
+              section2.labelY = section2.y - 20;
+            }
+          }
+        }
+      }
+      
+      return sections;
+    };
+    
+    clonedMap.sections = arrangeInGrid(clonedMap.sections);
+    return clonedMap;
   };
 
   // Switch between design modes
   const handleDesignModeChange = (mode) => {
-    setDesignMode(mode);
+    // Luôn đặt mode là 'custom' bất kể input
+    setDesignMode('custom');
     
-    // Reset manual editing flag when switching design mode
+    // Reset manual editing flag
     setIsEditingTicketTypesManually(false);
-    
-    if (mode === 'custom') {
-      // Initialize custom map with current template if available
-      if (previewSeatingMap && previewSeatingMap.sections.length > 0) {
-        setCustomSeatingMap({
-          ...previewSeatingMap,
-          layoutType: 'custom'
-        });
-      }
-    }
   };
+
+  useEffect(() => {
+    if (seatOptions.venueType && (!customSeatingMap || customSeatingMap.layoutType !== seatOptions.venueType)) {
+      // Update stage and layout type when venue type changes
+      const newStage = getInitialStage(seatOptions.venueType);
+      setCustomSeatingMap(prevMap => ({
+        ...prevMap,
+        stage: newStage,
+        layoutType: seatOptions.venueType
+      }));
+    }
+  }, [seatOptions.venueType]);
 
   return (
     <div className="create-event-container">
@@ -781,20 +814,11 @@ const CreateEventWithSeating = () => {
         <h2>🎪 Tạo Sự Kiện Có Chỗ Ngồi</h2>
         <p>Tạo sự kiện với hệ thống quản lý chỗ ngồi thông minh</p>
         
-        {templateInfo && (
-          <div className="text-center mb-4">
-            <span className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm">
-              📋 Template: {templateInfo.templateName}
-            </span>
-          </div>
-        )}
-        
-        {/* Progress indicator */}
+        {/* Progress indicator - Bỏ bước 1 */}
         <div className="progress-indicator">
-          <div className={`step ${currentStep >= 1 ? 'active' : ''}`}>1. Template</div>
-          <div className={`step ${currentStep >= 2 ? 'active' : ''}`}>2. Thông tin</div>
-          <div className={`step ${currentStep >= 3 ? 'active' : ''}`}>3. Cấu hình</div>
-          <div className={`step ${currentStep >= 4 ? 'active' : ''}`}>4. Xác nhận</div>
+          <div className={`step ${currentStep >= 1 ? 'active' : ''}`}>1. Thông tin</div>
+          <div className={`step ${currentStep >= 2 ? 'active' : ''}`}>2. Cấu hình</div>
+          <div className={`step ${currentStep >= 3 ? 'active' : ''}`}>3. Xác nhận</div>
         </div>
       </div>
 
@@ -806,40 +830,10 @@ const CreateEventWithSeating = () => {
 
       <form onSubmit={handleSubmit} className="create-event-form">
         
-        {/* Step 1: Venue Template Selection */}
+        {/* Bỏ Step 1: Venue Template Selection */}
+        
+        {/* Step 1: Basic Event Info (đổi từ step 2) */}
         {currentStep === 1 && (
-          <div className="form-section">
-            <h3>🏟️ Chọn Loại Địa Điểm</h3>
-            <p>Chọn template phù hợp với sự kiện của bạn để được tự động cấu hình tối ưu</p>
-            
-            <div className="venue-templates">
-              {Object.entries(VENUE_TEMPLATES).map(([key, template]) => (
-                <div 
-                  key={key}
-                  className={`venue-template ${selectedVenueTemplate === key ? 'selected' : ''}`}
-                  onClick={() => applyVenueTemplate(key)}
-                >
-                  <h4>{template.name}</h4>
-                  <p>{template.description}</p>
-                  <div className="template-stats">
-                    <span>📍 {template.defaultSections} khu vực</span>
-                    <span>🪑 {template.defaultSeats} ghế</span>
-                    <span>🎫 {template.ticketTypeTemplates.length} loại vé</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="step-actions">
-              <button type="button" onClick={nextStep} disabled={!selectedVenueTemplate}>
-                Tiếp theo →
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Basic Event Info */}
-        {currentStep === 2 && (
           <div className="form-section">
             <h3>📝 Thông Tin Sự Kiện</h3>
             
@@ -945,165 +939,58 @@ const CreateEventWithSeating = () => {
 
             
             <div className="step-actions">
-              <button type="button" onClick={prevStep}>← Quay lại</button>
               <button type="button" onClick={nextStep}>Tiếp theo →</button>
             </div>
           </div>
         )}
 
-        {/* Step 3: Seat & Ticket Configuration */}
-        {currentStep === 3 && (
+        {/* Step 2: Seat & Ticket Configuration (đổi từ step 3) */}
+        {currentStep === 2 && (
           <>
-            {/* Design Mode Selection */}
-            <div className="form-section">
-              <h3>🎭 Thiết kế sơ đồ chỗ ngồi</h3>
-              <p>Chọn cách bạn muốn thiết kế sơ đồ chỗ ngồi cho sự kiện</p>
-              
-              <div className="design-mode-selector">
-                <div 
-                  className={`design-mode-option ${designMode === 'template' ? 'selected' : ''}`}
-                  onClick={() => handleDesignModeChange('template')}
-                >
-                  <div className="mode-icon">📋</div>
-                  <h4>Sử dụng Template</h4>
-                  <p>Dùng template có sẵn với layout tự động</p>
-                  <ul>
-                    <li>✅ Nhanh chóng, đơn giản</li>
-                    <li>✅ Layout được tối ưu sẵn</li>
-                    <li>✅ Phù hợp cho sự kiện cơ bản</li>
-                  </ul>
-                </div>
-                
-                <div 
-                  className={`design-mode-option ${designMode === 'custom' ? 'selected' : ''}`}
-                  onClick={() => handleDesignModeChange('custom')}
-                >
-                  <div className="mode-icon">🎨</div>
-                  <h4>Thiết kế tùy chỉnh</h4>
-                  <p>Kéo thả và tùy chỉnh từng khu vực</p>
-                  <ul>
-                    <li>🎯 Linh hoạt 100%</li>
-                    <li>🎯 Tùy chỉnh vị trí tự do</li>
-                    <li>🎯 Phù hợp cho sự kiện phức tạp</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* Template Mode */}
-            {designMode === 'template' && (
-              <div className="form-section">
-                <h3>🪑 Cấu Hình Ghế Ngồi (Template)</h3>
-              <p>Template đã được cấu hình tự động. Bạn có thể điều chỉnh theo nhu cầu.</p>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="totalSeats">Tổng số ghế *</label>
-                  <input
-                    type="number"
-                    id="totalSeats"
-                    name="totalSeats"
-                    value={seatOptions.totalSeats}
-                    onChange={handleSeatOptionsChange}
-                    min="1"
-                    max="1000"
-                    required
-                  />
-                  <small>Số vé sẽ được điều chỉnh tự động theo tỷ lệ</small>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="totalSections">Số khu vực *</label>
-                  <input
-                    type="number"
-                    id="totalSections"
-                    name="totalSections"
-                    value={seatOptions.totalSections}
-                    onChange={handleSeatOptionsChange}
-                    min="1"
-                    max="20"
-                    required
-                  />
-                  <small>Layout {selectedVenueTemplate} với {seatOptions.totalSections} khu</small>
-                </div>
-              </div>
-
-              {/* Live Seating Preview */}
-              <div className="seating-preview-section">
-                <h4>🎯 Xem Trước Sơ Đồ Ghế</h4>
-                <p>{seatOptions.totalSeats} ghế phân bố thông minh trong {seatOptions.totalSections} khu vực theo layout {selectedVenueTemplate}</p>
-                
-                {previewSeatingMap ? (
-                  <SeatingPreview 
-                    seatingMap={previewSeatingMap} 
-                    showLabels={true}
-                    interactive={false}
-                  />
-                ) : (
-                  <div className="preview-loading">
-                    <p>🔄 Đang tạo preview...</p>
-                    <small>Hãy chọn template và cấu hình để xem preview</small>
-                  </div>
-                )}
-                
-                <div className="preview-actions">
-                  <button 
-                    type="button" 
-                    onClick={() => generatePreviewMap()}
-                    className="btn-secondary"
-                  >
-                    🔄 Cập nhật preview
-                  </button>
-                </div>
-              </div>
-            </div>
-            )}
-
+            {/* Bỏ Design Mode Selection */}
+            
             {/* Custom Mode */}
-            {designMode === 'custom' && (
-              <div className="form-section">
-                <h3>🎨 Thiết kế sơ đồ tùy chỉnh</h3>
-                <p>Kéo thả các khu vực, sân khấu để tạo layout phù hợp với sự kiện của bạn</p>
-                
-                {/* Info about auto-arrange */}
-                <div className="info-box">
-                  <p>ℹ️ <strong>Lưu ý:</strong> Khi tạo sự kiện, hệ thống sẽ tự động căn chỉnh các sections để tránh chồng lấp, nhưng vẫn giữ nguyên layout tổng thể mà bạn đã thiết kế.</p>
-                </div>
-                
-                {/* Auto-arrange button */}
-                <div className="auto-arrange-section">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => {
-                      console.log('🔧 Manual auto-arrange triggered');
-                      const arrangedMap = autoArrangeSections(customSeatingMap);
-                      setCustomSeatingMap(arrangedMap);
-                      console.log('✅ Sections auto-arranged manually');
-                    }}
-                  >
-                    🔧 Xem trước căn chỉnh tự động
-                  </button>
-                  <small>Kiểm tra cách hệ thống sẽ căn chỉnh các sections để tránh chồng lấp</small>
-                </div>
-                
-                <InteractiveSeatingDesigner
-                  initialSeatingMap={customSeatingMap}
-                  onSeatingMapChange={handleCustomSeatingMapChange}
-                  ticketTypes={ticketTypes}
-                  onTicketTypesChange={setTicketTypes}
-                  layoutType={selectedVenueTemplate}
-                />
+            <div className="form-section">
+              <h3>🎨 Thiết kế sơ đồ tùy chỉnh</h3>
+              <p>Kéo thả các khu vực, sân khấu để tạo layout phù hợp với sự kiện của bạn</p>
+              
+              {/* Info about auto-arrange */}
+              <div className="info-box">
+                <p>ℹ️ <strong>Lưu ý:</strong> Khi tạo sự kiện, hệ thống sẽ tự động căn chỉnh các sections để tránh chồng lấp, nhưng vẫn giữ nguyên layout tổng thể mà bạn đã thiết kế.</p>
               </div>
-            )}
+              
+              {/* Auto-arrange button */}
+              <div className="auto-arrange-section">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    console.log('🔧 Manual auto-arrange triggered');
+                    const arrangedMap = autoArrangeSections(customSeatingMap);
+                    setCustomSeatingMap(arrangedMap);
+                    console.log('✅ Sections auto-arranged manually');
+                  }}
+                >
+                  🔧 Xem trước căn chỉnh tự động
+                </button>
+                <small>Kiểm tra cách hệ thống sẽ căn chỉnh các sections để tránh chồng lấp</small>
+              </div>
+              
+              <InteractiveSeatingDesigner
+                initialSeatingMap={customSeatingMap}
+                onSeatingMapChange={handleCustomSeatingMapChange}
+                ticketTypes={ticketTypes}
+                onTicketTypesChange={setTicketTypes}
+              />
+            </div>
 
             {/* Ticket Types */}
             <div className="form-section">
               <h3>🎫 Loại Vé</h3>
-              <p>Đã được cấu hình tự động dựa trên template. Điều chỉnh giá và số lượng nếu cần.</p>
+              <p>Thiết lập các loại vé cho sự kiện của bạn.</p>
               
               {/* Manual editing indicator */}
-              {isEditingTicketTypesManually && designMode === 'custom' && (
+              {isEditingTicketTypesManually && (
                 <div className="manual-editing-indicator">
                   <p>📝 Bạn đang chỉnh sửa thủ công. Ticket types sẽ không tự động sync với seating map.</p>
                   <button
@@ -1162,7 +1049,6 @@ const CreateEventWithSeating = () => {
                         value={ticketType.quantity}
                         onChange={(e) => handleTicketTypeChange(index, 'quantity', e.target.value)}
                         min="0"
-                        max={seatOptions.totalSeats}
                         required
                       />
                     </div>
@@ -1201,68 +1087,81 @@ const CreateEventWithSeating = () => {
                 + Thêm loại vé
               </button>
 
-              <div className="ticket-summary">
-                <p><strong>📊 Tổng số vé:</strong> {ticketTypes.reduce((sum, tt) => sum + tt.quantity, 0)} / {seatOptions.totalSeats} ghế</p>
-                <p><strong>💰 Doanh thu dự kiến:</strong> {ticketTypes.reduce((sum, tt) => sum + (tt.price * tt.quantity), 0).toLocaleString('vi-VN')} VND</p>
+              <div className="step-actions">
+                <button type="button" onClick={prevStep}>← Quay lại</button>
+                <button type="button" onClick={nextStep}>Tiếp theo →</button>
               </div>
-            </div>
-            
-            <div className="step-actions">
-              <button type="button" onClick={prevStep}>← Quay lại</button>
-              <button type="button" onClick={nextStep}>Tiếp theo →</button>
             </div>
           </>
         )}
 
-        {/* Step 4: Confirmation */}
-        {currentStep === 4 && (
+        {/* Step 3: Confirmation (đổi từ step 4) */}
+        {currentStep === 3 && (
           <div className="form-section">
-            <h3>✅ Xác Nhận Tạo Sự Kiện</h3>
+            <h3>✅ Xác Nhận Thông Tin</h3>
+            <p>Vui lòng kiểm tra lại thông tin trước khi tạo sự kiện</p>
             
-            <div className="confirmation-summary">
-              <div className="summary-item">
-                <h4>📝 Thông tin sự kiện</h4>
-                <p><strong>Tên:</strong> {eventData.title}</p>
-                <p><strong>Địa điểm:</strong> {eventData.location.venueName || 'Chưa có'}</p>
-                <p><strong>Thời gian:</strong> {new Date(eventData.startDate).toLocaleString('vi-VN')} - {new Date(eventData.endDate).toLocaleString('vi-VN')}</p>
+            <div className="confirmation-details">
+              <div className="confirmation-section">
+                <h4>📝 Thông Tin Sự Kiện</h4>
+                <div className="confirmation-item">
+                  <span>Tên sự kiện:</span>
+                  <strong>{eventData.title}</strong>
+                </div>
+                <div className="confirmation-item">
+                  <span>Thời gian:</span>
+                  <strong>
+                    {new Date(eventData.startDate).toLocaleString('vi-VN')} - {new Date(eventData.endDate).toLocaleString('vi-VN')}
+                  </strong>
+                </div>
+                <div className="confirmation-item">
+                  <span>Địa điểm:</span>
+                  <strong>{eventData.location.venueName}, {eventData.location.address}</strong>
+                </div>
               </div>
               
-              <div className="summary-item">
-                <h4>🏟️ Layout sự kiện</h4>
-                <p><strong>Template:</strong> {VENUE_TEMPLATES[selectedVenueTemplate]?.name}</p>
-                <p><strong>Tổng ghế:</strong> {seatOptions.totalSeats}</p>
-                <p><strong>Số khu:</strong> {seatOptions.totalSections}</p>
+              <div className="confirmation-section">
+                <h4>🎫 Thông Tin Vé</h4>
+                <div className="ticket-types-summary">
+                  {ticketTypes.map((tt, index) => (
+                    <div key={index} className="ticket-type-summary">
+                      <div className="ticket-color" style={{ backgroundColor: tt.color }}></div>
+                      <div className="ticket-details">
+                        <strong>{tt.name}</strong>
+                        <span>{tt.quantity} vé × {tt.price.toLocaleString('vi-VN')}đ</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="confirmation-item total">
+                  <span>Tổng số vé:</span>
+                  <strong>{ticketTypes.reduce((sum, tt) => sum + tt.quantity, 0)} vé</strong>
+                </div>
               </div>
               
-              <div className="summary-item">
-                <h4>🎫 Danh sách vé</h4>
-                {ticketTypes.map((tt, index) => (
-                  <p key={index}><strong>{tt.name}:</strong> {tt.quantity} vé × {tt.price.toLocaleString('vi-VN')} VND</p>
-                ))}
-                <p><strong>💰 Tổng doanh thu dự kiến:</strong> {ticketTypes.reduce((sum, tt) => sum + (tt.price * tt.quantity), 0).toLocaleString('vi-VN')} VND</p>
+              <div className="confirmation-section">
+                <h4>🗺️ Sơ Đồ Chỗ Ngồi</h4>
+                <div className="seating-map-summary">
+                  <p>Sơ đồ tùy chỉnh với {customSeatingMap.sections.length} khu vực</p>
+                  <div className="seating-preview-container">
+                    <SeatingPreview 
+                      seatingMap={customSeatingMap} 
+                      showLabels={true}
+                      interactive={false}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="termsAndConditions">Điều khoản và điều kiện</label>
-              <textarea
-                id="termsAndConditions"
-                name="termsAndConditions"
-                value={eventData.termsAndConditions}
-                onChange={handleEventDataChange}
-                placeholder="Các quy định và điều kiện tham gia sự kiện"
-                rows="4"
-              />
             </div>
             
             <div className="step-actions">
               <button type="button" onClick={prevStep}>← Quay lại</button>
-              <button
-                type="submit"
-                className="submit-btn primary"
+              <button 
+                type="submit" 
+                className="submit-button"
                 disabled={loading}
               >
-                {loading ? '🔄 Đang tạo...' : '🎉 Tạo Sự Kiện'}
+                {loading ? '🔄 Đang xử lý...' : '✅ Tạo Sự Kiện'}
               </button>
             </div>
           </div>

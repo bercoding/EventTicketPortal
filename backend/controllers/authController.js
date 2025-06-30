@@ -18,7 +18,7 @@ const generateOTP = () => {
 
 // Đăng ký
 exports.register = async (req, res) => {
-    const { username, email, password } = req.body;
+    const { username, email, password, fullName } = req.body;
     
     try {
         // Kiểm tra user đã tồn tại
@@ -31,16 +31,26 @@ exports.register = async (req, res) => {
             });
         }
 
+        // Hash password trước khi lưu vào OTP record
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
         // Tạo OTP
         const otpCode = generateOTP();
         const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
 
-        // Lưu OTP vào database
-        await Otp.create({
+        // Lưu OTP và thông tin đăng ký vào database
+        const otpRecord = await Otp.create({
             email,
             username,
             otpCode,
-            expiresAt: otpExpiry
+            expiresAt: otpExpiry,
+            userData: {       // Lưu thông tin user để tạo sau khi xác thực
+                fullName,
+                email, 
+                username,
+                password: hashedPassword
+            }
         });
 
         // Gửi email OTP
@@ -58,24 +68,13 @@ exports.register = async (req, res) => {
             message: emailContent
         });
         
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-        
-        // Tạo user mới nhưng chưa active
-        const user = await User.create({
-            username,
-            email,
-            password: hashedPassword,
-            status: 'pending'
-        });
-        
         res.status(201).json({
             success: true,
             message: 'Đăng ký thành công. Vui lòng kiểm tra email để lấy mã OTP.',
-            userId: user._id
+            email: email // Trả về email để sử dụng khi xác thực OTP
         });
     } catch (error) {
+        console.error('Error during registration:', error);
         res.status(400).json({ 
             success: false,
             message: 'Đăng ký thất bại',
@@ -104,25 +103,32 @@ exports.verifyOTP = async (req, res) => {
             });
         }
 
-        // Tìm user tương ứng
-        const user = await User.findOne({ 
-            email: otpRecord.email,
-            username: otpRecord.username
-        });
-
+        // Tạo user mới từ thông tin đã lưu trong OTP record
+        const userData = otpRecord.userData;
+        
+        // Kiểm tra xem người dùng đã được tạo chưa
+        let user = await User.findOne({ email: otpRecord.email });
+        
         if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy người dùng'
+            // Tạo user mới nếu chưa tồn tại
+            user = await User.create({
+                username: userData.username,
+                email: userData.email,
+                password: userData.password, // Đã được hash từ trước
+                fullName: userData.fullName,
+                status: 'active',
+                isVerified: true
             });
+        } else {
+            // Cập nhật trạng thái nếu user đã tồn tại
+            user.status = 'active';
+            user.isVerified = true;
+            await user.save();
         }
 
-        // Cập nhật trạng thái OTP và user
+        // Cập nhật trạng thái OTP
         otpRecord.isVerified = true;
         await otpRecord.save();
-
-        user.status = 'active';
-        await user.save();
 
         // Tạo token và trả về thông tin user
         const token = generateToken(user._id);
@@ -135,6 +141,7 @@ exports.verifyOTP = async (req, res) => {
                 id: user._id,
                 username: user.username,
                 email: user.email,
+                fullName: user.fullName,
                 role: user.role
             }
         });
@@ -152,30 +159,34 @@ exports.resendOTP = async (req, res) => {
     const { email } = req.body;
 
     try {
-        // Tìm user chưa được xác thực
-        const user = await User.findOne({ 
+        // Tìm OTP gần nhất cho email này
+        const lastOtp = await Otp.findOne({ 
             email,
-            status: 'pending'
-        });
+            isVerified: false
+        }).sort({ createdAt: -1 });
 
-        if (!user) {
+        if (!lastOtp) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy tài khoản cần xác thực'
+                message: 'Không tìm thấy thông tin đăng ký cần xác thực'
             });
         }
+
+        // Lấy thông tin người dùng từ OTP trước đó
+        const userData = lastOtp.userData;
 
         // Tạo OTP mới
         const otpCode = generateOTP();
         const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
 
         // Xóa OTP cũ và tạo mới
-        await Otp.deleteMany({ email });
+        await Otp.deleteMany({ email, isVerified: false });
         await Otp.create({
-            email: user.email,
-            username: user.username,
+            email,
+            username: lastOtp.username,
             otpCode,
-            expiresAt: otpExpiry
+            expiresAt: otpExpiry,
+            userData: userData // Giữ lại thông tin người dùng đã đăng ký
         });
 
         // Gửi email OTP
@@ -187,7 +198,7 @@ exports.resendOTP = async (req, res) => {
         `;
 
         await sendEmail({
-            email: user.email,
+            email,
             subject: 'Mã OTP mới - Event Ticket Portal',
             message: emailContent
         });

@@ -26,7 +26,6 @@ import BecomeOwnerPage from './pages/BecomeOwnerPage';
 import MyTicketsPage from './pages/MyTicketsPage';
 import EventDetailPage from './pages/EventDetailPage';
 import BookingPage from './pages/BookingPage';
-import EventListTest from './pages/EventListTest';
 import Forum from './pages/Forum';
 import EventTemplateSelection from './pages/event/EventTemplateSelection';
 import CreateEvent from './pages/event/CreateEvent';
@@ -124,7 +123,6 @@ const App = () => {
                                         <Route path="/home" element={<TicketboxHome />} />
                                         <Route path="/old-home" element={<Home />} />
                                         <Route path="/events" element={<AllEvents />} />
-                                        <Route path="/events-test" element={<EventListTest />} />
                                         <Route path="/chat" element={<ChatPage />} />
                                         <Route path="/forum" element={<Forum />} />
                                         <Route path="/event-templates" element={<EventTemplateSelection />} />

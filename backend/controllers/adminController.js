@@ -215,18 +215,23 @@ exports.getComplaints = async (req, res) => {
 exports.resolveComplaint = async (req, res) => {
   try {
     const { complaintId } = req.params;
-    const { resolution } = req.body;
+    const { resolution, note } = req.body;
     
     const complaint = await Complaint.findByIdAndUpdate(
       complaintId,
       { 
         status: 'resolved',
         resolution,
+        resolutionNote: note,
         resolvedAt: new Date(),
         resolvedBy: req.user.id
       },
       { new: true }
-    ).populate('user', 'username email fullName');
+    )
+    .populate('user', 'username email fullName')
+    .populate('relatedEvent', 'title')
+    .populate('relatedUser', 'username email fullName')
+    .populate('resolvedBy', 'username email fullName');
     
     if (!complaint) {
       return res.status(404).json({ message: 'Complaint not found' });
@@ -241,16 +246,10 @@ exports.resolveComplaint = async (req, res) => {
 // Get all posts for moderation
 exports.getPosts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, moderationStatus, search } = req.query;
+    const { page = 1, limit = 10, status } = req.query;
     const filter = {};
     
-    if (moderationStatus) filter.moderationStatus = moderationStatus;
-    if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { content: { $regex: search, $options: 'i' } }
-      ];
-    }
+    if (status) filter.moderationStatus = status;
     
     const posts = await Post.find(filter)
       .populate('author', 'username email fullName')
@@ -319,12 +318,10 @@ exports.deletePost = async (req, res) => {
 // View violation reports
 exports.getViolationReports = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, violationType, priority } = req.query;
+    const { page = 1, limit = 10, status } = req.query;
     const filter = {};
     
     if (status) filter.status = status;
-    if (violationType) filter.violationType = violationType;
-    if (priority) filter.priority = priority;
     
     const reports = await ViolationReport.find(filter)
       .populate('reporter', 'username email fullName')
@@ -351,26 +348,25 @@ exports.getViolationReports = async (req, res) => {
 exports.resolveViolationReport = async (req, res) => {
   try {
     const { reportId } = req.params;
-    const { resolution, actionTaken, actionDescription } = req.body;
+    const { action, reason } = req.body;
     
     const report = await ViolationReport.findByIdAndUpdate(
       reportId,
       { 
         status: 'resolved',
-        resolution,
+        resolution: action,
+        resolutionReason: reason,
         resolvedAt: new Date(),
-        resolvedBy: req.user.id,
-        'adminAction.actionTaken': actionTaken,
-        'adminAction.actionDescription': actionDescription,
-        'adminAction.actionDate': new Date(),
-        'adminAction.actionBy': req.user.id
+        resolvedBy: req.user.id
       },
       { new: true }
-    ).populate('reporter', 'username email fullName')
-     .populate('reportedUser', 'username email fullName');
+    )
+    .populate('reporter', 'username email fullName')
+    .populate('reportedUser', 'username email fullName')
+    .populate('resolvedBy', 'username email fullName');
     
     if (!report) {
-      return res.status(404).json({ message: 'Violation report not found' });
+      return res.status(404).json({ message: 'Report not found' });
     }
     
     res.json({ message: 'Violation report resolved successfully', report });
@@ -455,11 +451,10 @@ exports.getRevenue = async (req, res) => {
 // Get owner requests
 exports.getOwnerRequests = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, businessType } = req.query;
+    const { page = 1, limit = 10, status } = req.query;
     const filter = {};
     
     if (status) filter.status = status;
-    if (businessType) filter.businessType = businessType;
     
     const requests = await OwnerRequest.find(filter)
       .populate('user', 'username email fullName')
@@ -482,27 +477,26 @@ exports.getOwnerRequests = async (req, res) => {
   }
 };
 
-// Accept customer requests to owner
-exports.acceptOwnerRequest = async (req, res) => {
+// Approve owner request
+exports.approveOwnerRequest = async (req, res) => {
   try {
     const { requestId } = req.params;
     
-    const request = await OwnerRequest.findByIdAndUpdate(
-      requestId,
-      { 
-        status: 'approved',
-        approvedAt: new Date(),
-        approvedBy: req.user.id
-      },
-      { new: true }
-    ).populate('user', 'username email fullName');
+    const request = await OwnerRequest.findById(requestId)
+      .populate('user', 'username email fullName');
     
     if (!request) {
       return res.status(404).json({ message: 'Request not found' });
     }
     
-    // Update user role to event_owner
-    await User.findByIdAndUpdate(request.user._id, { role: 'event_owner' });
+    // Update request status
+    request.status = 'approved';
+    request.approvedAt = new Date();
+    request.approvedBy = req.user.id;
+    await request.save();
+    
+    // Update user role to owner
+    await User.findByIdAndUpdate(request.user._id, { role: 'owner' });
     
     res.json({ message: 'Owner request approved successfully', request });
   } catch (error) {

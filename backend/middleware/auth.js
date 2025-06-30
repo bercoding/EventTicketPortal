@@ -33,14 +33,20 @@ exports.protect = async (req, res, next) => {
         req.user = user;
         next();
     } catch (error) {
+        console.error('Token verification failed:', error);
         return res.status(401).json({ message: 'Token không hợp lệ' });
     }
 };
 
 exports.authorize = (...roles) => {
     return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({ message: 'Vui lòng đăng nhập' });
+        }
+
         if (!roles.includes(req.user.role)) {
             return res.status(403).json({ 
+                success: false,
                 message: `Người dùng với vai trò ${req.user.role} không có quyền truy cập`
             });
         }
