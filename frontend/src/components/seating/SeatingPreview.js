@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FaDoorOpen, FaDoorClosed, FaToilet, FaHamburger, FaGlassMartiniAlt, FaWheelchair, FaInfoCircle } from 'react-icons/fa';
 import './SeatingPreview.css';
 
 const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, onSeatSelect }) => {
@@ -13,7 +14,18 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
     );
   }
 
-  const { sections, stage } = seatingMap;
+  const { sections, stage, venueObjects = [] } = seatingMap;
+
+  // Định nghĩa các loại venue object
+  const venueObjectTypes = {
+    'entrance': { name: 'Lối vào', icon: <FaDoorOpen />, color: '#4CAF50' },
+    'exit': { name: 'Lối ra', icon: <FaDoorClosed />, color: '#F44336' },
+    'restroom': { name: 'Nhà vệ sinh', icon: <FaToilet />, color: '#2196F3' },
+    'food': { name: 'Quầy thức ăn', icon: <FaHamburger />, color: '#FF9800' },
+    'drinks': { name: 'Quầy nước', icon: <FaGlassMartiniAlt />, color: '#9C27B0' },
+    'accessible': { name: 'Lối đi cho người khuyết tật', icon: <FaWheelchair />, color: '#03A9F4' },
+    'info': { name: 'Quầy thông tin', icon: <FaInfoCircle />, color: '#607D8B' },
+  };
 
   // Color mapping cho các loại vé - cập nhật với màu sắc mới
   const getTicketTypeColor = (sectionName) => {
@@ -116,6 +128,18 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
         });
       }
     });
+    
+    // Đưa tất cả venue objects vào phạm vi
+    if (venueObjects && venueObjects.length > 0) {
+      venueObjects.forEach(obj => {
+        if (obj.x && obj.y && obj.width && obj.height) {
+          minX = Math.min(minX, obj.x - 5);
+          minY = Math.min(minY, obj.y - 5);
+          maxX = Math.max(maxX, obj.x + obj.width + 5);
+          maxY = Math.max(maxY, obj.y + obj.height + 5);
+        }
+      });
+    }
 
     // Thêm padding quanh nội dung
     const padding = {
@@ -183,6 +207,63 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
     if (onSeatSelect) {
       onSeatSelect(seatInfo);
     }
+  };
+
+  // Render venue objects như lối vào, nhà vệ sinh, ...
+  const renderVenueObject = (object) => {
+    const typeInfo = venueObjectTypes[object.type];
+    
+    // Không render nếu không tìm thấy thông tin loại object
+    if (!typeInfo) return null;
+
+    return (
+      <g 
+        key={object.id}
+        className="venue-object"
+        transform={`rotate(${object.rotation || 0}, ${object.x + (object.width/2)}, ${object.y + (object.height/2)})`}
+      >
+        {/* Object background */}
+        <rect
+          x={object.x}
+          y={object.y}
+          width={object.width}
+          height={object.height}
+          fill={object.color || typeInfo.color}
+          fillOpacity="0.7"
+          stroke={object.color || typeInfo.color}
+          strokeWidth="1.5"
+          rx="3"
+        />
+        
+        {/* Object label */}
+        {showLabels && (
+          <text
+            x={object.x + object.width / 2}
+            y={object.y - 8}
+            textAnchor="middle"
+            fill={object.color || typeInfo.color}
+            fontSize="12"
+            fontWeight="bold"
+            className="venue-object-label"
+          >
+            {object.name}
+          </text>
+        )}
+        
+        {/* Object icon/text */}
+        <text
+          x={object.x + object.width / 2}
+          y={object.y + object.height / 2 + 5}
+          textAnchor="middle"
+          fill="white"
+          fontSize="14"
+          fontWeight="bold"
+          className="venue-object-text"
+        >
+          {object.type.charAt(0).toUpperCase()}
+        </text>
+      </g>
+    );
   };
 
   return (
@@ -418,6 +499,7 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
               />
               
               {/* Section label - sử dụng vị trí từ section hoặc tính toán nếu không có */}
+              {showLabels && (
               <text
                 x={section.labelX || section.x + (section.width || 180) / 2}
                 y={section.labelY || section.y - 15}
@@ -428,8 +510,10 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
               >
                 {section.name}
               </text>
+              )}
 
               {/* Section capacity label */}
+              {showLabels && (
               <text
                 x={section.x + (section.width || 180) / 2}
                 y={section.y + 20}
@@ -441,11 +525,13 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
                  (section.rows ? section.rows.reduce((total, row) => 
                    total + (row.seats ? row.seats.length : 0), 0) : 0)} ghế
               </text>
+              )}
 
               {/* Rows */}
               {section.rows && section.rows.map((row, rowIndex) => (
                 <g key={rowIndex} className="row">
                   {/* Row label - giảm kích cỡ chữ để tránh chồng lên */}
+                  {showLabels && (
                   <text
                     x={section.x - 15}
                     y={row.seats && row.seats[0] ? row.seats[0].y + 4 : section.y + rowIndex * 20 + 15}
@@ -456,6 +542,7 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
                   >
                     {row.name}
                   </text>
+                  )}
                   
                   {/* Seats */}
                   {row.seats && row.seats.map((seat, seatIndex) => {
@@ -470,7 +557,7 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
                     } else if (seat.status === 'available') {
                       seatColor = "#22c55e"; // Màu xanh cho ghế có sẵn
                       seatStrokeColor = "#16a34a";
-                      clickable = true;
+                      clickable = interactive;
                     } else if (seat.status === 'selected') {
                       seatColor = "#60a5fa"; // Màu xanh dương cho ghế đã chọn
                       seatStrokeColor = "#3b82f6";
@@ -497,22 +584,47 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
                     return (
                       <g 
                         key={seatIndex} 
-                        className={`seat ${clickable ? 'available' : ''} ${isSelected ? 'selected' : ''} ${isHovered ? 'hovered' : ''}`}
-                        onClick={clickable ? () => handleSeatClick(section.name, row.name, seat.number) : undefined}
-                        onMouseEnter={clickable ? () => setHoveredSeat({sectionName: section.name, rowName: row.name, seatNumber: seat.number}) : undefined}
-                        onMouseLeave={clickable ? () => setHoveredSeat(null) : undefined}
+                        className={`seat ${isSelected ? 'selected' : ''} ${isHovered ? 'hovered' : ''} ${clickable ? 'clickable' : ''}`}
+                        onClick={() => interactive && clickable ? handleSeatClick(section.name, row.name, seat.number) : null}
+                        onMouseOver={() => {
+                          if (interactive && clickable) {
+                            setHoveredSeat({
+                              sectionName: section.name,
+                              rowName: row.name,
+                              seatNumber: seat.number
+                            });
+                          }
+                        }}
+                        onMouseOut={() => {
+                          if (interactive) {
+                            setHoveredSeat(null);
+                          }
+                        }}
                       >
                         <rect
                           x={seat.x - seatWidth/2}
                           y={seat.y - seatHeight/2}
                           width={seatWidth}
                           height={seatHeight}
-                          rx="2"
-                          fill={isSelected ? '#3b82f6' : isHovered ? '#93c5fd' : seatColor}
-                          stroke={isSelected || isHovered ? '#1d4ed8' : seatStrokeColor}
+                          rx={2}
+                          fill={isSelected ? "#3b82f6" : isHovered ? "#93c5fd" : seatColor}
+                          stroke={isSelected || isHovered ? "#2563eb" : seatStrokeColor}
                           strokeWidth={isSelected || isHovered ? 2 : 1}
-                          className={clickable ? 'cursor-pointer' : ''}
+                          style={{ cursor: clickable ? 'pointer' : 'default' }}
                         />
+                        {/* Seat number - only shown when hovered if interactive */}
+                        {((interactive && isHovered) || (showLabels && !interactive)) && (
+                          <text
+                            x={seat.x}
+                            y={seat.y + seatHeight + 10}
+                            textAnchor="middle"
+                            fill="#111"
+                            fontSize="8"
+                            style={{ pointerEvents: 'none' }}
+                          >
+                            {seat.number}
+                          </text>
+                        )}
                       </g>
                     );
                   })}
@@ -520,64 +632,64 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
               ))}
             </g>
           ))}
-        </svg>
 
-        {/* Legend */}
-        <div className="seating-legend">
-          {/* Trạng thái ghế */}
-          <div className="legend-section">
-            <h5>Trạng thái ghế:</h5>
-            <div className="legend-item">
-              <div className="legend-color" style={{ backgroundColor: '#10B981' }}></div>
-              <span>Đang chọn</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color" style={{ backgroundColor: '#EF4444' }}></div>
-              <span>Đã bán</span>
-            </div>
+          {/* Render venue objects like entrances, exits, restrooms etc. */}
+          {venueObjects && venueObjects.map((object) => renderVenueObject(object))}
+        </svg>
+      </div>
+      
+      {/* Legend */}
+      <div className="seating-legend">
+        <div className="legend-title">Chú thích:</div>
+        <div className="legend-items">
+          <div className="legend-item">
+            <div className="color-box" style={{ backgroundColor: "#22c55e" }}></div>
+            <span>Ghế trống</span>
+          </div>
+          <div className="legend-item">
+            <div className="color-box" style={{ backgroundColor: "#f87171" }}></div>
+            <span>Ghế đã bán</span>
+          </div>
+          <div className="legend-item">
+            <div className="color-box" style={{ backgroundColor: "#60a5fa" }}></div>
+            <span>Ghế đang chọn</span>
           </div>
           
-          {/* Loại vé */}
-          <div className="legend-section">
-            <h5>Loại vé:</h5>
-            <div className="legend-item">
-              <div className="legend-color" style={{ backgroundColor: '#F59E0B' }}></div>
-              <span>Golden Circle</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color" style={{ backgroundColor: '#8B5CF6' }}></div>
-              <span>VIP</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color" style={{ backgroundColor: '#3B82F6' }}></div>
-              <span>Khu A</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color" style={{ backgroundColor: '#10B981' }}></div>
-              <span>Khu B</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color" style={{ backgroundColor: '#F97316' }}></div>
-              <span>Khu C</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color" style={{ backgroundColor: '#EF4444' }}></div>
-              <span>Khu D</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="seating-stats">
-          <div className="stat">
-            <strong>Tổng ghế:</strong> {sections.reduce((total, section) => total + section.capacity, 0)}
-          </div>
-          <div className="stat">
-            <strong>Số khu:</strong> {sections.length}
-          </div>
-          <div className="stat">
-            <strong>Layout:</strong> {seatingMap.layoutType || 'theater'}
-          </div>
+          {/* Show venue objects in legend if they exist */}
+          {venueObjects && venueObjects.length > 0 && (
+            <>
+              {venueObjects.some(obj => obj.type === 'entrance') && (
+                <div className="legend-item">
+                  <div className="color-box" style={{ backgroundColor: "#4CAF50" }}></div>
+                  <span>Lối vào</span>
+                </div>
+              )}
+              {venueObjects.some(obj => obj.type === 'exit') && (
+                <div className="legend-item">
+                  <div className="color-box" style={{ backgroundColor: "#F44336" }}></div>
+                  <span>Lối ra</span>
+                </div>
+              )}
+              {venueObjects.some(obj => obj.type === 'restroom') && (
+                <div className="legend-item">
+                  <div className="color-box" style={{ backgroundColor: "#2196F3" }}></div>
+                  <span>Nhà vệ sinh</span>
+                </div>
+              )}
+              {venueObjects.some(obj => obj.type === 'food') && (
+                <div className="legend-item">
+                  <div className="color-box" style={{ backgroundColor: "#FF9800" }}></div>
+                  <span>Quầy thức ăn</span>
+                </div>
+              )}
+              {venueObjects.some(obj => obj.type === 'drinks') && (
+                <div className="legend-item">
+                  <div className="color-box" style={{ backgroundColor: "#9C27B0" }}></div>
+                  <span>Quầy nước</span>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

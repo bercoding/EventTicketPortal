@@ -55,7 +55,6 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 connectDB();
 
 app.use('/api/auth', authRoutes);
-app.use('/api/test-upload', require('./test-upload-route')); // Test route
 app.use('/api/events', eventRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/admin', adminRoutes);

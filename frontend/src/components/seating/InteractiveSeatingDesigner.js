@@ -722,7 +722,7 @@ const InteractiveSeatingDesigner = ({
         >
           {object.type.charAt(0).toUpperCase()}
         </text>
-        
+
         {/* Object label */}
         <text
           x={object.x + object.width / 2}
@@ -771,7 +771,7 @@ const InteractiveSeatingDesigner = ({
       </div>
     );
   };
-  
+      
   // Mở rộng hàm handleMenuItemClick để hỗ trợ venue objects
   const handleMenuItemClick = (action) => {
     const element = contextMenu.element;
@@ -819,7 +819,7 @@ const InteractiveSeatingDesigner = ({
       ...seatingMap,
       venueObjects: updatedObjects
     });
-    
+
     // Cập nhật selected element nếu đang được chọn
     if (selectedElement?.id === objectId && selectedElement.type === 'venueObject') {
       const updatedObj = updatedObjects.find(obj => obj.id === objectId);
@@ -841,7 +841,7 @@ const InteractiveSeatingDesigner = ({
       ...seatingMap,
       venueObjects: updatedObjects
     });
-    
+
     // Cập nhật selected element nếu đang được chọn
     if (selectedElement?.id === objectId && selectedElement.type === 'venueObject') {
       const updatedObj = updatedObjects.find(obj => obj.id === objectId);
@@ -881,6 +881,264 @@ const InteractiveSeatingDesigner = ({
     }
     
     saveToHistory();
+  };
+
+  // Lấy màu cho từng loại vé/khu vực
+  const getTicketTypeColor = (type) => {
+    // Nếu type là null/undefined thì dùng default
+    const ticketType = (type || '').toLowerCase();
+    
+    // Mapping màu sắc cho từng loại vé
+    if (ticketType.includes('vip')) return '#8B5CF6'; // Tím cho VIP
+    if (ticketType.includes('premium')) return '#F59E0B'; // Cam vàng cho Premium
+    if (ticketType.includes('gold') || ticketType.includes('golden')) return '#EAB308'; // Vàng cho Gold/Golden
+    if (ticketType.includes('silver')) return '#94A3B8'; // Bạc cho Silver
+    if (ticketType.includes('standard')) return '#22C55E'; // Xanh lá cho Standard
+    if (ticketType.includes('economy')) return '#38BDF8'; // Xanh da trời cho Economy
+    
+    // Fallback dựa vào tên ticketType
+    return getColorFromString(ticketType);
+  };
+
+  // Hàm lấy màu cho section dựa vào tên hoặc loại vé
+  const getSectionColor = (sectionName) => {
+    const name = sectionName?.toLowerCase() || '';
+    
+    // Màu sắc cho các khu vực theo tên
+    if (name.includes('a') || name === 'a') return '#3B82F6'; // Xanh dương
+    if (name.includes('b') || name === 'b') return '#10B981'; // Xanh lá  
+    if (name.includes('c') || name === 'c') return '#F97316'; // Cam
+    if (name.includes('d') || name === 'd') return '#EF4444'; // Đỏ
+    if (name.includes('e') || name === 'e') return '#8B5CF6'; // Tím
+    if (name.includes('f') || name === 'f') return '#F59E0B'; // Cam vàng
+    if (name.includes('g') || name === 'g') return '#06B6D4'; // Cyan
+    if (name.includes('h') || name === 'h') return '#84CC16'; // Lime
+    if (name.includes('i') || name === 'i') return '#F472B6'; // Pink
+    if (name.includes('j') || name === 'j') return '#A78BFA'; // Violet
+    
+    // Tạo màu dựa trên hash của tên
+    return getColorFromString(name);
+  };
+
+  // Hàm tạo màu từ chuỗi bất kỳ
+  const getColorFromString = (str) => {
+    const colors = [
+      '#3B82F6', '#10B981', '#F97316', '#EF4444', '#8B5CF6',
+      '#F59E0B', '#06B6D4', '#84CC16', '#F472B6', '#A78BFA'
+    ];
+    
+    if (!str) return colors[0];
+    
+    // Tạo hash từ chuỗi
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  // Update section properties with force re-render
+  const updateSectionProperties = (sectionId, properties) => {
+    const updatedSections = seatingMap.sections.map(section => {
+      if (section.id === sectionId) {
+        const updatedSection = { ...section, ...properties };
+        
+        // Nếu thay đổi kích thước, cập nhật vị trí nhãn
+        if (properties.width) {
+          updatedSection.labelX = section.x + properties.width / 2;
+        }
+        
+        return updatedSection;
+      }
+      return section;
+    });
+    
+    setSeatingMap({
+      ...seatingMap,
+      sections: updatedSections
+    });
+    
+    // Cập nhật selected element nếu đang được chọn
+    if (selectedElement && selectedElement.id === sectionId) {
+      setSelectedElement({ ...selectedElement, ...properties });
+    }
+    
+    saveToHistory();
+  };
+
+  // Cập nhật hàm renderSection để thêm hiển thị nhãn tại vị trí được chỉ định
+  const renderSection = (section, isSelected) => {
+    // Tính toán màu sắc dựa trên loại khu vực
+    const sectionColor = getSectionColor(section.name);
+    
+    return (
+      <g
+        key={section.id}
+        className={`section ${isSelected ? 'selected' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedElement({ ...section, type: 'section' });
+        }}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          handleMouseDown(e, section, 'section');
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          handleContextMenu(e, 'section', section);
+        }}
+      >
+        {/* Section background */}
+        <rect
+          x={section.x}
+          y={section.y}
+          width={section.width}
+          height={section.height}
+          fill={sectionColor}
+          fillOpacity="0.3"
+          stroke={sectionColor}
+          strokeWidth={isSelected ? 3 : 1.5}
+          rx="5"
+          cursor="move"
+        />
+        
+        {/* Section label - sử dụng vị trí nhãn nếu có, nếu không thì đặt ở trên khu vực */}
+        <text
+          x={section.labelX || section.x + section.width / 2}
+          y={section.labelY || section.y - 15}
+          textAnchor="middle"
+          fill={sectionColor}
+          fontSize="14"
+          fontWeight="bold"
+          className="section-label"
+          pointerEvents="none"
+        >
+          {section.name}
+        </text>
+
+        {/* Render rows of this section */}
+        {section.rows && section.rows.map((row, rowIndex) => renderRow(section, row, rowIndex, isSelected && selectedRowIndex === rowIndex))}
+      </g>
+    );
+  };
+
+  // Cải thiện hàm yên ngựa để hiển thị rõ hơn
+  const renderChevronsSeating = (section, startX, startY, rows, seatsPerRow, rowSpacing, seatSpacing, angle) => {
+    const totalWidth = seatsPerRow * seatSpacing;
+    const radiansAngle = (angle * Math.PI) / 180;
+    const midPoint = seatsPerRow / 2;
+    const rowHeight = rowSpacing;
+    
+    // Tạo ra layout ghế dạng vòng cung hoặc yên ngựa
+    const updatedRows = [...Array(rows)].map((_, rowIndex) => {
+      // Mỗi hàng sẽ có số lượng ghế khác nhau để tạo hiệu ứng yên ngựa
+      // Hàng đầu tiên và hàng cuối có ít ghế nhất
+      const isMiddleRow = rowIndex === Math.floor(rows / 2);
+      const distanceFromMiddle = Math.abs(rowIndex - Math.floor(rows / 2));
+      const rowPosition = rowIndex * rowHeight;
+      
+      // Số ghế trong hàng này (hàng giữa có nhiều ghế nhất)
+      const adjustedSeatsInRow = Math.max(3, seatsPerRow - Math.floor(distanceFromMiddle * 1.5));
+      
+      // Các ghế trong hàng
+      const seats = [...Array(adjustedSeatsInRow)].map((_, seatIndex) => {
+        // Tính toán vị trí theo dạng vòng cung
+        const relativePos = seatIndex - (adjustedSeatsInRow - 1) / 2;
+        const radialDistance = rowIndex * rowSpacing * 0.8;
+        const circumference = 2 * Math.PI * radialDistance;
+        const arcLength = totalWidth * 0.8;
+        const arcAngle = arcLength / circumference * 2 * Math.PI;
+        const seatAngle = relativePos * arcAngle / (adjustedSeatsInRow - 1);
+        
+        // Tính toán x, y cho ghế trong hàng theo vòng cung
+        const x = startX + relativePos * seatSpacing + Math.sin(seatAngle) * (rowIndex * 3);
+        const y = startY + rowPosition + Math.abs(relativePos) * Math.sin(radiansAngle) * 2;
+        
+        return {
+          x,
+          y,
+          number: seatIndex + 1,
+          status: 'available'
+        };
+      });
+      
+      return {
+        name: getRowLabel(rowIndex),
+        seats
+      };
+    });
+    
+    return updatedRows;
+  };
+
+  // Thêm hàm handleContextMenu
+  const handleContextMenu = (e, type, element) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      type,
+      element
+    });
+  };
+
+  // Thêm hàm getRowLabel
+  const getRowLabel = (index) => {
+    // Chuyển đổi số thành chữ cái (0 -> A, 1 -> B, v.v.)
+    if (index < 26) {
+      return String.fromCharCode(65 + index);
+    } else {
+      // Nếu quá 26 thì dùng AA, AB, v.v.
+      const firstChar = String.fromCharCode(65 + Math.floor(index / 26) - 1);
+      const secondChar = String.fromCharCode(65 + (index % 26));
+      return firstChar + secondChar;
+    }
+  };
+
+  // Thêm hàm renderRow
+  const renderRow = (section, row, rowIndex, isSelected) => {
+    return (
+      <g 
+        key={`row-${section.id}-${rowIndex}`} 
+        className={`row ${isSelected ? 'selected' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedElement({ ...section, type: 'section' });
+          setSelectedRowIndex(rowIndex);
+        }}
+      >
+        {/* Row label */}
+        <text
+          x={section.x - 10}
+          y={row.seats && row.seats[0] ? row.seats[0].y + 4 : section.y + rowIndex * 20 + 15}
+          textAnchor="end"
+          fill="#555"
+          fontSize="10"
+          fontWeight="500"
+        >
+          {row.name}
+        </text>
+        
+        {/* Render seats */}
+        {row.seats && row.seats.map((seat, seatIndex) => (
+          <rect
+            key={`seat-${section.id}-${rowIndex}-${seatIndex}`}
+            x={seat.x - 5}
+            y={seat.y - 5}
+            width="10"
+            height="10"
+            rx="2"
+            fill={seat.status === 'available' ? '#22c55e' : 
+                  seat.status === 'sold' ? '#f87171' : 
+                  seat.status === 'selected' ? '#60a5fa' : '#ccc'}
+            stroke="#666"
+            strokeWidth="1"
+          />
+        ))}
+      </g>
+    );
   };
 
   return (

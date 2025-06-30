@@ -124,17 +124,27 @@ const authAPI = {
   register: async (userData) => {
     try {
       const response = await api.post('/auth/register', userData);
-      return response.data;
+      console.log('Register response:', response.data);
+      return {
+        success: response.data.success,
+        message: response.data.message,
+        email: response.data.email,
+        error: response.data.error
+      };
     } catch (error) {
       console.error('Register failed:', error.response?.data || error.message);
-      throw error.response?.data || error;
+      throw error;
     }
   },
 
   verifyOTP: async (otpData) => {
     try {
+      console.log('Verifying OTP for:', otpData.email);
       const response = await api.post('/auth/verify-otp', otpData);
+      console.log('OTP verification response:', response.data);
+      
       if (response.data.success) {
+        console.log('OTP verification successful, saving token');
         localStorage.setItem('token', response.data.token);
       }
       return response.data;
@@ -144,9 +154,9 @@ const authAPI = {
     }
   },
 
-  resendOTP: async (userId) => {
+  resendOTP: async (email) => {
     try {
-      const response = await api.post('/auth/resend-otp', { userId });
+      const response = await api.post('/auth/resend-otp', { email });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

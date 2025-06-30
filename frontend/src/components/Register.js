@@ -12,7 +12,8 @@ const Register = () => {
         email: '',
         password: '',
         confirmPassword: '',
-        username: ''
+        username: '',
+        fullName: ''
     });
     const [loading, setLoading] = useState(false);
     const [registerError, setRegisterError] = useState('');
@@ -21,6 +22,7 @@ const Register = () => {
     const [otpError, setOTPError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState('');
 
     const handleChange = (e) => {
         setFormData({
@@ -42,15 +44,21 @@ const Register = () => {
         }
 
         try {
-            const { email, password, username } = formData;
-            const response = await register({ email, password, username });
+            const { email, password, username, fullName } = formData;
+            console.log('Submitting registration for:', email);
+            const response = await register({ email, password, username, fullName });
+            console.log('Registration completed with response:', response);
             
             if (response.success) {
+                console.log('Registration successful, showing OTP form');
+                setRegisteredEmail(email);
                 setShowOTPForm(true);
             } else {
+                console.error('Registration failed with error:', response.error);
                 setRegisterError(response.error || 'Đăng ký thất bại');
             }
         } catch (error) {
+            console.error('Registration error:', error);
             setRegisterError(error.message || 'Đăng ký thất bại');
         }
         setLoading(false);
@@ -62,17 +70,24 @@ const Register = () => {
         setOTPError('');
 
         try {
+            const email = registeredEmail || formData.email;
+            
+            console.log('Submitting OTP verification for:', email);
             const response = await verifyOTP({
-                email: formData.email,
+                email,
                 otp
             });
+            console.log('OTP verification response:', response);
 
             if (response.success) {
+                console.log('OTP verification successful, redirecting to home');
                 navigate('/');
             } else {
+                console.error('OTP verification failed:', response.error);
                 setOTPError(response.error || 'Xác thực OTP thất bại');
             }
         } catch (error) {
+            console.error('OTP verification error:', error);
             setOTPError(error.message || 'Xác thực OTP thất bại');
         }
         setLoading(false);
@@ -97,7 +112,7 @@ const Register = () => {
                             Xác thực OTP
                         </h2>
                         <p className="mt-2 text-gray-600">
-                            Vui lòng nhập mã OTP đã được gửi đến email của bạn
+                            Vui lòng nhập mã OTP đã được gửi đến email {registeredEmail || formData.email}
                         </p>
                     </div>
 
@@ -199,6 +214,28 @@ const Register = () => {
                                 </div>
                             </div>
                         )}
+
+                        {/* Full Name Input */}
+                        <div className="space-y-1">
+                            <label htmlFor="fullName" className="text-sm font-medium text-gray-700 ml-1">
+                                Họ và tên
+                            </label>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                    <FaUser className="h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors duration-200" />
+                                </div>
+                                <input
+                                    id="fullName"
+                                    name="fullName"
+                                    type="text"
+                                    required
+                                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70"
+                                    placeholder="Nguyễn Văn A"
+                                    value={formData.fullName}
+                                    onChange={handleChange}
+                                />
+                            </div>
+                        </div>
 
                         {/* Username Input */}
                         <div className="space-y-1">
