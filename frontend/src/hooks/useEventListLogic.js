@@ -34,7 +34,14 @@ const useEventListLogic = () => {
   }, [user]);
 
   const handleViewDetails = (eventId) => {
-    navigate(`/events/manage/${eventId}`);
+    // Validate eventId before navigation
+    if (eventId && eventId !== 'null' && eventId !== 'undefined') {
+      navigate(`/events/manage/${eventId}`);
+    } else {
+      console.warn('⚠️ Invalid eventId in handleViewDetails, going to events list');
+      toast.error('ID sự kiện không hợp lệ');
+      navigate('/events');
+    }
   };
 
   const handleDeleteEvent = (eventId) => {

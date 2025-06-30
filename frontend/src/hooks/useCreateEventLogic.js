@@ -4,10 +4,16 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 
-const useCreateEventLogic = () => {
+const useCreateEventLogic = (templateInfo = null) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  
+  // Xác định loại template
+  const isOnlineEvent = templateInfo?.templateType === 'online';
+  const isGeneralEvent = templateInfo?.templateType === 'general';
+  const isSeatingEvent = templateInfo?.templateType === 'seating';
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -25,7 +31,10 @@ const useCreateEventLogic = () => {
       district: '',
       city: '',
       country: '',
-      venueLayout: 'hall'
+      venueLayout: 'hall',
+      // Online event fields
+      meetingLink: '',
+      platform: ''
     },
     category: [],
     tags: [],
@@ -250,42 +259,68 @@ const useCreateEventLogic = () => {
     }
   };
 
-  const handleOrganizerLogoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({
-          ...prev,
-          organizer: {
-            ...prev.organizer,
-            logo: reader.result
-          }
-        }));
-      };
-      reader.readAsDataURL(file);
-      toast.info('Logo ban tổ chức đã được chọn.');
-    }
-  };
+
 
   const handleNextStep = async (e) => {
     e.preventDefault();
     console.log('handleNextStep called. Current step:', currentStep);
 
     if (currentStep === 1) {
-      if (!formData.title || !formData.description || !formData.location.venueName || !formData.location.address || !formData.location.city || !formData.organizer.name || !formData.organizer.info) {
-        toast.error('Vui lòng điền đầy đủ các thông tin bắt buộc ở Bước 1.');
+      // Validation cơ bản cho tất cả template
+      if (!formData.title || !formData.description) {
+        toast.error('Vui lòng điền đầy đủ các thông tin bắt buộc: Tên sự kiện, Mô tả.');
         return;
       }
+
+      // Validation riêng cho từng template
+      if (isOnlineEvent) {
+        // Online event - cần link tham gia và nền tảng
+        if (!formData.location.meetingLink || !formData.location.platform) {
+          toast.error('Vui lòng cung cấp đầy đủ nền tảng và link tham gia cho sự kiện online.');
+          return;
+        }
+        // Validate URL format
+        try {
+          new URL(formData.location.meetingLink);
+        } catch (error) {
+          toast.error('Link tham gia không hợp lệ. Vui lòng nhập URL đúng định dạng.');
+          return;
+        }
+      } else {
+        // Offline event - cần địa điểm
+        if (!formData.location.venueName || !formData.location.address || !formData.location.city) {
+          toast.error('Vui lòng điền đầy đủ thông tin địa điểm cho sự kiện offline.');
+          return;
+        }
+      }
+
       console.log('Validation passed for Step 1. Moving to next step.');
       setCurrentStep(prevStep => prevStep + 1);
     } else if (currentStep === 2) {
       if (!formData.startDate || !formData.endDate) {
-        toast.error('Vui lòng điền đầy đủ Ngày bắt đầu và Ngày kết thúc.');
+        toast.error('Vui lòng điền đầy đủ Ngày bắt đầu và Ngày kết thúc với giờ cụ thể.');
         return;
       }
-      if (new Date(formData.startDate) > new Date(formData.endDate)) {
-        toast.error('Ngày bắt đầu không thể sau Ngày kết thúc.');
+      
+      const startDate = new Date(formData.startDate);
+      const endDate = new Date(formData.endDate);
+      const now = new Date();
+      
+      // Kiểm tra thời gian trong tương lai
+      if (startDate <= now) {
+        toast.error('Ngày bắt đầu phải trong tương lai (ít nhất 1 giờ từ bây giờ).');
+        return;
+      }
+      
+      if (startDate >= endDate) {
+        toast.error('Ngày kết thúc phải sau ngày bắt đầu.');
+        return;
+      }
+      
+      // Kiểm tra thời lượng tối thiểu (ít nhất 30 phút)
+      const diffMs = endDate - startDate;
+      if (diffMs < 30 * 60 * 1000) {
+        toast.error('Sự kiện phải có thời lượng ít nhất 30 phút.');
         return;
       }
       setCurrentStep(prevStep => prevStep + 1);
@@ -401,30 +436,112 @@ const useCreateEventLogic = () => {
 
       console.log('User object in handleFinalSubmit:', user);
       console.log('User ID in handleFinalSubmit:', user?._id);
-      console.log('Organizer data in formData before submit:', formData.organizer);
+      console.log('Template info:', templateInfo);
 
-      const payload = {
-        ...formData,
-        organizers: [user._id],
-        location: {
+      // Tính toán capacity và seatOptions dựa trên template
+      let payload;
+      
+      if (isSeatingEvent) {
+        // Sự kiện có ghế ngồi
+        const totalTickets = formData.ticketTypes.reduce((sum, ticket) => sum + ticket.totalQuantity, 0);
+        const totalSections = Math.max(formData.seatingMap.sections.length, 5);
+        
+        const locationData = {
           type: formData.location.type,
           venueName: formData.location.venueName,
           address: formData.location.address,
           ward: formData.location.ward,
           district: formData.location.district,
           city: formData.location.city,
-          country: formData.location.country || 'Vietnam',
-        },
-        organizer: formData.organizer,
-      };
+          country: formData.location.country || 'Vietnam'
+        };
+
+        // Chỉ thêm thông tin online nếu là online event
+        if (formData.location.type === 'online') {
+          locationData.meetingLink = formData.location.meetingLink;
+          locationData.platform = formData.location.platform;
+        }
+
+        payload = {
+          ...formData,
+          organizers: [user._id],
+          location: locationData,
+          organizer: formData.organizer,
+          seatOptions: {
+            totalSeats: totalTickets || formData.capacity || 100,
+            totalSections: totalSections,
+            venueType: formData.location.venueLayout || 'theater'
+          },
+          ticketTypes: formData.ticketTypes,
+          templateType: templateInfo?.templateType || 'seating'
+        };
+      } else {
+        // Sự kiện general hoặc online
+        const locationData = {
+          type: formData.location.type,
+          venueName: formData.location.venueName,
+          address: formData.location.address,
+          ward: formData.location.ward,
+          district: formData.location.district,
+          city: formData.location.city,
+          country: formData.location.country || 'Vietnam'
+        };
+
+        // Chỉ thêm thông tin online nếu là online event
+        if (formData.location.type === 'online') {
+          locationData.meetingLink = formData.location.meetingLink;
+          locationData.platform = formData.location.platform;
+        }
+
+        payload = {
+          ...formData,
+          organizers: [user._id],
+          location: locationData,
+          organizer: formData.organizer,
+          ticketTypes: formData.ticketTypes,
+          templateType: templateInfo?.templateType || 'general'
+        };
+      }
 
       console.log('Submitting event data:', payload);
 
-      const response = await api.post('/events', payload);
+      const response = await api.post('/events/create-with-seating', payload);
       console.log('Event creation response:', response.data);
+      console.log('Response structure:', {
+        success: response.data.success,
+        hasData: !!response.data.data,
+        eventId: response.data.data?._id,
+        dataKeys: Object.keys(response.data.data || {})
+      });
       
-      toast.success('Tạo sự kiện thành công!');
-      navigate('/events/my-events');
+      if (response.data.success && response.data.data?._id) {
+        const eventId = response.data.data._id;
+        const eventTitle = response.data.data.title;
+        console.log('🎉 Event created successfully:', { eventId, eventTitle });
+        toast.success(`Tạo sự kiện "${eventTitle}" thành công! Đang chuyển hướng...`);
+        
+        // Try to navigate to event detail first, fallback to my events
+        setTimeout(async () => {
+          try {
+            // First try to verify the event exists
+            const checkResponse = await api.get(`/events/${eventId}`);
+            if (checkResponse.data.success) {
+              console.log('✅ Event verified, navigating to detail page');
+              navigate(`/events/${eventId}`);
+              return;
+            }
+          } catch (error) {
+            console.warn('⚠️ Could not verify event, falling back to my-events');
+          }
+          
+          // Fallback: go to my events page
+          console.log('🚀 Navigating to my-events as fallback');
+          window.location.href = '/my-events';
+        }, 1500);
+      } else {
+        console.error('❌ Invalid response structure:', response.data);
+        throw new Error('Không nhận được ID sự kiện từ server');
+      }
     } catch (error) {
       console.error('Error creating event:', error.response?.data || error.message);
       toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi tạo sự kiện');
@@ -468,7 +585,7 @@ const useCreateEventLogic = () => {
     setCurrentStep,
     handleChange,
     handleImageUpload,
-    handleOrganizerLogoUpload,
+
     handleNextStep,
     handlePrevStep,
     handleAddSeatingMapSection,
@@ -483,6 +600,9 @@ const useCreateEventLogic = () => {
     handleCategoryChange,
     handleTagsChange,
     handleVenueLayoutChange,
+    isOnlineEvent,
+    isGeneralEvent,
+    isSeatingEvent
   };
 };
 

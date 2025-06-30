@@ -142,11 +142,11 @@ const UserManagement = () => {
                                     {/* Role Badge */}
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                         user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                                        user.role === 'owner' ? 'bg-blue-100 text-blue-800' :
+                                        user.role === 'event_owner' ? 'bg-blue-100 text-blue-800' :
                                         'bg-gray-100 text-gray-800'
                                     }`}>
                                         {user.role === 'admin' ? '👑 Admin' :
-                                         user.role === 'owner' ? '🏢 Owner' : '👤 User'}
+                                         user.role === 'event_owner' ? '🏢 Event Owner' : '👤 User'}
                                     </span>
 
                                     {/* Status Badge */}

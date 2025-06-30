@@ -2,20 +2,40 @@ const mongoose = require('mongoose');
 const crypto = require('crypto');
 
 const ticketSchema = new mongoose.Schema({
-  bookingId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Booking',
-    required: true
-  },
-  eventId: {
+  event: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Event',
     required: true
   },
-  userId: {
+  user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+    required: false,
+    default: null
+  },
+  price: {
+    type: Number,
     required: true
+  },
+  purchaseDate: {
+    type: Date,
+    default: null
+  },
+  status: {
+    type: String,
+    enum: ['available', 'active', 'returned'],
+    default: 'available'
+  },
+  qrCode: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  bookingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Booking',
+    required: false,
+    default: null
   },
   ticketType: {
     type: String,
@@ -25,15 +45,6 @@ const ticketSchema = new mongoose.Schema({
     section: String,
     row: String,
     seatNumber: String
-  },
-  price: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  qrCode: {
-    type: String,
-    unique: true
   },
   barcode: String,
   isUsed: {
@@ -49,20 +60,30 @@ const ticketSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  transferredAt: Date
+  transferredAt: Date,
+  returnedAt: {
+    type: Date,
+    default: null
+  },
+  refundAmount: {
+    type: Number,
+    default: null
+  }
 }, { timestamps: true });
 
 // Indexes
 ticketSchema.index({ bookingId: 1 });
-ticketSchema.index({ eventId: 1 });
-ticketSchema.index({ userId: 1 });
+ticketSchema.index({ event: 1 });
+ticketSchema.index({ user: 1 });
 ticketSchema.index({ qrCode: 1 }, { unique: true });
 ticketSchema.index({ isUsed: 1 });
+ticketSchema.index({ status: 1 });
+ticketSchema.index({ event: 1, status: 1 });
 
-// Tạo mã QR trước khi lưu
-ticketSchema.pre('save', function(next) {
-  if (!this.qrCode) {
-    // Tạo mã QR ngẫu nhiên kết hợp với ID của vé
+// Generate QR code before validation
+ticketSchema.pre('validate', function(next) {
+  if (this.isNew && !this.qrCode) {
+    // Create a unique QR code based on the ticket's _id and random bytes
     this.qrCode = `${this._id}-${crypto.randomBytes(6).toString('hex')}`;
   }
   next();

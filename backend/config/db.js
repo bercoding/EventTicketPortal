@@ -4,6 +4,9 @@ require('dotenv').config();
 
 const connectDB = async () => {
     try {
+        // Fix mongoose deprecation warning
+        mongoose.set('strictQuery', false);
+        
         await mongoose.connect(process.env.MONGODB_URI, {
             useNewUrlParser: true,
             useUnifiedTopology: true,

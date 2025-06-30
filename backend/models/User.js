@@ -1,149 +1,120 @@
 // backend/models/User.js
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
+    fullName: {
+        type: String,
+        required: [true, 'Vui lòng nhập họ tên'],
+        trim: true
+    },
     username: {
         type: String,
-        required: [true, 'Tên đăng nhập là bắt buộc'],
+        required: [true, 'Vui lòng nhập tên người dùng'],
         unique: true,
-        trim: true
+        trim: true,
+        lowercase: true
     },
     email: {
         type: String,
-        required: [true, 'Email là bắt buộc'],
+        required: [true, 'Vui lòng nhập email'],
         unique: true,
         trim: true,
-        lowercase: true,
-        match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Email không hợp lệ']
+        lowercase: true
     },
     password: {
         type: String,
-        required: [true, 'Mật khẩu là bắt buộc'],
+        required: function() {
+            return !this.googleId; // Password required only if not Google user
+        },
         minlength: [6, 'Mật khẩu phải có ít nhất 6 ký tự']
     },
-    fullName: {
+    phone: {
         type: String,
         trim: true
     },
-    phoneNumber: {
+    avatar: {
         type: String,
-        trim: true
+        default: null
     },
-    avatar: String,
+    dateOfBirth: {
+        type: Date
+    },
+    gender: {
+        type: String,
+        enum: ['male', 'female', 'other'],
+        default: 'other'
+    },
     role: {
         type: String,
-        enum: ['user', 'event_owner', 'admin'],
-        default: 'user',
-        index: true
+        enum: ['user', 'owner', 'admin', 'event_owner'],
+        default: 'user'
     },
-    googleId: String,
-    status: {
-        type: String,
-        enum: ['active', 'blocked', 'pending'],
-        default: 'active',
-        index: true
-    },
-    // Admin ban/unban fields
-    isBanned: {
-        type: Boolean,
-        default: false,
-        index: true
-    },
-    banReason: {
-        type: String,
-        trim: true
-    },
-    bannedAt: {
-        type: Date
-    },
-    bannedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    },
-    otp: {
-        type: String,
-        trim: true
-    },
-    otpExpires: {
-        type: Date
-    },
-    resetPasswordToken: String,
-    resetPasswordExpires: Date,
-    twoFactorAuth: {
+    isVerified: {
         type: Boolean,
         default: false
     },
-    lastLoginAt: Date,
-    preferences: {
-        notifications: {
-            type: Boolean,
-            default: true
-        },
-        language: {
-            type: String,
-            default: 'vi'
-        },
-        darkMode: {
-            type: Boolean,
-            default: false
-        }
+    status: {
+        type: String,
+        enum: ['active', 'banned', 'inactive'],
+        default: 'active'
     },
-    savedPaymentMethods: [{
-        type: {
-            type: String,
-            required: true
-        },
-        lastFour: String,
-        expiryDate: String,
-        isDefault: {
-            type: Boolean,
-            default: false
-        }
-    }],
-    favorites: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Event'
-    }],
-    friends: [{
-        user: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
-        },
-        status: {
-            type: String,
-            enum: ['pending', 'accepted', 'blocked'],
-            default: 'pending'
-        },
-        createdAt: {
-            type: Date,
-            default: Date.now
-        }
-    }]
+    banReason: {
+        type: String
+    },
+    banDate: {
+        type: Date
+    },
+    banExpiry: {
+        type: Date
+    },
+    lastLogin: {
+        type: Date
+    },
+    loginCount: {
+        type: Number,
+        default: 0
+    },
+    googleId: {
+        type: String,
+        sparse: true
+    },
+    ownerRequestStatus: {
+        type: String,
+        enum: ['none', 'pending', 'approved', 'rejected'],
+        default: 'none'
+    },
+    ownerRequestDate: {
+        type: Date
+    },
+    ownerRequestReason: {
+        type: String
+    },
+    resetPasswordOTP: {
+        type: String
+    },
+    resetPasswordOTPExpires: {
+        type: Date
+    }
 }, { timestamps: true });
 
-// Indexes
-userSchema.index({ email: 1 }, { unique: true });
-userSchema.index({ username: 1 }, { unique: true });
-userSchema.index({ googleId: 1 }, { sparse: true });
-userSchema.index({ 'friends.user': 1 });
-
-// Hash mật khẩu trước khi lưu
+// Encrypt password before saving
 userSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) return next();
+    if (!this.isModified('password')) {
+        next();
+    }
     
-    try {
+    if (this.password) {
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);
-        next();
-    } catch (error) {
-        next(error);
     }
+    next();
 });
 
-// Phương thức so sánh mật khẩu
-userSchema.methods.comparePassword = async function(candidatePassword) {
-    return bcrypt.compare(candidatePassword, this.password);
+// Match password
+userSchema.methods.matchPassword = async function(enteredPassword) {
+    if (!this.password) return false;
+    return await bcrypt.compare(enteredPassword, this.password);
 };
 
 const User = mongoose.model('User', userSchema);

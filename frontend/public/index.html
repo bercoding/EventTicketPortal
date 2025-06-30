@@ -9,6 +9,9 @@
       name="description"
       content="Nền tảng đặt vé sự kiện trực tuyến"
     />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
       manifest.json provides metadata used when your web app is installed on a
@@ -24,7 +27,25 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>Nền tảng đặt vé sự kiện</title>
+    <title>Event Ticketing Platform - Protected v2.0</title>
+    
+    <!-- Force localStorage cleanup on load -->
+    <script>
+      // Cleanup corrupt checkout state immediately
+      try {
+        const checkoutState = localStorage.getItem('checkoutState');
+        if (checkoutState) {
+          const parsed = JSON.parse(checkoutState);
+          if (parsed?.eventId === "null" || parsed?.eventId === "undefined" || parsed?.eventId === null) {
+            console.warn('🧹 GLOBAL CLEANUP: Removing corrupt checkoutState');
+            localStorage.removeItem('checkoutState');
+          }
+        }
+      } catch (e) {
+        console.warn('🧹 GLOBAL CLEANUP: Removing all checkoutState due to parse error');
+        localStorage.removeItem('checkoutState');
+      }
+    </script>
   </head>
   <body>
     <noscript>Bạn cần bật JavaScript để chạy ứng dụng này.</noscript>

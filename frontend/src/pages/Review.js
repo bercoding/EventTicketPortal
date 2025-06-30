@@ -36,7 +36,17 @@ const ReviewPage = () => {
             <ReviewForm 
                 eventId={eventId} 
                 eventTitle={event?.title}
-                onReviewSuccess={() => setTimeout(() => navigate(`/events/${eventId}`), 2000)}
+                onReviewSuccess={() => {
+                    setTimeout(() => {
+                        // Validate eventId before navigation
+                        if (eventId && eventId !== 'null' && eventId !== 'undefined') {
+                            navigate(`/events/${eventId}`);
+                        } else {
+                            console.warn('⚠️ Invalid eventId in Review navigation, going to events list');
+                            navigate('/events');
+                        }
+                    }, 2000);
+                }}
             />
         </div>
     );

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 // import { adminAPI } from '../../services/api'; // adminAPI không còn được sử dụng sau khi comment fetchRevenue
 
 const RevenueReport = () => {
-  const [revenue, setRevenue] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

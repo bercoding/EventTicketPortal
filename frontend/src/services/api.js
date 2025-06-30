@@ -18,38 +18,43 @@ const api = axios.create({
   withCredentials: false
 });
 
-// Add token to requests
+// Request interceptor để log các request
 api.interceptors.request.use(
   (config) => {
-    let token;
-    try {
-      token = localStorage.getItem('token');
-      console.log('🔒 Token status:', token ? 'found' : 'not found');
+    const url = config.url || '';
+    const fullUrl = `${config.baseURL || API_BASE_URL}${url}`;
+    
+    // Log all API requests with full details
+    console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${fullUrl}`);
+    
+    // CRITICAL: Check for invalid eventId in URL with comprehensive patterns
+    const invalidPatterns = ['/null', '/undefined', '/null/', '/undefined/', '=null', '=undefined'];
+    const hasInvalidPattern = invalidPatterns.some(pattern => url.includes(pattern));
+    
+    if (hasInvalidPattern) {
+      console.error('🚨 BLOCKED: Request contains invalid eventId pattern!');
+      console.error('Full URL:', fullUrl);
+      console.error('Config:', config);
+      console.error('User agent:', navigator.userAgent);
+      console.error('Current location:', window.location.href);
+      console.trace('Request stack trace:');
       
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-        console.log('🔑 Added token to request headers');
-      }
-
-      // For FormData requests, don't set Content-Type
-      if (config.data instanceof FormData) {
-        delete config.headers['Content-Type'];
-        console.log('📦 FormData detected, removed Content-Type header');
-      }
-    } catch (error) {
-      console.error('❌ Storage access error:', error);
+      // Alert user for debugging
+      alert('🚨 API CALL BLOCKED!\n\nURL: ' + fullUrl + '\n\nThis invalid API call was prevented. You will be redirected to the events page.\n\nThis alert helps developers trace the bug source.');
+      
+      // Force redirect and block the request
+      window.location.replace('/events');
+      return Promise.reject(new Error(`Invalid eventId detected in request URL: ${fullUrl}`));
     }
-
-    console.log('📝 Request config:', {
-      method: config.method?.toUpperCase(),
-      url: `${config.baseURL}${config.url}`,
-      hasToken: !!token
-    });
-
+    
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {
-    console.error('❌ Request interceptor error:', error);
+    console.error('🔴 Request Error:', error);
     return Promise.reject(error);
   }
 );
@@ -75,8 +80,13 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       console.log('🚫 Authentication failed, clearing token...');
       localStorage.removeItem('token');
-      // Redirect to login only if not already on login page
-      if (!window.location.pathname.includes('/login')) {
+      
+      // Don't redirect if on profile page (let component handle the error)
+      const currentPath = window.location.pathname;
+      const isProfilePage = currentPath.includes('/profile') || currentPath.includes('/user-profile');
+      
+      // Redirect to login only if not already on login page or profile page
+      if (!currentPath.includes('/login') && !isProfilePage) {
         window.location.href = '/login';
       }
     }
@@ -86,27 +96,164 @@ api.interceptors.response.use(
 );
 
 // Auth API with better error handling
-export const authAPI = {
+const authAPI = {
+  register: async (userData) => {
+    try {
+      const response = await api.post('/auth/register', userData);
+      return response.data;
+    } catch (error) {
+      console.error('Register failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  verifyOTP: async (otpData) => {
+    try {
+      const response = await api.post('/auth/verify-otp', otpData);
+      if (response.data.success) {
+        localStorage.setItem('token', response.data.token);
+      }
+      return response.data;
+    } catch (error) {
+      console.error('OTP verification failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  resendOTP: async (userId) => {
+    try {
+      const response = await api.post('/auth/resend-otp', { userId });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
   login: async (credentials) => {
     try {
       const response = await api.post('/auth/login', credentials);
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
+      if (response.data.success) {
         console.log('Token saved after login');
+        localStorage.setItem('token', response.data.token);
+        return response.data;
       }
-      return response;
+      return response.data;
     } catch (error) {
       console.error('Login failed:', error.response?.data || error.message);
-      throw error;
+      throw error.response?.data || error;
     }
   },
-  register: (userData) => api.post('/auth/register', userData),
+
+  googleLogin: async (token) => {
+    try {
+      const response = await api.post('/auth/google', { token });
+      if (response.data.success) {
+        localStorage.setItem('token', response.data.token);
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Google login failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  getMe: async () => {
+    try {
+      const response = await api.get('/auth/me');
+      return response.data;
+    } catch (error) {
+      console.error('Get user info failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  forgotPassword: async (email) => {
+    try {
+      const response = await api.post('/auth/forgot-password', { email });
+      return response.data;
+    } catch (error) {
+      console.error('Forgot password failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Xác thực OTP cho reset password (alias cho tương thích)
+  verifyOtp: async ({ email, otp }) => {
+    try {
+      const response = await api.post('/auth/verify-reset-otp', { email, otp });
+      return response.data;
+    } catch (error) {
+      console.error('Verify OTP failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Xác thực OTP reset password
+  verifyResetOTP: async (email, otp) => {
+    try {
+      const response = await api.post('/auth/verify-reset-otp', { email, otp });
+      return response.data;
+    } catch (error) {
+      console.error('Verify reset OTP failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Đặt lại mật khẩu với OTP
+  resetPasswordWithOTP: async (email, otp, password) => {
+    try {
+      const response = await api.post('/auth/reset-password-with-otp', { email, otp, password });
+      return response.data;
+    } catch (error) {
+      console.error('Reset password with OTP failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  resetPassword: async (token, password) => {
+    try {
+      const response = await api.post('/auth/reset-password', { token, password });
+      return response.data;
+    } catch (error) {
+      console.error('Reset password failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  getProfile: async () => {
+    try {
+      const response = await api.get('/auth/profile');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  updateProfile: async (profileData) => {
+    try {
+      const response = await api.put('/auth/profile', profileData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  changePassword: async (passwordData) => {
+    try {
+      const response = await api.put('/auth/change-password', passwordData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
   logout: () => {
     localStorage.removeItem('token');
     return api.post('/auth/logout');
   },
-  getProfile: () => api.get('/auth/me'),
 };
+
+export { authAPI };
 
 // Post API
 export const postAPI = {
@@ -145,6 +292,190 @@ export const commentAPI = {
   getCommentLikes: (id) => api.get(`/comments/${id}/likes`),
 };
 
+// Event API
+export const eventAPI = {
+  // Get all events
+  getEvents: async () => {
+    try {
+      const response = await api.get('/events');
+      return response.data;
+    } catch (error) {
+      console.error('Get events failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+  
+  // Get event by ID
+  getEventById: async (id) => {
+    try {
+      const response = await api.get(`/events/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get event by ID failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+  
+  // Create new event
+  createEvent: async (eventData) => {
+    try {
+      const response = await api.post('/events', eventData);
+      return response.data;
+    } catch (error) {
+      console.error('Create event failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+  
+  // Create event with seating
+  createEventWithSeating: (eventData) => api.post('/events/create-with-seating', eventData),
+  
+  // Update event
+  updateEvent: async (id, eventData) => {
+    try {
+      const response = await api.put(`/events/${id}`, eventData);
+      return response.data;
+    } catch (error) {
+      console.error('Update event failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+  
+  // Delete event
+  deleteEvent: async (id) => {
+    try {
+      const response = await api.delete(`/events/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Delete event failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+  
+  // Update seating map
+  updateSeatingMap: (id, seatingData) => api.post(`/events/${id}/update-seating-map`, seatingData),
+  
+  // Get seating map
+  getSeatingMap: (id) => api.get(`/events/${id}/seating-map`),
+
+  // Get my events
+  getMyEvents: async () => {
+    try {
+      const response = await api.get('/events/my-events');
+      return response.data;
+    } catch (error) {
+      console.error('Get my events failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Upload event image
+  uploadEventImage: async (id, formData) => {
+    try {
+      const response = await api.post(`/events/${id}/upload-image`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Upload event image failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  }
+};
+
+// User Profile API
+export const userProfileAPI = {
+  // Get current user profile
+  getCurrentUserProfile: async () => {
+    try {
+      const response = await api.get('/users/profile/me');
+      return response.data;
+    } catch (error) {
+      console.error('Get profile failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+  
+  // Update user profile
+  updateUserProfile: async (userData) => {
+    try {
+      const response = await api.put('/users/profile/me', userData);
+      return response.data;
+    } catch (error) {
+      console.error('Update profile failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+  
+  // Update avatar
+  updateUserAvatar: async (formData) => {
+    try {
+      const response = await api.put('/users/profile/me/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Update avatar failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+  
+  // Change password
+  changePassword: async (passwordData) => {
+    try {
+      const response = await api.put('/users/profile/me/change-password', passwordData);
+      return response.data;
+    } catch (error) {
+      console.error('Change password failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+  
+  // Get owner request status
+  getOwnerRequestStatus: async () => {
+    try {
+      const response = await api.get('/users/owner-request/status');
+      return response.data;
+    } catch (error) {
+      console.error('Get owner request status failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+  
+  // Submit owner request
+  requestOwnerRole: async (requestData) => {
+    try {
+      const response = await api.post('/users/request-owner', requestData);
+      return response.data;
+    } catch (error) {
+      console.error('Request owner role failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+};
+
+// Booking API
+export const bookingAPI = {
+  // Create booking
+  createBooking: (bookingData) => api.post('/bookings', bookingData),
+  
+  // Get user bookings
+  getUserBookings: () => api.get('/bookings/user'),
+  
+  // Get booking by ID
+  getBookingById: (id) => api.get(`/bookings/${id}`),
+  
+  // Cancel booking
+  cancelBooking: (id) => api.put(`/bookings/${id}/cancel`),
+};
+
+// Search Users API
+export const searchUsersAPI = (searchTerm) => api.get(`/users/search?q=${encodeURIComponent(searchTerm)}`);
+
 // Admin API
 export const adminAPI = {
   // Dashboard
@@ -180,6 +511,100 @@ export const adminAPI = {
   getOwnerRequests: (params) => api.get('/admin/owner-requests', { params }),
   approveOwnerRequest: (requestId) => api.post(`/admin/owner-requests/${requestId}/approve`),
   rejectOwnerRequest: (requestId, data) => api.post(`/admin/owner-requests/${requestId}/reject`, data),
+};
+
+// Tickets API
+export const ticketAPI = {
+  // Create ticket
+  createTicket: async (eventId, ticketData) => {
+    try {
+      const response = await api.post(`/events/${eventId}/tickets`, ticketData);
+      return response.data;
+    } catch (error) {
+      console.error('Create ticket failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Get event tickets
+  getEventTickets: async (eventId) => {
+    try {
+      const response = await api.get(`/events/${eventId}/tickets`);
+      return response.data;
+    } catch (error) {
+      console.error('Get event tickets failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Update ticket
+  updateTicket: async (eventId, ticketId, ticketData) => {
+    try {
+      const response = await api.put(`/events/${eventId}/tickets/${ticketId}`, ticketData);
+      return response.data;
+    } catch (error) {
+      console.error('Update ticket failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Delete ticket
+  deleteTicket: async (eventId, ticketId) => {
+    try {
+      const response = await api.delete(`/events/${eventId}/tickets/${ticketId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Delete ticket failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Purchase ticket
+  purchaseTicket: async (eventId, ticketId, quantity) => {
+    try {
+      const response = await api.post(`/events/${eventId}/tickets/${ticketId}/purchase`, { quantity });
+      return response.data;
+    } catch (error) {
+      console.error('Purchase ticket failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  }
+};
+
+// Orders API
+export const orderAPI = {
+  // Get my orders
+  getMyOrders: async () => {
+    try {
+      const response = await api.get('/orders/my-orders');
+      return response.data;
+    } catch (error) {
+      console.error('Get my orders failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Get order
+  getOrder: async (orderId) => {
+    try {
+      const response = await api.get(`/orders/${orderId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get order failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Cancel order
+  cancelOrder: async (orderId) => {
+    try {
+      const response = await api.post(`/orders/${orderId}/cancel`);
+      return response.data;
+    } catch (error) {
+      console.error('Cancel order failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  }
 };
 
 export default api;

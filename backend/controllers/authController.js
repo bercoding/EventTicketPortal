@@ -1,46 +1,79 @@
 // backend/controllers/authController.js
 const User = require('../models/User');
+const Otp = require('../models/Otp');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const sendEmail = require('../config/email'); // Import hàm sendEmail
+const sendEmail = require('../config/email');
 
 // Tạo token JWT
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1d' });
 };
 
+// Tạo OTP
+const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
 // Đăng ký
 exports.register = async (req, res) => {
-    const { username, email, password, role } = req.body;
+    const { username, email, password } = req.body;
     
     try {
         // Kiểm tra user đã tồn tại
         const userExists = await User.findOne({ $or: [{ email }, { username }] });
         
         if (userExists) {
-            return res.status(400).json({ message: 'Người dùng đã tồn tại' });
+            return res.status(400).json({ 
+                success: false,
+                message: 'Email hoặc tên đăng nhập đã tồn tại' 
+            });
         }
+
+        // Tạo OTP
+        const otpCode = generateOTP();
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
+
+        // Lưu OTP vào database
+        await Otp.create({
+            email,
+            username,
+            otpCode,
+            expiresAt: otpExpiry
+        });
+
+        // Gửi email OTP
+        const emailContent = `
+            <h2>Xác thực tài khoản của bạn</h2>
+            <p>Cảm ơn bạn đã đăng ký tài khoản tại Event Ticket Portal.</p>
+            <p>Mã OTP của bạn là: <strong>${otpCode}</strong></p>
+            <p>Mã này sẽ hết hạn sau 10 phút.</p>
+            <p>Vui lòng không chia sẻ mã này với bất kỳ ai.</p>
+        `;
+
+        await sendEmail({
+            email,
+            subject: 'Xác thực tài khoản Event Ticket Portal',
+            message: emailContent
+        });
         
-        // Tạo user mới
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        
+        // Tạo user mới nhưng chưa active
         const user = await User.create({
             username,
             email,
-            password,
-            role: role || 'user'
+            password: hashedPassword,
+            status: 'pending'
         });
-        
-        // Trả về token
-        const token = generateToken(user._id);
         
         res.status(201).json({
             success: true,
-            token,
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                role: user.role
-            }
+            message: 'Đăng ký thành công. Vui lòng kiểm tra email để lấy mã OTP.',
+            userId: user._id
         });
     } catch (error) {
         res.status(400).json({ 
@@ -51,49 +84,52 @@ exports.register = async (req, res) => {
     }
 };
 
-// Đăng nhập
-exports.login = async (req, res) => {
-    const { email, password } = req.body;
-    
+// Xác thực OTP
+exports.verifyOTP = async (req, res) => {
+    const { email, otp } = req.body;
+
     try {
-        console.log('Login attempt:', { email, password: '***' });
-        
-        // Kiểm tra email và password
-        if (!email || !password) {
-            return res.status(400).json({ message: 'Vui lòng nhập email và mật khẩu' });
-        }
-        
-        // Tìm user
-        const user = await User.findOne({ email });
-        console.log('User found:', !!user);
-        
-        if (!user) {
-            return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
-        }
-        
-        // Kiểm tra user có bị ban không
-        if (user.isBanned) {
-            return res.status(403).json({ 
+        // Tìm OTP mới nhất và chưa xác thực của email
+        const otpRecord = await Otp.findOne({
+            email,
+            otpCode: otp,
+            isVerified: false,
+            expiresAt: { $gt: Date.now() }
+        }).sort({ createdAt: -1 });
+
+        if (!otpRecord) {
+            return res.status(400).json({
                 success: false,
-                message: 'Tài khoản của bạn đã bị khóa',
-                banned: true,
-                banReason: user.banReason || 'Vi phạm điều khoản sử dụng'
+                message: 'Mã OTP không hợp lệ hoặc đã hết hạn'
             });
         }
-        
-        // Kiểm tra mật khẩu
-        const isMatch = await user.comparePassword(password);
-        console.log('Password match:', isMatch);
-        
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
+
+        // Tìm user tương ứng
+        const user = await User.findOne({ 
+            email: otpRecord.email,
+            username: otpRecord.username
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng'
+            });
         }
-        
-        // Trả về token
+
+        // Cập nhật trạng thái OTP và user
+        otpRecord.isVerified = true;
+        await otpRecord.save();
+
+        user.status = 'active';
+        await user.save();
+
+        // Tạo token và trả về thông tin user
         const token = generateToken(user._id);
-        
+
         res.status(200).json({
             success: true,
+            message: 'Xác thực thành công',
             token,
             user: {
                 id: user._id,
@@ -103,7 +139,162 @@ exports.login = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Login error:', error);
+        res.status(400).json({
+            success: false,
+            message: 'Xác thực thất bại',
+            error: error.message
+        });
+    }
+};
+
+// Gửi lại OTP
+exports.resendOTP = async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        // Tìm user chưa được xác thực
+        const user = await User.findOne({ 
+            email,
+            status: 'pending'
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy tài khoản cần xác thực'
+            });
+        }
+
+        // Tạo OTP mới
+        const otpCode = generateOTP();
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
+
+        // Xóa OTP cũ và tạo mới
+        await Otp.deleteMany({ email });
+        await Otp.create({
+            email: user.email,
+            username: user.username,
+            otpCode,
+            expiresAt: otpExpiry
+        });
+
+        // Gửi email OTP
+        const emailContent = `
+            <h2>Xác thực tài khoản của bạn</h2>
+            <p>Mã OTP mới của bạn là: <strong>${otpCode}</strong></p>
+            <p>Mã này sẽ hết hạn sau 10 phút.</p>
+            <p>Vui lòng không chia sẻ mã này với bất kỳ ai.</p>
+        `;
+
+        await sendEmail({
+            email: user.email,
+            subject: 'Mã OTP mới - Event Ticket Portal',
+            message: emailContent
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Mã OTP mới đã được gửi đến email của bạn'
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: 'Không thể gửi lại mã OTP',
+            error: error.message
+        });
+    }
+};
+
+// Đăng nhập
+exports.login = async (req, res) => {
+    const { email, password } = req.body;
+    
+    try {
+        console.log('🔐 Login attempt for email:', email);
+        
+        // Kiểm tra email và password
+        if (!email || !password) {
+            console.log('❌ Missing email or password');
+            return res.status(400).json({ 
+                success: false,
+                message: 'Vui lòng nhập email và mật khẩu' 
+            });
+        }
+        
+        // Tìm user
+        const user = await User.findOne({ email });
+        
+        if (!user) {
+            console.log('❌ User not found for email:', email);
+            return res.status(401).json({ 
+                success: false,
+                message: 'Email hoặc mật khẩu không đúng' 
+            });
+        }
+
+        console.log('👤 Found user:', user.email, 'ID:', user._id);
+
+        // Kiểm tra trạng thái tài khoản
+        if (user.status === 'pending') {
+            console.log('⏳ User account pending verification:', user.email);
+            return res.status(403).json({
+                success: false,
+                message: 'Tài khoản chưa được xác thực. Vui lòng kiểm tra email để xác thực.'
+            });
+        }
+        
+        // Kiểm tra user có bị ban không
+        if (user.isBanned) {
+            console.log('🚫 User is banned:', user.email);
+            return res.status(403).json({ 
+                success: false,
+                message: 'Tài khoản của bạn đã bị khóa',
+                banned: true,
+                banReason: user.banReason || 'Vi phạm điều khoản sử dụng'
+            });
+        }
+        
+        // Kiểm tra mật khẩu
+        const isMatch = await bcrypt.compare(password, user.password);
+        
+        if (!isMatch) {
+            console.log('❌ Password mismatch for user:', user.email);
+            return res.status(401).json({ 
+                success: false,
+                message: 'Email hoặc mật khẩu không đúng' 
+            });
+        }
+        
+        // Cập nhật thời gian đăng nhập
+        user.lastLoginAt = Date.now();
+        await user.save();
+        
+        // Tạo token
+        const token = generateToken(user._id);
+        
+        console.log('✅ Login successful for user:', user.email, 'ID:', user._id);
+        console.log('🔑 Generated token for user ID:', user._id);
+        
+        // Prepare user data to return (exclude sensitive fields)
+        const userData = {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            avatar: user.avatar,
+            ownerRequestStatus: user.ownerRequestStatus,
+            fullName: user.fullName
+        };
+        
+        console.log('📤 Returning user data:', userData);
+        
+        res.status(200).json({
+            success: true,
+            token,
+            user: userData
+        });
+    } catch (error) {
+        console.error('❌ Login error:', error);
         res.status(400).json({ 
             success: false,
             message: 'Đăng nhập thất bại',
@@ -116,6 +307,14 @@ exports.login = async (req, res) => {
 exports.getMe = async (req, res) => {
     try {
         const user = await User.findById(req.user.id).select('-password');
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng'
+            });
+        }
+
         res.status(200).json({
             success: true,
             data: user
@@ -129,180 +328,217 @@ exports.getMe = async (req, res) => {
     }
 };
 
-// Quên mật khẩu - Yêu cầu OTP
+// Quên mật khẩu - Gửi OTP
 exports.forgotPassword = async (req, res) => {
     const { email } = req.body;
-    console.log('--- Forgot Password Attempt ---');
-    console.log('Requesting OTP for email:', email);
 
     try {
         const user = await User.findOne({ email });
         if (!user) {
-            console.log('User not found for email:', email);
-            return res.status(404).json({ success: false, message: 'Email không tồn tại trong hệ thống.' });
-        }
-        console.log('User found, ID:', user._id);
-
-        const otp = crypto.randomInt(100000, 999999).toString();
-        const otpExpires = Date.now() + 10 * 60 * 1000; // OTP hết hạn sau 10 phút
-        console.log('Generated OTP:', otp, 'Expires at:', new Date(otpExpires).toISOString());
-
-        user.otp = otp;
-        user.otpExpires = otpExpires;
-        
-        console.log('Attempting to save OTP to DB for user:', user._id);
-        try {
-            await user.save(); // Lưu thông tin OTP MỚI vào database
-            console.log('OTP saved to DB successfully for user:', user._id);
-
-            // Lấy lại user từ DB để kiểm tra xem OTP đã được lưu chưa
-            const userAfterSave = await User.findById(user._id);
-            console.log('User details after save (from DB):', { 
-                otpInDB: userAfterSave.otp, 
-                otpExpiresInDB: userAfterSave.otpExpires 
+            return res.status(404).json({ 
+                success: false,
+                message: 'Email không tồn tại trong hệ thống' 
             });
-
-        } catch (saveError) {
-            console.error('ERROR SAVING OTP TO DB for user:', user._id, saveError);
-            // Nếu lỗi lưu, vẫn nên thử xóa OTP để tránh gửi mail mà OTP không hợp lệ
-            user.otp = undefined;
-            user.otpExpires = undefined;
-            // Không cần await save() ở đây nữa vì đã lỗi rồi
-            return res.status(500).json({ success: false, message: 'Lỗi khi lưu OTP. Vui lòng thử lại.' });
         }
 
-        // Gửi email
-        const emailSubject = 'Yêu cầu đặt lại mật khẩu';
-        const emailHtml = `
-            <div style="font-family: Arial, Helvetica, sans-serif; line-height: 1.6; color: #333333; background-color: #f4f4f4; margin: 0; padding: 0;">
-                <div style="max-width: 600px; margin: 30px auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-                    <div style="text-align: center; margin-bottom: 25px;">
-                        <h1 style="font-size: 24px; color: #0056b3; margin: 0;">${process.env.APP_NAME || 'Ứng Dụng Của Bạn'}</h1>
+        // Tạo OTP 6 số
+        const otpCode = generateOTP();
+        
+        // Lưu OTP vào user (hoặc có thể dùng OTP model riêng)
+        user.resetPasswordOTP = otpCode;
+        user.resetPasswordOTPExpires = Date.now() + 10 * 60 * 1000; // 10 phút
+
+        await user.save();
+
+        // Gửi email với OTP
+        const message = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; border-radius: 10px;">
+                <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <h2 style="color: #333; text-align: center; margin-bottom: 30px;">🔐 Đặt lại mật khẩu</h2>
+                    
+                    <p style="color: #555; font-size: 16px; line-height: 1.6;">Xin chào <strong>${user.fullName || user.username}</strong>,</p>
+                    
+                    <p style="color: #555; font-size: 16px; line-height: 1.6;">
+                        Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản Event Ticket Portal. 
+                        Vui lòng sử dụng mã OTP sau để xác nhận:
+                    </p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <div style="background-color: #007bff; color: white; font-size: 32px; font-weight: bold; padding: 20px; border-radius: 8px; letter-spacing: 8px; display: inline-block;">
+                            ${otpCode}
+                        </div>
                     </div>
-                    <h2 style="font-size: 20px; color: #0056b3; margin-bottom: 20px;">Yêu Cầu Đặt Lại Mật Khẩu</h2>
-                    <p style="margin-bottom: 15px;">Xin chào,</p>
-                    <p style="margin-bottom: 15px;">Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn được liên kết với địa chỉ email này.</p>
-                    <p style="margin-bottom: 15px;">Vui lòng sử dụng mã OTP (Mã xác thực một lần) dưới đây để tiếp tục quá trình đặt lại mật khẩu. Mã này sẽ có hiệu lực trong <strong>10 phút</strong>.</p>
-                    <div style="background-color: #e9ecef; text-align: center; padding: 15px; border-radius: 5px; margin: 25px 0;">
-                        <p style="font-size: 28px; font-weight: bold; color: #004085; letter-spacing: 2px; margin: 0;">${otp}</p>
-                    </div>
-                    <p style="margin-bottom: 15px;">Để bảo vệ tài khoản của bạn, vui lòng không chia sẻ mã OTP này với bất kỳ ai.</p>
-                    <p style="margin-bottom: 20px;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này. Không có thay đổi nào được thực hiện đối với tài khoản của bạn.</p>
-                    <hr style="border: none; border-top: 1px solid #dddddd; margin: 25px 0;">
-                    <p style="margin-bottom: 5px;">Trân trọng,</p>
-                    <p style="font-weight: bold; color: #0056b3; margin-bottom: 15px;">Đội ngũ ${process.env.APP_NAME || 'Ứng Dụng Của Bạn'}</p>
-                    <div style="text-align: center; font-size: 0.9em; color: #777777; margin-top: 20px;">
-                        <p>Đây là một email tự động. Vui lòng không trả lời thư này.</p>
-                    </div>
+                    
+                    <p style="color: #555; font-size: 16px; line-height: 1.6;">
+                        <strong>Lưu ý quan trọng:</strong>
+                    </p>
+                    <ul style="color: #555; font-size: 14px; line-height: 1.6;">
+                        <li>Mã OTP này có hiệu lực trong <strong>10 phút</strong></li>
+                        <li>Không chia sẻ mã OTP với bất kỳ ai</li>
+                        <li>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này</li>
+                    </ul>
+                    
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                    
+                    <p style="color: #999; font-size: 12px; text-align: center;">
+                        Email này được gửi từ Event Ticket Portal<br>
+                        Nếu có thắc mắc, vui lòng liên hệ hỗ trợ
+                    </p>
                 </div>
             </div>
         `;
 
-        await sendEmail(user.email, emailSubject, emailHtml);
+        try {
+            await sendEmail({
+                email: user.email,
+                subject: '🔐 Mã OTP đặt lại mật khẩu - Event Ticket Portal',
+                message
+            });
 
-        res.status(200).json({ success: true, message: 'OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.' });
+            console.log(`📧 OTP sent to ${email}: ${otpCode}`); // Log để debug
 
-    } catch (error) {
-        console.error('Forgot Password Error (Outer Catch):', error);
-        // Xóa OTP nếu có lỗi để tránh tình trạng OTP còn lại mà không gửi được mail
-        // Cần kiểm tra xem user có tồn tại không trước khi cố gắng truy cập các thuộc tính của nó
-        if (req.body.email) { // Kiểm tra email từ request body
-            try {
-                const userToClean = await User.findOne({ email: req.body.email });
-                if (userToClean) {
-                    userToClean.otp = undefined;
-                    userToClean.otpExpires = undefined;
-                    await userToClean.save();
-                    console.log('OTP cleaned up for user due to outer catch error:', req.body.email);
-                }
-            } catch (cleanupError) {
-                console.error('Error during OTP cleanup in outer catch:', cleanupError);
-            }
+            res.status(200).json({ 
+                success: true, 
+                message: 'Mã OTP đã được gửi đến email của bạn',
+                // Trong development có thể trả về OTP để test
+                ...(process.env.NODE_ENV === 'development' && { otp: otpCode })
+            });
+        } catch (error) {
+            user.resetPasswordOTP = undefined;
+            user.resetPasswordOTPExpires = undefined;
+            await user.save();
+
+            console.error('Email sending error:', error);
+
+            return res.status(500).json({ 
+                success: false,
+                message: 'Không thể gửi email OTP' 
+            });
         }
-        res.status(500).json({ success: false, message: 'Lỗi máy chủ khi xử lý yêu cầu. Vui lòng thử lại sau.' });
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Lỗi quên mật khẩu',
+            error: error.message 
+        });
     }
 };
 
 // Xác thực OTP
-exports.verifyOtp = async (req, res) => {
+exports.verifyResetOTP = async (req, res) => {
     const { email, otp } = req.body;
-    console.log('--- Verify OTP Attempt ---'); // Log bắt đầu
-    console.log('Received from Frontend:', { email, otpReceived: otp });
-
-    if (!email || !otp) { 
-        console.log('Validation Error: Email or OTP missing.');
-        return res.status(400).json({ success: false, message: 'Vui lòng cung cấp email và OTP.' });
-    }
 
     try {
-        const userInDB = await User.findOne({ email }); // Tìm user chỉ bằng email trước
-
-        if (!userInDB) {
-            console.log('User not found in DB for email:', email);
-            return res.status(400).json({ success: false, message: 'Email không tồn tại hoặc OTP không hợp lệ.' });
-        }
-
-        console.log('User found in DB. Stored OTP details:', { 
-            storedOtp: userInDB.otp, 
-            storedOtpExpires: userInDB.otpExpires,
-            isExpired: userInDB.otpExpires ? (userInDB.otpExpires.getTime() < Date.now()) : 'N/A'
-        });
-
-        // Bây giờ mới thực hiện query đầy đủ để so sánh OTP và thời gian hết hạn
-        const matchedUser = await User.findOne({ 
-            email, 
-            otp, // So sánh trực tiếp OTP người dùng nhập với OTP trong database
-            otpExpires: { $gt: Date.now() } 
-        });
-
-        if (!matchedUser) { 
-            console.log('OTP Mismatch or Expired. Query for exact match failed.');
-            console.log('Query details:', { email, otpToMatch: otp, expiryCondition: { $gt: Date.now() } });
-            return res.status(400).json({ success: false, message: 'OTP không hợp lệ hoặc đã hết hạn.' });
-        }
-        
-        console.log('OTP Verified Successfully for user:', matchedUser._id);
-        res.status(200).json({ success: true, message: 'Xác thực OTP thành công. Bạn có thể đặt lại mật khẩu.' });
-
-    } catch (error) {
-        console.error('Verify OTP Server Error:', error);
-        res.status(500).json({ success: false, message: 'Lỗi máy chủ khi xác thực OTP.' });
-    }
-};
-
-// Đặt lại mật khẩu
-exports.resetPassword = async (req, res) => {
-    const { email, otp, newPassword } = req.body;
-
-    if (!email || !otp || !newPassword) {
-        return res.status(400).json({ success: false, message: 'Vui lòng cung cấp email, OTP và mật khẩu mới.' });
-    }
-
-    if (newPassword.length < 6) {
-        return res.status(400).json({ success: false, message: 'Mật khẩu mới phải có ít nhất 6 ký tự.' });
-    }
-
-    try {
+        // Tìm user với OTP hợp lệ
         const user = await User.findOne({
             email,
-            otp, // Kiểm tra lại OTP một lần nữa để chắc chắn
-            otpExpires: { $gt: Date.now() }
+            resetPasswordOTP: otp,
+            resetPasswordOTPExpires: { $gt: Date.now() }
         });
 
         if (!user) {
-            return res.status(400).json({ success: false, message: 'Yêu cầu không hợp lệ hoặc OTP đã hết hạn. Vui lòng thử lại quá trình quên mật khẩu.' });
+            return res.status(400).json({ 
+                success: false,
+                message: 'Mã OTP không hợp lệ hoặc đã hết hạn' 
+            });
         }
 
-        // Hash mật khẩu mới và cập nhật
-        user.password = newPassword; // Middleware pre('save') sẽ tự động hash mật khẩu
-        user.otp = undefined; // Xóa OTP
-        user.otpExpires = undefined; // Xóa thời gian hết hạn OTP
+        res.status(200).json({ 
+            success: true, 
+            message: 'OTP hợp lệ. Bạn có thể đặt lại mật khẩu.',
+            data: { email }
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: 'Lỗi xác thực OTP',
+            error: error.message 
+        });
+    }
+};
+
+// Đặt lại mật khẩu với OTP
+exports.resetPasswordWithOTP = async (req, res) => {
+    const { email, otp, password } = req.body;
+
+    try {
+        // Tìm user với OTP hợp lệ
+        const user = await User.findOne({
+            email,
+            resetPasswordOTP: otp,
+            resetPasswordOTPExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'Mã OTP không hợp lệ hoặc đã hết hạn' 
+            });
+        }
+
+        // Đặt mật khẩu mới (sẽ được hash tự động bởi User schema middleware)
+        user.password = password;
+        user.resetPasswordOTP = undefined;
+        user.resetPasswordOTPExpires = undefined;
         await user.save();
 
-        res.status(200).json({ success: true, message: 'Mật khẩu của bạn đã được đặt lại thành công.' });
+        console.log(`✅ Password reset successfully for ${email}`);
 
+        res.status(200).json({ 
+            success: true, 
+            message: 'Đặt lại mật khẩu thành công' 
+        });
     } catch (error) {
-        console.error('Reset Password Error:', error);
-        res.status(500).json({ success: false, message: 'Lỗi máy chủ khi đặt lại mật khẩu.' });
+        console.error('Reset password error:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Lỗi đặt lại mật khẩu',
+            error: error.message 
+        });
+    }
+};
+
+// Đặt lại mật khẩu (legacy - với token)
+exports.resetPassword = async (req, res) => {
+    const { token, password } = req.body;
+
+    try {
+        // Hash token
+        const resetPasswordToken = crypto
+            .createHash('sha256')
+            .update(token)
+            .digest('hex');
+
+        // Tìm user với token hợp lệ
+        const user = await User.findOne({
+            resetPasswordToken,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'Token không hợp lệ hoặc đã hết hạn' 
+            });
+        }
+
+        // Hash mật khẩu mới
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+
+        res.status(200).json({ 
+            success: true, 
+            message: 'Đặt lại mật khẩu thành công' 
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: 'Lỗi đặt lại mật khẩu',
+            error: error.message 
+        });
     }
 };

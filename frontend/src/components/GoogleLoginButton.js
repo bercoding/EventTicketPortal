@@ -1,62 +1,77 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
-import { AuthContext } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const GoogleLoginButton = () => {
-    const { googleLogin } = useContext(AuthContext);
+    const { googleLogin } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const handleGoogleSuccess = async (credentialResponse) => {
         try {
-            console.log('Google login success:', credentialResponse);
-            
+            console.log('🔑 Google OAuth Success, credential received');
             const result = await googleLogin(credentialResponse.credential);
-            
-            if (result.success) {
-                // Check user role and redirect accordingly
-                if (result.user && result.user.role === 'admin') {
-                    navigate('/admin');
-                } else {
-                    navigate('/');
-                }
-            } else if (result.banned) {
-                // Handle banned user
-                console.log('User is banned:', result.banReason);
-            } else {
+            if (!result.success) {
                 console.error('Google login failed:', result.error);
+                alert('Đăng nhập bằng Google thất bại: ' + result.error);
+            } else {
+                console.log('✅ Google login successful, redirecting...');
+                // Navigate to return URL or home page
+                const returnUrl = location.state?.returnUrl || location.state?.from?.pathname || '/';
+                navigate(returnUrl);
             }
         } catch (error) {
             console.error('Google login error:', error);
+            alert('Lỗi đăng nhập Google: ' + error.message);
         }
     };
 
     const handleGoogleError = () => {
-        console.log('Google login failed');
+        console.error('Google OAuth Error');
+        alert('Không thể kết nối với Google. Vui lòng thử lại.');
+    };
+
+    // Test function for debugging
+    const testGoogleLogin = async () => {
+        try {
+            console.log('🧪 Testing Google login flow...');
+            // This will fail but we can see the flow
+            const result = await googleLogin('test-invalid-token');
+            console.log('Test result:', result);
+        } catch (error) {
+            console.log('Test completed - expected error:', error.message);
+        }
     };
 
     return (
-        <div className="w-full">
-            <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Hoặc</span>
-                </div>
+        <div className="w-full space-y-2">
+            <div className="flex justify-center">
+                <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    theme="outline"
+                    text="continue_with"
+                    shape="rectangular"
+                    width="384"
+                    size="large"
+                    type="standard"
+                    logo_alignment="left"
+                    locale="vi"
+                />
             </div>
-
-            <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                useOneTap
-                theme="outline"
-                size="large"
-                text="signin_with"
-                locale="vi"
-                shape="rectangular"
-                logo_alignment="left"
-            />
+            
+            {/* Debug button - remove in production */}
+            {process.env.NODE_ENV === 'development' && (
+                <div className="flex justify-center">
+                    <button 
+                        onClick={testGoogleLogin}
+                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 border border-gray-300 rounded"
+                    >
+                        Test Google Flow
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
