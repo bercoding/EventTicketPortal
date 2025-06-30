@@ -18,6 +18,8 @@ const commentRoutes = require('./routes/comment'); // Add missing import
 const venueRoutes = require('./routes/venue'); // Add missing import
 const socketHandler = require('./socket/socketHandler'); // Sẽ tạo file này sau
 const contentRoutes = require('./routes/contentRoutes');
+const friendRoutes = require('./routes/friendRoutes'); 
+require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app); // Tạo HTTP server từ Express app
@@ -56,6 +58,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/venues', venueRoutes);
+app.use('/api/friends', friendRoutes); 
 app.use('/api/users', userRoutes); // Sử dụng userRoutes
 app.use('/api/tickets', ticketRoutes); // Sử dụng ticketRoutes
 app.use('/api/bookings', bookingRoutes); // Sử dụng bookingRoutes
