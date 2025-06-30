@@ -11,6 +11,7 @@ const ticketTypeSchema = new mongoose.Schema({
     required: [true, 'Price is required.'],
     min: [0, 'Price cannot be negative.'],
   },
+
   quantity: {
     type: Number,
     required: [true, 'Quantity is required.'],
@@ -20,6 +21,7 @@ const ticketTypeSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+
   event: {
     type: mongoose.Schema.ObjectId,
     ref: 'Event',
@@ -34,5 +36,6 @@ const ticketTypeSchema = new mongoose.Schema({
 });
 
 const TicketType = mongoose.model('TicketType', ticketTypeSchema);
+
 
 module.exports = TicketType; 

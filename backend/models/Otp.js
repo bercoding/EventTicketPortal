@@ -38,4 +38,6 @@ otpSchema.pre('save', async function(next) {
 
 const Otp = mongoose.model('Otp', otpSchema);
 
+
 module.exports = Otp; 
+

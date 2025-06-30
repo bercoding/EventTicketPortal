@@ -578,4 +578,4 @@ exports.getDashboardStats = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error fetching dashboard stats', error: error.message });
   }
-}; 
+};

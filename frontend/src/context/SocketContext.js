@@ -126,7 +126,9 @@ export const SocketProvider = ({ children }) => {
         const handleMessageError = (error) => {
             console.error('Message error from server (SocketContext):', error.message);
             // Consider a more user-friendly notification system than alert
+
             // alert(`Lỗi gửi tin nhắn: ${error.message}`); 
+
         };
 
         socket.on('conversations_list', handleConversationsList);
@@ -196,4 +198,6 @@ export const SocketProvider = ({ children }) => {
             {children}
         </SocketContext.Provider>
     );
+
 }; 
+
