@@ -15,6 +15,7 @@ const MyTicketsPage = () => {
     const [showReturnModal, setShowReturnModal] = useState(null);
     const [isReturning, setIsReturning] = useState(false);
     const [newTickets, setNewTickets] = useState([]);
+    const [selectedStatus, setSelectedStatus] = useState('all');
 
     const fetchTickets = async () => {
         try {
@@ -105,7 +106,9 @@ const MyTicketsPage = () => {
         return { refundAmount, feeAmount };
     };
     
-    const isReturnable = (ticket) => {
+    const canReturnTicket = (ticket) => {
+        if (ticket.status !== 'active') return false;
+        
         if (!ticket.event || !ticket.event.startDate) return false;
         const eventDate = new Date(ticket.event.startDate);
         const now = new Date();
@@ -132,7 +135,9 @@ const MyTicketsPage = () => {
     const getStatusColor = (status) => {
         switch (status) {
             case 'active': return 'bg-green-100 text-green-800';
+            case 'pending': return 'bg-yellow-100 text-yellow-800';
             case 'returned': return 'bg-red-100 text-red-800';
+            case 'cancelled': return 'bg-gray-100 text-gray-600';
             case 'used': return 'bg-gray-100 text-gray-800';
             default: return 'bg-blue-100 text-blue-800';
         }
@@ -141,11 +146,17 @@ const MyTicketsPage = () => {
     const getStatusText = (status) => {
         switch (status) {
             case 'active': return 'Có hiệu lực';
+            case 'pending': return 'Chờ xác nhận';
             case 'returned': return 'Đã trả';
+            case 'cancelled': return 'Đã hủy';
             case 'used': return 'Đã sử dụng';
             default: return status;
         }
     };
+
+    const filteredTickets = tickets.filter(ticket => {
+        return selectedStatus === 'all' || ticket.status === selectedStatus;
+    });
 
     if (loading) {
         return (
@@ -174,6 +185,69 @@ const MyTicketsPage = () => {
                     <p className="text-gray-600">Quản lý và xem chi tiết các vé sự kiện của bạn</p>
                 </div>
 
+                {/* Filter Bar */}
+                <div className="mb-6 bg-white rounded-lg shadow p-4">
+                    <div className="flex items-center space-x-4">
+                        <span className="text-gray-700 font-medium">Lọc theo trạng thái:</span>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                onClick={() => setSelectedStatus('all')}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
+                                    ${selectedStatus === 'all' 
+                                        ? 'bg-blue-500 text-white' 
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                                Tất cả
+                            </button>
+                            <button
+                                onClick={() => setSelectedStatus('active')}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
+                                    ${selectedStatus === 'active' 
+                                        ? 'bg-green-500 text-white' 
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                                Có hiệu lực
+                            </button>
+                            <button
+                                onClick={() => setSelectedStatus('pending')}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
+                                    ${selectedStatus === 'pending' 
+                                        ? 'bg-yellow-500 text-white' 
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                                Chờ xác nhận
+                            </button>
+                            <button
+                                onClick={() => setSelectedStatus('returned')}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
+                                    ${selectedStatus === 'returned' 
+                                        ? 'bg-red-500 text-white' 
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                                Đã trả
+                            </button>
+                            <button
+                                onClick={() => setSelectedStatus('cancelled')}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
+                                    ${selectedStatus === 'cancelled' 
+                                        ? 'bg-gray-500 text-white' 
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                                Đã hủy
+                            </button>
+                            <button
+                                onClick={() => setSelectedStatus('used')}
+                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
+                                    ${selectedStatus === 'used' 
+                                        ? 'bg-gray-500 text-white' 
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                                Đã sử dụng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 {tickets.length === 0 ? (
                     <div className="text-center py-16">
                         <div className="mb-4">
@@ -186,7 +260,7 @@ const MyTicketsPage = () => {
                     </div>
                 ) : (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {tickets.map(ticket => {
+                        {filteredTickets.map(ticket => {
                             const dateTime = formatDateTime(ticket.event?.startDate);
                             const isNewTicket = newTickets.includes(ticket._id);
                             return (
@@ -295,7 +369,7 @@ const MyTicketsPage = () => {
                                         </div>
 
                                         {/* Actions */}
-                                        {ticket.status === 'active' && isReturnable(ticket) && (
+                                        {ticket.status === 'active' && canReturnTicket(ticket) && (
                                             <button 
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -306,7 +380,7 @@ const MyTicketsPage = () => {
                                                 Trả vé (Phí 25%)
                                             </button>
                                         )}
-                                        {ticket.status === 'active' && !isReturnable(ticket) && (
+                                        {ticket.status === 'active' && !canReturnTicket(ticket) && (
                                             <div className="text-center text-sm text-gray-500 py-2">
                                                 Đã quá hạn trả vé (dưới 24 tiếng trước sự kiện)
                                             </div>
@@ -491,7 +565,7 @@ const MyTicketsPage = () => {
 
                             {/* Actions */}
                             <div className="mt-6 space-y-3">
-                                {selectedTicket.status === 'active' && isReturnable(selectedTicket) && (
+                                {selectedTicket.status === 'active' && canReturnTicket(selectedTicket) && (
                                     <button 
                                         onClick={() => {
                                             setSelectedTicket(null);

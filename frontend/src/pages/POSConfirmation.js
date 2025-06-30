@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { confirmPOSPayment } from '../services/api';
 
 const POSConfirmation = () => {
     const location = useLocation();
@@ -67,9 +68,36 @@ const POSConfirmation = () => {
         }
     };
 
+    const handleConfirmPayment = async () => {
+        try {
+            await confirmPOSPayment(paymentId);
+            toast.success('Thanh toán thành công');
+            navigate('/my-tickets');
+        } catch (error) {
+            console.error('Error confirming payment:', error);
+            toast.error('Không thể xác nhận thanh toán: ' + (error.response?.data?.message || error.message));
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
             <div className="max-w-4xl mx-auto">
+                {/* Navigation Buttons */}
+                <div className="flex justify-between mb-6">
+                    <button
+                        onClick={() => navigate('/events')}
+                        className="bg-white hover:bg-gray-100 text-gray-800 font-semibold py-2 px-4 border border-gray-400 rounded shadow flex items-center"
+                    >
+                        ← Quay lại trang sự kiện
+                    </button>
+                    <button
+                        onClick={() => navigate('/my-tickets')}
+                        className="bg-white hover:bg-gray-100 text-gray-800 font-semibold py-2 px-4 border border-gray-400 rounded shadow flex items-center"
+                    >
+                        Xem vé của tôi →
+                    </button>
+                </div>
+
                 {/* Header */}
                 <div className="text-center mb-6">
                     <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-4">

@@ -14,11 +14,11 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
-  timeout: 10000,
+  timeout: 30000,
   withCredentials: false
 });
 
-// Request interceptor để log các request
+// Request interceptor để log các request và thêm token
 api.interceptors.request.use(
   (config) => {
     const url = config.url || '';
@@ -47,10 +47,15 @@ api.interceptors.request.use(
       return Promise.reject(new Error(`Invalid eventId detected in request URL: ${fullUrl}`));
     }
     
+    // Thêm token vào header nếu có
     const token = localStorage.getItem('token');
     if (token) {
+      console.log('🔑 Adding token to request headers');
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      console.log('⚠️ No token found for request');
     }
+
     return config;
   },
   (error) => {
@@ -73,20 +78,39 @@ api.interceptors.response.use(
       message: error.message,
       status: error.response?.status,
       data: error.response?.data,
-      url: error.config?.url
+      url: error.config?.url,
+      method: error.config?.method
     });
 
+    // Debug authentication headers for upload routes
+    if (error.response?.status === 401 && error.config?.url?.includes('upload')) {
+      console.error('🔐 Debug Auth Header:', {
+        header: error.config?.headers?.Authorization ? 'Present (first 10 chars): ' + error.config.headers.Authorization.substring(0, 10) + '...' : 'Missing',
+        token: localStorage.getItem('token') ? 'Present in localStorage (first 10 chars): ' + localStorage.getItem('token').substring(0, 10) + '...' : 'Missing from localStorage',
+        contentType: error.config?.headers['Content-Type'] || 'Not specified'
+      });
+    }
+
     // Handle authentication errors
-    if (error.response?.status === 401) {
-      console.log('🚫 Authentication failed, clearing token...');
-      localStorage.removeItem('token');
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.log('🚫 Authentication/Authorization failed');
       
-      // Don't redirect if on profile page (let component handle the error)
+      // Check if token exists but is invalid
+      const token = localStorage.getItem('token');
+      if (token) {
+        console.log('🗑️ Removing invalid token');
+        localStorage.removeItem('token');
+      }
+      
+      // Don't redirect if on profile page or login page or create event page
       const currentPath = window.location.pathname;
       const isProfilePage = currentPath.includes('/profile') || currentPath.includes('/user-profile');
+      const isLoginPage = currentPath.includes('/login');
+      const isCreateEventPage = currentPath.includes('/create-event');
       
-      // Redirect to login only if not already on login page or profile page
-      if (!currentPath.includes('/login') && !isProfilePage) {
+      // Redirect to login only if not already on login page or profile page or create event page
+      if (!isLoginPage && !isProfilePage && !isCreateEventPage) {
+        console.log('🔄 Redirecting to login page');
         window.location.href = '/login';
       }
     }
@@ -476,6 +500,10 @@ export const bookingAPI = {
 // Search Users API
 export const searchUsersAPI = (searchTerm) => api.get(`/users/search?q=${encodeURIComponent(searchTerm)}`);
 
+// POS Payment APIs
+export const confirmPOSPayment = (paymentId) => api.put(`/payments/pos/${paymentId}/confirm`);
+export const cancelPOSPayment = (paymentId) => api.put(`/payments/pos/${paymentId}/cancel`);
+
 // Admin API
 export const adminAPI = {
   // Dashboard
@@ -604,6 +632,52 @@ export const orderAPI = {
       console.error('Cancel order failed:', error.response?.data || error.message);
       throw error.response?.data || error;
     }
+  }
+};
+
+// Helper functions for common operations
+export const uploadImage = async (file, type) => {
+  try {
+    const formData = new FormData();
+    formData.append(type, file);
+
+    // Lấy token trực tiếp từ localStorage
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Không tìm thấy token xác thực');
+    }
+
+    console.log(`🔒 Uploading ${type} with token: ${token.substring(0, 10)}...`);
+
+    // Tạo request riêng thay vì dùng qua interceptor
+    const response = await axios.post(
+      `${API_BASE_URL}/events/upload-images`,
+      formData,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        }
+      }
+    );
+
+    if (response.data.success) {
+      return {
+        success: true,
+        url: `http://localhost:5001${response.data.data[type]}`
+      };
+    } else {
+      return {
+        success: false,
+        message: response.data.message || 'Upload thất bại'
+      };
+    }
+  } catch (error) {
+    console.error('Upload error:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message
+    };
   }
 };
 

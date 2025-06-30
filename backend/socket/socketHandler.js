@@ -11,12 +11,24 @@ module.exports = (io) => {
         // console.log(`New client connected: ${socket.id}`);
 
         socket.on('authenticate', async (userId) => {
-            if (!userId) return;
-            // console.log(`Authenticating socket ${socket.id} for user ${userId}`);
+            if (!userId) {
+                console.log('❌ Authentication failed: No userId provided');
+                return;
+            }
+            console.log(`✅ Authenticating socket ${socket.id} for user ${userId}`);
+            
+            // Lưu thông tin user vào socket
+            socket.userId = userId;
+            
+            // Join room với ID là userId
+            socket.join(userId);
+            
+            // Lưu vào danh sách online users
             onlineUsers[userId] = socket.id;
             socketToUserMap[socket.id] = userId;
-            // console.log('Online users:', Object.keys(onlineUsers));
-            socket.join(userId);
+            
+            console.log('🌐 Online users after authentication:', Object.keys(onlineUsers));
+            console.log('🔌 Socket joined room:', userId);
         });
 
         socket.on('request_conversations', async () => {
@@ -128,6 +140,16 @@ module.exports = (io) => {
             } catch (error) {
                 console.error('Error saving or sending message (socketHandler):', error);
                 socket.emit('message_error', { message: 'Không thể gửi hoặc lưu tin nhắn.'});
+            }
+        });
+
+        socket.on('payment_confirmed', async ({ userId, paymentId }) => {
+            const recipientSocketId = onlineUsers[userId];
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit('payment_success', { 
+                    paymentId,
+                    message: 'Thanh toán của bạn đã được xác nhận thành công!'
+                });
             }
         });
 

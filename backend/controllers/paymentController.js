@@ -9,6 +9,7 @@ const TicketType = require('../models/TicketType');
 const User = require('../models/User');
 const { sanitizeOrderInfo } = require('../utils/helpers');
 const asyncHandler = require('express-async-handler');
+const crypto = require('crypto');
 
 // Initialize services
 const vietqrService = new VietQRService();
@@ -125,6 +126,68 @@ const createPaymentUrl = asyncHandler(async (req, res) => {
 
         await payment.save();
 
+        // Create a pending booking
+        const booking = new Booking({
+            user: req.user._id,
+            event: eventId,
+            payment: payment._id,
+            status: 'pending',
+            totalPrice: totalAmount,
+            bookingType: bookingType,
+            selectedSeats: selectedSeats,
+            selectedTickets: selectedTickets
+        });
+
+        await booking.save();
+
+        // Create pending tickets
+        if (bookingType === 'simple') {
+            console.log('Creating simple tickets:', selectedTickets);
+            for (const ticketInfo of selectedTickets) {
+                console.log('Processing ticket type:', ticketInfo);
+                for (let i = 0; i < ticketInfo.quantity; i++) {
+                    const ticket = new Ticket({
+                        event: eventId,
+                        user: req.user._id,
+                        bookingId: booking._id,
+                        payment: payment._id,
+                        price: ticketInfo.price,
+                        status: 'pending',
+                        ticketType: ticketInfo.name || 'Standard', // Ensure ticketType has a value
+                        purchaseDate: new Date()
+                    });
+                    console.log('Creating ticket:', ticket);
+                    await ticket.save();
+                }
+            }
+        } else {
+            console.log('Creating seating tickets:', selectedSeats);
+            for (const seatInfo of selectedSeats) {
+                console.log('Processing seat:', seatInfo);
+                const ticket = new Ticket({
+                    event: eventId,
+                    user: req.user._id,
+                    bookingId: booking._id,
+                    payment: payment._id,
+                    price: seatInfo.price,
+                    status: 'pending',
+                    ticketType: seatInfo.ticketType || 'Standard', // Ensure ticketType has a value
+                    seat: {
+                        section: seatInfo.sectionName,
+                        row: seatInfo.rowName,
+                        seatNumber: seatInfo.seatNumber
+                    },
+                    purchaseDate: new Date()
+                });
+                console.log('Creating ticket:', ticket);
+                await ticket.save();
+            }
+        }
+
+        // Update payment with booking reference
+        payment.bookingId = booking._id;
+        await payment.save();
+
         // Generate VietQR
         console.log('🏦 Generating VietQR...');
         const vietqrResult = await vietqrService.generateVietQR(
@@ -192,7 +255,7 @@ const createPaymentUrl = asyncHandler(async (req, res) => {
         await payment.save();
 
         console.log('💳 POS payment created:', {
-            paymentId: payment._id,
+            payment: payment._id,
             pos_TxnRef,
             totalAmount
         });
@@ -200,7 +263,7 @@ const createPaymentUrl = asyncHandler(async (req, res) => {
         // Prepare response
         const response = {
             success: true,
-            paymentId: payment._id,
+            payment: payment._id,
             pos_TxnRef,
             totalAmount,
             vietqr: {
@@ -318,8 +381,8 @@ const vnpayCallback = asyncHandler(async (req, res) => {
                         user: payment.user,
                         price: seatInfo.price,
                         purchaseDate: new Date(),
-                        status: 'active',
-                        ticketType: finalTicketType, // Use the validated/recovered ticketType
+                        status: 'pending',
+                        ticketType: finalTicketType,
                         seat: {
                             section: seatInfo.sectionName,
                             row: seatInfo.rowName,
@@ -587,8 +650,70 @@ const createPOSPayment = asyncHandler(async (req, res) => {
 
         await payment.save();
 
+        // Create a pending booking
+        const booking = new Booking({
+            user: req.user._id,
+            event: eventId,
+            payment: payment._id,
+            status: 'pending',
+            totalPrice: totalAmount,
+            bookingType: bookingType,
+            selectedSeats: selectedSeats,
+            selectedTickets: selectedTickets
+        });
+
+        await booking.save();
+
+        // Create pending tickets
+        if (bookingType === 'simple') {
+            console.log('Creating simple tickets:', selectedTickets);
+            for (const ticketInfo of selectedTickets) {
+                console.log('Processing ticket type:', ticketInfo);
+                for (let i = 0; i < ticketInfo.quantity; i++) {
+                    const ticket = new Ticket({
+                        event: eventId,
+                        user: req.user._id,
+                        bookingId: booking._id,
+                        payment: payment._id,
+                        price: ticketInfo.price,
+                        status: 'pending',
+                        ticketType: ticketInfo.name || 'Standard', // Ensure ticketType has a value
+                        purchaseDate: new Date()
+                    });
+                    console.log('Creating ticket:', ticket);
+                    await ticket.save();
+                }
+            }
+        } else {
+            console.log('Creating seating tickets:', selectedSeats);
+            for (const seatInfo of selectedSeats) {
+                console.log('Processing seat:', seatInfo);
+                const ticket = new Ticket({
+                    event: eventId,
+                    user: req.user._id,
+                    bookingId: booking._id,
+                    payment: payment._id,
+                    price: seatInfo.price,
+                    status: 'pending',
+                    ticketType: seatInfo.ticketType || 'Standard', // Ensure ticketType has a value
+                    seat: {
+                        section: seatInfo.sectionName,
+                        row: seatInfo.rowName,
+                        seatNumber: seatInfo.seatNumber
+                    },
+                    purchaseDate: new Date()
+                });
+                console.log('Creating ticket:', ticket);
+                await ticket.save();
+            }
+        }
+
+        // Update payment with booking reference
+        payment.bookingId = booking._id;
+        await payment.save();
+
         console.log('💳 POS payment created:', {
-            paymentId: payment._id,
+            payment: payment._id,
             pos_TxnRef,
             totalAmount
         });
@@ -597,7 +722,7 @@ const createPOSPayment = asyncHandler(async (req, res) => {
             success: true,
             pos_TxnRef,
             totalAmount,
-            paymentId: payment._id,
+            payment: payment._id,
             
             // VietQR data
             vietqr: vietqrResult.success ? {
@@ -847,25 +972,31 @@ const getPOSPayments = async (req, res) => {
 
 // Confirm POS payment (Admin only)
 const confirmPOSPayment = async (req, res) => {
-    let session;
     try {
         console.log('🔍 Starting POS payment confirmation...');
-        session = await mongoose.startSession();
-        session.startTransaction();
-
+        console.log('🔍 CONTROLLER HIT: confirmPOSPayment');
+        console.log('📋 Request params:', req.params);
+        console.log('👤 Request user:', req.user?.email, req.user?.role);
         const { paymentId } = req.params;
         console.log('✅ Confirming POS payment:', paymentId);
 
-        const payment = await Payment.findById(paymentId);
-        console.log('📄 Found payment:', payment);
-        
+        // Find payment and populate necessary fields
+        console.log('🔍 Looking for payment with ID:', paymentId);
+        const payment = await Payment.findById(paymentId)
+            .populate('event')
+            .populate('user');
+
+        console.log('📊 Payment found:', payment ? 'YES' : 'NO');
         if (!payment) {
+            console.log('❌ Payment not found with ID:', paymentId);
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy giao dịch thanh toán'
             });
         }
+        console.log('✅ Payment found:', payment._id, 'Status:', payment.status, 'Method:', payment.paymentMethod);
 
+        // Validate payment
         if (payment.paymentMethod !== 'pos') {
             return res.status(400).json({
                 success: false,
@@ -873,7 +1004,7 @@ const confirmPOSPayment = async (req, res) => {
             });
         }
 
-        if (payment.status === 'paid') {
+        if (payment.status === 'success') {
             return res.status(400).json({
                 success: false,
                 message: 'Giao dịch đã được thanh toán'
@@ -887,155 +1018,163 @@ const confirmPOSPayment = async (req, res) => {
             });
         }
 
-        // Lấy thông tin event và user
-        console.log('🔍 Finding event and user...');
-        const event = await Event.findById(payment.event);
-        const user = await User.findById(payment.user);
-        console.log('📄 Found event:', event?._id);
-        console.log('👤 Found user:', user?._id);
-
-        if (!event || !user) {
+        // 1. Find existing booking and tickets - support both old and new field names
+        let booking = await Booking.findOne({ payment: payment._id });
+        if (!booking) {
+            // Try old field name for backward compatibility
+            booking = await Booking.findOne({ paymentId: payment._id });
+        }
+        if (!booking) {
+            console.log('❌ No booking found for payment ID:', payment._id);
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy sự kiện hoặc người dùng'
+                message: 'Không tìm thấy đơn đặt vé'
+            });
+        }
+        console.log('✅ Found booking:', booking._id);
+
+        // 2. Find all pending tickets for this payment - support both old and new field names
+        let pendingTickets = await Ticket.find({
+            payment: payment._id,
+            status: 'pending'
+        });
+        
+        if (pendingTickets.length === 0) {
+            // Try old field name for backward compatibility
+            pendingTickets = await Ticket.find({
+                paymentId: payment._id,
+                status: 'pending'
             });
         }
 
-        // Kiểm tra và cập nhật số lượng vé
-        console.log('🎫 Checking ticket availability...');
-        if (payment.bookingType === 'simple' && payment.selectedTickets?.length > 0) {
-            console.log('📝 Processing simple booking tickets...');
-            for (const ticketInfo of payment.selectedTickets) {
-                const ticketType = await TicketType.findById(ticketInfo.ticketTypeId);
-                console.log(`🎟️ Checking ticket type ${ticketInfo.ticketTypeId}:`, ticketType);
-                
-                if (!ticketType) {
-                    throw new Error(`Không tìm thấy loại vé ${ticketInfo.ticketTypeId}`);
-                }
-                if (ticketType.quantity < ticketInfo.quantity) {
-                    throw new Error(`Loại vé ${ticketType.name} không đủ số lượng (cần ${ticketInfo.quantity}, còn ${ticketType.quantity})`);
-                }
-                ticketType.quantity -= ticketInfo.quantity;
-                await ticketType.save({ session });
-                console.log(`✅ Updated ticket type ${ticketType._id} quantity to ${ticketType.quantity}`);
-            }
-        } else if (payment.bookingType === 'seating' && payment.selectedSeats?.length > 0) {
-            console.log('💺 Processing seating booking...');
-            // Kiểm tra xem ghế đã được đặt chưa
-            for (const seatInfo of payment.selectedSeats) {
-                const seatNumber = `${seatInfo.sectionName}-${seatInfo.rowName}-${seatInfo.seatNumber}`;
-                console.log(`🪑 Checking seat ${seatNumber}`);
-                
-                const existingTicket = await Ticket.findOne({
-                    eventId: event._id,
-                    seatNumber: seatNumber,
-                    status: 'active'
-                });
-                
-                if (existingTicket) {
-                    throw new Error(`Ghế ${seatNumber} đã được đặt`);
-                }
-                console.log(`✅ Seat ${seatNumber} is available`);
-            }
+        console.log(`Found ${pendingTickets.length} pending tickets`);
+
+        // Validate ticket count
+        let expectedTicketCount = 0;
+        if (payment.bookingType === 'seating') {
+            expectedTicketCount = payment.selectedSeats.length;
+        } else {
+            expectedTicketCount = payment.selectedTickets.reduce((sum, t) => sum + t.quantity, 0);
         }
 
-        // Tạo booking mới
-        console.log('📝 Creating booking...');
-        const booking = await Booking.create([{
-            userId: user._id,
-            eventId: event._id,
-            paymentId: payment._id,
-            status: 'confirmed',
-            totalAmount: payment.totalAmount,
-            bookingDate: new Date()
-        }], { session });
-        console.log('✅ Booking created:', booking[0]._id);
-
-        // Tạo vé dựa trên loại booking
-        console.log('🎫 Creating tickets...');
-        let tickets = [];
-        if (payment.bookingType === 'simple' && payment.selectedTickets?.length > 0) {
-            // Tạo vé cho booking loại simple
-            for (const ticketInfo of payment.selectedTickets) {
-                for (let i = 0; i < ticketInfo.quantity; i++) {
-                    const ticket = await Ticket.create([{
-                        bookingId: booking[0]._id,
-                        eventId: event._id,
-                        userId: user._id,
-                        ticketType: ticketInfo.ticketTypeId,
-                        status: 'active',
-                        price: ticketInfo.price,
-                        purchaseDate: new Date()
-                    }], { session });
-                    tickets.push(ticket[0]);
-                    console.log(`✅ Created ticket ${ticket[0]._id}`);
-                }
-            }
-        } else if (payment.bookingType === 'seating' && payment.selectedSeats?.length > 0) {
-            // Tạo vé cho booking loại seating
-            for (const seatInfo of payment.selectedSeats) {
-                const seatNumber = `${seatInfo.sectionName}-${seatInfo.rowName}-${seatInfo.seatNumber}`;
-                const ticket = await Ticket.create([{
-                    bookingId: booking[0]._id,
-                    eventId: event._id,
-                    userId: user._id,
-                    ticketType: seatInfo.ticketType,
-                    seatNumber: seatNumber,
-                    status: 'active',
-                    price: seatInfo.price,
-                    purchaseDate: new Date()
-                }], { session });
-                tickets.push(ticket[0]);
-                console.log(`✅ Created ticket for seat ${seatNumber}`);
-            }
+        if (pendingTickets.length !== expectedTicketCount) {
+            return res.status(400).json({
+                success: false,
+                message: `Số lượng vé không khớp. Tìm thấy ${pendingTickets.length} vé, cần ${expectedTicketCount} vé`
+            });
         }
 
-        // Cập nhật trạng thái thanh toán
-        console.log('💰 Updating payment status...');
-        payment.status = 'success'; // Change from 'paid' to 'success'
+        // 3. Update payment status
+        payment.status = 'success';
         payment.paidAt = new Date();
-        await payment.save({ session });
-        console.log('✅ Payment status updated');
+        await payment.save();
+        console.log('✅ Payment status updated to success');
 
-        // Commit transaction
-        console.log('💾 Committing transaction...');
-        await session.commitTransaction();
-        session.endSession();
-        console.log('✅ Transaction committed successfully');
+        // 4. Update booking status
+        booking.status = 'confirmed';
+        booking.paymentDetails = {
+            paymentMethod: 'pos',
+            transactionId: payment.pos_TxnRef,
+            paymentDate: new Date(),
+            paidAt: new Date()
+        };
+        await booking.save();
+        console.log('✅ Booking status updated to confirmed');
 
-        console.log('🎉 Payment confirmed and tickets created successfully');
+        // 5. Update all tickets
+        const updatedTickets = await Promise.all(pendingTickets.map(async (ticket) => {
+            ticket.status = 'active';
+            ticket.purchaseDate = new Date();
+            await ticket.save();
+            console.log(`✅ Updated ticket ${ticket._id} to active`);
+            return ticket;
+        }));
+
+        console.log(`✅ Successfully updated ${updatedTickets.length} tickets`);
+
+        // 6. Update seating map if seating event
+        if (payment.bookingType === 'seating' && payment.selectedSeats.length > 0) {
+            console.log('🔄 Updating seating map...');
+            const event = payment.event;
+            
+            for (const seatInfo of payment.selectedSeats) {
+                console.log(`Marking seat as sold: ${seatInfo.sectionName} - ${seatInfo.rowName} - ${seatInfo.seatNumber}`);
+                
+                // Find the section
+                const section = event.seatingMap?.sections?.find(s => s.name === seatInfo.sectionName);
+                if (section) {
+                    // Find the row
+                    const row = section.rows?.find(r => r.name === seatInfo.rowName);
+                    if (row) {
+                        // Find the seat and update status
+                        const seat = row.seats?.find(s => 
+                            s.number === seatInfo.seatNumber || 
+                            s.seatNumber === seatInfo.seatNumber ||
+                            s._id.toString() === seatInfo._id?.toString()
+                        );
+                        if (seat) {
+                            seat.status = 'sold';
+                            console.log(`✅ Seat ${seatInfo.sectionName}-${seatInfo.rowName}-${seatInfo.seatNumber} marked as sold`);
+                        } else {
+                            console.log(`❌ Seat not found: ${seatInfo.sectionName}-${seatInfo.rowName}-${seatInfo.seatNumber}`);
+                        }
+                    } else {
+                        console.log(`❌ Row not found: ${seatInfo.rowName} in section ${seatInfo.sectionName}`);
+                    }
+                } else {
+                    console.log(`❌ Section not found: ${seatInfo.sectionName}`);
+                }
+            }
+            
+            // Save the updated event
+            event.markModified('seatingMap');
+            await event.save();
+            console.log('✅ Seating map updated successfully');
+        }
 
         return res.status(200).json({
-            success: true,
-            message: 'Xác nhận thanh toán thành công và đã tạo vé',
-            data: {
-                payment: {
-                    _id: payment._id,
-                    pos_TxnRef: payment.pos_TxnRef,
-                    status: payment.status,
-                    paidAt: payment.paidAt
-                },
-                booking: {
-                    _id: booking[0]._id,
-                    status: booking[0].status
-                },
-                tickets: tickets.length
+            status: 'success',
+            message: 'Xác nhận thanh toán thành công',
+            payment: {
+                _id: payment._id,
+                pos_TxnRef: payment.pos_TxnRef,
+                status: payment.status,
+                paidAt: payment.paidAt
+            },
+            booking: {
+                _id: booking._id,
+                status: booking.status,
+                tickets: updatedTickets.length
             }
         });
 
     } catch (error) {
-        console.error('❌ Error confirming POS payment:', error);
-        // Rollback transaction nếu có lỗi
-        if (session) {
-            console.log('↩️ Rolling back transaction...');
-            await session.abortTransaction();
-            session.endSession();
-            console.log('✅ Transaction rolled back');
+        console.error('❌ Error during POS confirmation process:', error);
+        console.error('Error stack:', error.stack);
+        console.error('Error name:', error.name);
+        console.error('Full error object:', error);
+        
+        // If mongoose validation error
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Validation error: ' + error.message,
+                errors: error.errors
+            });
         }
-
+        
+        // If cast error (invalid ID)
+        if (error.name === 'CastError') {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Invalid ID format: ' + error.message
+            });
+        }
+        
         return res.status(500).json({
-            success: false,
-            message: 'Lỗi khi xác nhận thanh toán POS: ' + error.message
+            status: 'error',
+            message: 'Lỗi khi xác nhận thanh toán: ' + error.message,
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
@@ -1081,7 +1220,7 @@ const cancelPOSPayment = async (req, res) => {
         await payment.save();
 
         // Update booking status if exists
-        const booking = await Booking.findOne({ paymentId: payment._id });
+        const booking = await Booking.findOne({ payment: payment._id });
         if (booking) {
             booking.status = 'cancelled';
             booking.cancelledAt = new Date();
@@ -1121,19 +1260,19 @@ const generateTicketsForSeats = async (payment, booking) => {
         
         for (const seat of payment.selectedSeats) {
             const ticket = await Ticket.create({
-                userId: payment.user,
-                eventId: payment.event,
+                user: payment.user,
+                event: payment.event,
                 bookingId: booking._id,
-                paymentId: payment._id,
+                payment: payment._id,
                 ticketType: 'seating',
-                seatInfo: {
-                    sectionName: seat.sectionName,
-                    rowName: seat.rowName,
+                seat: {
+                    section: seat.sectionName,
+                    row: seat.rowName,
                     seatNumber: seat.seatNumber
                 },
                 price: seat.price,
                 status: 'active',
-                issuedAt: new Date(),
+                purchaseDate: new Date(),
                 qrCode: `${payment.event}-${seat.sectionName}-${seat.seatNumber}-${Date.now()}`
             });
             
@@ -1157,17 +1296,15 @@ const generateTicketsForTickets = async (payment, booking) => {
         for (const ticketInfo of payment.selectedTickets) {
             for (let i = 0; i < ticketInfo.quantity; i++) {
                 const ticket = await Ticket.create({
-                    userId: payment.user,
-                    eventId: payment.event,
+                    user: payment.user,
+                    event: payment.event,
                     bookingId: booking._id,
-                    paymentId: payment._id,
-                    ticketType: 'regular',
-                    ticketTypeId: ticketInfo.ticketTypeId,
-                    ticketTypeName: ticketInfo.ticketTypeName || ticketInfo.name,
+                    payment: payment._id,
+                    ticketType: ticketInfo.ticketTypeName || ticketInfo.name || 'regular',
                     price: ticketInfo.price,
                     status: 'active',
-                    issuedAt: new Date(),
-                    qrCode: `${payment.event}-${ticketInfo.ticketTypeName}-${Date.now()}-${i}`
+                    purchaseDate: new Date(),
+                    qrCode: `${payment.event}-${ticketInfo.ticketTypeName || ticketInfo.name}-${Date.now()}-${i}`
                 });
                 
                 generatedTickets.push(ticket);
@@ -1265,4 +1402,4 @@ module.exports = {
     confirmPOSPayment,
     cancelPOSPayment,
     getPaymentStatus
-};
+}; 

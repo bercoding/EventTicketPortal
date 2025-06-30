@@ -18,6 +18,12 @@ const commentRoutes = require('./routes/comment'); // Add missing import
 const venueRoutes = require('./routes/venue'); // Add missing import
 const socketHandler = require('./socket/socketHandler'); // Sẽ tạo file này sau
 const contentRoutes = require('./routes/contentRoutes');
+const mongoose = require('mongoose');
+const path = require('path');
+const { createServer } = require('http');
+const socketIo = require('socket.io');
+const cron = require('node-cron');
+const { cancelExpiredTickets } = require('./services/ticketService');
 
 const app = express();
 const server = http.createServer(app); // Tạo HTTP server từ Express app
@@ -81,5 +87,14 @@ const PORT = process.env.PORT || 5001;
 
 // Khởi chạy socket handler
 socketHandler(io);
+
+// Lưu io instance vào app để sử dụng trong các route
+app.set('io', io);
+
+// Cron job chạy mỗi phút để kiểm tra và hủy vé hết hạn
+cron.schedule('* * * * *', async () => {
+    console.log('🕒 Running ticket expiration check...');
+    await cancelExpiredTickets();
+});
 
 server.listen(PORT, () => console.log(`Server running on port ${PORT} and WebSocket is ready`)); // Lắng nghe trên server thay vì app

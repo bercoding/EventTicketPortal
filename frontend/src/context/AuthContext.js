@@ -18,18 +18,30 @@ export const AuthProvider = ({ children }) => {
             const token = localStorage.getItem('token');
             console.log('🔍 Checking user with token:', token ? 'exists' : 'none');
             
-            if (token) {
+            if (!token) {
+                console.log('❌ No token found');
+                setUser(null);
+                setLoading(false);
+                return;
+            }
+
+            // Kiểm tra token có hợp lệ không
+            try {
                 const response = await authAPI.getMe();
                 console.log('👤 User check response:', response);
                 
-                if (response.success) {
+                if (response.success && response.data) {
                     console.log('✅ Setting user:', response.data.email, response.data.id);
                     setUser(response.data);
                 } else {
-                    console.log('❌ User check failed, clearing token');
+                    console.log('❌ Invalid user data, clearing token');
                     localStorage.removeItem('token');
                     setUser(null);
                 }
+            } catch (error) {
+                console.error('❌ Token validation failed:', error);
+                localStorage.removeItem('token');
+                setUser(null);
             }
         } catch (error) {
             console.error('❌ Error checking user:', error);

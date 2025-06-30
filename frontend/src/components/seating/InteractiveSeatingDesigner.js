@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FaPlus, FaUndo, FaRedo, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaUndo, FaRedo, FaTrash, FaDoorOpen, FaDoorClosed, FaToilet, FaHamburger, FaGlassMartiniAlt, FaWheelchair, FaInfoCircle } from 'react-icons/fa';
 import './InteractiveSeatingDesigner.css';
 
 const InteractiveSeatingDesigner = ({ 
@@ -13,24 +13,76 @@ const InteractiveSeatingDesigner = ({
   const CANVAS_WIDTH = 1200;
   const CANVAS_HEIGHT = 800;
 
+  // Lấy kích thước stage mặc định dựa trên loại layout
+  const getDefaultStageSize = () => {
+    switch (layoutType) {
+      case 'footballStadium':
+        return { width: 400, height: 200 };
+      case 'basketballArena':
+        return { width: 350, height: 180 };
+      default:
+        return { width: 200, height: 60 };
+    }
+  };
+
   // State management
   const [seatingMap, setSeatingMap] = useState(initialSeatingMap || {
-    stage: { x: 500, y: 100, width: 200, height: 60 },
-    sections: []
+    stage: { 
+      x: 500, 
+      y: 100, 
+      ...getDefaultStageSize()
+    },
+    sections: [],
+    venueObjects: []  // New array for venue objects like entrances
   });
 
-  const [editMode, setEditMode] = useState('select'); // 'select' or 'add-section'
+  // Update stage size when layoutType changes
+  useEffect(() => {
+    if (layoutType && (!initialSeatingMap || !initialSeatingMap.stage)) {
+      const defaultSize = getDefaultStageSize();
+      const currentStage = seatingMap.stage || {};
+      
+      // Update stage size but keep position if possible
+      setSeatingMap(prevMap => ({
+        ...prevMap,
+        stage: {
+          x: currentStage.x || 500,
+          y: currentStage.y || 100,
+          width: defaultSize.width,
+          height: defaultSize.height
+        }
+      }));
+    }
+  }, [layoutType]);
+
+  // Thêm edit mode cho venue objects
+  const [editMode, setEditMode] = useState('select'); // 'select', 'add-section', 'add-entrance', 'add-exit', etc.
   const [selectedElement, setSelectedElement] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [draggedElement, setDraggedElement] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [renderKey, setRenderKey] = useState(0); // Force re-render counter
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, type: null, element: null });
   
   // History for undo/redo
   const [history, setHistory] = useState([seatingMap]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
   const svgRef = useRef(null);
+
+  // Thêm biến state cho selectedRowIndex
+  const [selectedRowIndex, setSelectedRowIndex] = useState(null);
+
+  // Định nghĩa các loại venue object có thể thêm
+  const venueObjectTypes = {
+    'entrance': { name: 'Lối vào', icon: <FaDoorOpen />, color: '#4CAF50', width: 30, height: 30 },
+    'exit': { name: 'Lối ra', icon: <FaDoorClosed />, color: '#F44336', width: 30, height: 30 },
+    'restroom': { name: 'Nhà vệ sinh', icon: <FaToilet />, color: '#2196F3', width: 30, height: 30 },
+    'food': { name: 'Quầy thức ăn', icon: <FaHamburger />, color: '#FF9800', width: 40, height: 30 },
+    'drinks': { name: 'Quầy nước', icon: <FaGlassMartiniAlt />, color: '#9C27B0', width: 40, height: 30 },
+    'accessible': { name: 'Lối đi cho người khuyết tật', icon: <FaWheelchair />, color: '#03A9F4', width: 30, height: 30 },
+    'info': { name: 'Quầy thông tin', icon: <FaInfoCircle />, color: '#607D8B', width: 30, height: 30 },
+  };
 
   // Update parent when seating map changes
   useEffect(() => {
@@ -81,62 +133,71 @@ const InteractiveSeatingDesigner = ({
 
   // Calculate dynamic viewBox based on content
   const calculateViewBox = () => {
-    if (seatingMap.sections.length === 0 && !seatingMap.stage) {
-      return `0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`;
+    // Default view if no content
+    if (!seatingMap.sections || seatingMap.sections.length === 0) {
+      const stageWidth = seatingMap.stage?.width || 200;
+      const stageHeight = seatingMap.stage?.height || 60;
+      
+      // Adjust default viewport based on layout type
+      let defaultWidth = CANVAS_WIDTH;
+      let defaultHeight = CANVAS_HEIGHT;
+      
+      // For football and basketball, zoom out more
+      if (layoutType === 'footballStadium' || layoutType === 'basketballArena') {
+        defaultWidth = CANVAS_WIDTH * 1.5;
+        defaultHeight = CANVAS_HEIGHT * 1.5;
+      }
+      
+      return `0 0 ${defaultWidth} ${defaultHeight}`;
     }
 
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    // Include stage bounds
+    // Calculate bounding box including all sections and stage
+    let minX = CANVAS_WIDTH;
+    let minY = CANVAS_HEIGHT;
+    let maxX = 0;
+    let maxY = 0;
+    
+    // Include stage in bounding box
     if (seatingMap.stage) {
       minX = Math.min(minX, seatingMap.stage.x);
       minY = Math.min(minY, seatingMap.stage.y);
       maxX = Math.max(maxX, seatingMap.stage.x + seatingMap.stage.width);
       maxY = Math.max(maxY, seatingMap.stage.y + seatingMap.stage.height);
     }
-
-    // Include all sections bounds
+    
+    // Include all sections
     seatingMap.sections.forEach(section => {
-      if (section.x !== undefined && section.y !== undefined) {
-        minX = Math.min(minX, section.x);
-        minY = Math.min(minY, section.y);
-        maxX = Math.max(maxX, section.x + (section.width || 150));
-        maxY = Math.max(maxY, section.y + (section.height || 100));
-      }
+      minX = Math.min(minX, section.x);
+      minY = Math.min(minY, section.y);
+      maxX = Math.max(maxX, section.x + (section.width || 100));
+      maxY = Math.max(maxY, section.y + (section.height || 80));
     });
-
-    // If no valid bounds found, use default
-    if (minX === Infinity) {
-      return `0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`;
-    }
-
-    // Add generous padding around content
-    const padding = 200;
-    minX = minX - padding;
-    minY = minY - padding;
+    
+    // Add padding
+    const padding = layoutType === 'footballStadium' || layoutType === 'basketballArena' ? 150 : 100;
+    minX = Math.max(0, minX - padding);
+    minY = Math.max(0, minY - padding);
     maxX = maxX + padding;
     maxY = maxY + padding;
-
-    // Calculate width and height
+    
+    // Calculate dimensions
     const width = maxX - minX;
     const height = maxY - minY;
-
-    // Ensure minimum size for usability and allow free dragging
-    const minWidth = Math.max(CANVAS_WIDTH, width);
-    const minHeight = Math.max(CANVAS_HEIGHT, height);
     
-    const finalWidth = minWidth;
-    const finalHeight = minHeight;
-
-    const viewBox = `${minX} ${minY} ${finalWidth} ${finalHeight}`;
-    console.log('📊 Calculated viewBox:', viewBox, {
-      bounds: { minX, minY, maxX, maxY },
-      dimensions: { width, height, finalWidth, finalHeight }
-    });
-    return viewBox;
+    // Ensure minimum size and reasonable aspect ratio
+    const minWidth = layoutType === 'footballStadium' ? 1200 : 
+                     layoutType === 'basketballArena' ? 1000 : 800;
+    const minHeight = layoutType === 'footballStadium' ? 800 : 
+                      layoutType === 'basketballArena' ? 700 : 600;
+    
+    const finalWidth = Math.max(width, minWidth);
+    const finalHeight = Math.max(height, minHeight);
+    
+    // Center the viewport if content is smaller than minimum
+    const adjustedMinX = width < minWidth ? minX - (minWidth - width) / 2 : minX;
+    const adjustedMinY = height < minHeight ? minY - (minHeight - height) / 2 : minY;
+    
+    return `${adjustedMinX} ${adjustedMinY} ${finalWidth} ${finalHeight}`;
   };
 
   // Get SVG coordinates from mouse event with dynamic viewBox
@@ -157,6 +218,78 @@ const InteractiveSeatingDesigner = ({
     
     return { x, y };
   };
+
+  // Handle mouse move for dragging - định nghĩa trước khi sử dụng
+  const handleMouseMove = useCallback((event) => {
+    if (!isDragging || !draggedElement) return;
+
+    event.preventDefault();
+    
+    const svgCoords = getSVGCoordinates(event);
+    const newX = Math.max(0, Math.round(svgCoords.x - dragOffset.x));
+    const newY = Math.max(0, Math.round(svgCoords.y - dragOffset.y));
+
+    console.log('🔄 Dragging to:', { newX, newY });
+
+    const newSeatingMap = { ...seatingMap };
+
+    if (draggedElement.type === 'stage') {
+      newSeatingMap.stage = {
+        ...newSeatingMap.stage,
+        x: newX,
+        y: newY
+      };
+      console.log('🎭 Updated stage position:', newSeatingMap.stage);
+    } else if (draggedElement.type === 'section') {
+      const sectionIndex = newSeatingMap.sections.findIndex(s => s.id === draggedElement.id);
+      if (sectionIndex !== -1) {
+        newSeatingMap.sections[sectionIndex] = {
+          ...newSeatingMap.sections[sectionIndex],
+          x: newX,
+          y: newY,
+          // Cập nhật vị trí label theo vị trí section
+          labelX: newX + (newSeatingMap.sections[sectionIndex].width || 150) / 2,
+          labelY: newY - 15
+        };
+        console.log('🏛️ Updated section position:', newSeatingMap.sections[sectionIndex]);
+      }
+    } else if (draggedElement.type === 'venueObject') {
+      // Handling drag for venue objects
+      const objectIndex = newSeatingMap.venueObjects.findIndex(o => o.id === draggedElement.id);
+      if (objectIndex !== -1) {
+        newSeatingMap.venueObjects[objectIndex] = {
+          ...newSeatingMap.venueObjects[objectIndex],
+          x: newX,
+          y: newY
+        };
+        console.log('🚪 Updated venue object position:', newSeatingMap.venueObjects[objectIndex]);
+      }
+    }
+
+    setSeatingMap(newSeatingMap);
+    
+    // Update selected element to reflect new position
+    setSelectedElement({ 
+      ...draggedElement, 
+      x: newX, 
+      y: newY,
+      // Cập nhật labelX và labelY nếu là section
+      ...(draggedElement.type === 'section' ? {
+        labelX: newX + (draggedElement.width || 150) / 2,
+        labelY: newY - 15
+      } : {})
+    });
+  }, [isDragging, draggedElement, dragOffset, seatingMap]);
+
+  // Handle mouse up for drag end
+  const handleMouseUp = useCallback(() => {
+    if (isDragging) {
+      console.log('✋ Drag ended, saving to history');
+      saveToHistory();
+    }
+    setIsDragging(false);
+    setDraggedElement(null);
+  }, [isDragging, saveToHistory]);
 
   // Handle mouse down for drag start
   const handleMouseDown = (event, element, elementType) => {
@@ -187,166 +320,567 @@ const InteractiveSeatingDesigner = ({
     console.log('↔️ Drag offset:', { x: svgCoords.x - elementX, y: svgCoords.y - elementY });
   };
 
-  // Handle mouse move for dragging
-  const handleMouseMove = (event) => {
-    if (!isDragging || !draggedElement) return;
-
-    event.preventDefault();
-    
-    const svgCoords = getSVGCoordinates(event);
-    const newX = svgCoords.x - dragOffset.x;
-    const newY = svgCoords.y - dragOffset.y;
-
-    console.log('🔄 Dragging to:', { newX, newY });
-
-    const newSeatingMap = { ...seatingMap };
-
-    if (draggedElement.type === 'stage') {
-      newSeatingMap.stage = {
-        ...newSeatingMap.stage,
-        x: newX,
-        y: newY
-      };
-      console.log('🎭 Updated stage position:', newSeatingMap.stage);
-    } else if (draggedElement.type === 'section') {
-      const sectionIndex = newSeatingMap.sections.findIndex(s => s.name === draggedElement.name);
-      if (sectionIndex !== -1) {
-        newSeatingMap.sections[sectionIndex] = {
-          ...newSeatingMap.sections[sectionIndex],
-          x: newX,
-          y: newY
-        };
-        console.log('🏛️ Updated section position:', newSeatingMap.sections[sectionIndex]);
+  // Thêm event listener cho document để xử lý drag & drop
+  useEffect(() => {
+    const handleGlobalMouseMove = (e) => {
+      if (isDragging) {
+        handleMouseMove(e);
       }
-    }
+    };
 
-    setSeatingMap(newSeatingMap);
-    
-    // Update selected element to reflect new position
-    setSelectedElement({ ...draggedElement, x: newX, y: newY });
-  };
+    const handleGlobalMouseUp = () => {
+      if (isDragging) {
+        handleMouseUp();
+      }
+    };
 
-  // Handle mouse up for drag end
-  const handleMouseUp = () => {
-    if (isDragging) {
-      console.log('✋ Drag ended, saving to history');
-      saveToHistory();
-    }
-    setIsDragging(false);
-    setDraggedElement(null);
-  };
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    document.addEventListener('mouseup', handleGlobalMouseUp);
 
-  // Add new section
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  // Thêm section mới vào seating map
   const addSection = (x, y) => {
+    const sectionId = `section-${Date.now()}`;
+    const defaultWidth = 180;
+    const defaultHeight = 150;
+    
+    // Tạo tên section mới dựa trên số lượng hiện có
+    const existingSections = seatingMap.sections || [];
+    const sectionCount = existingSections.length;
+    
+    // Tạo tên section theo quy tắc: Khu A, Khu B, Khu C...
+    let sectionName = '';
+    if (sectionCount < 26) {
+      // A-Z cho 26 section đầu tiên
+      sectionName = String.fromCharCode(65 + sectionCount);
+    } else {
+      // AA, AB, AC... cho các section tiếp theo
+      const firstChar = String.fromCharCode(65 + Math.floor((sectionCount - 26) / 26));
+      const secondChar = String.fromCharCode(65 + ((sectionCount - 26) % 26));
+      sectionName = firstChar + secondChar;
+    }
+    
+    // Lấy loại vé mặc định (loại đầu tiên nếu có)
+    const defaultTicketType = ticketTypes.length > 0 ? ticketTypes[0].name : 'Standard';
+    
     const newSection = {
-      name: `Khu ${String.fromCharCode(65 + seatingMap.sections.length)}`,
-      x: x,
-      y: y,
-      width: 150,
-      height: 100,
-      capacity: 50,
+      id: sectionId,
+      name: `Khu ${sectionName}`,
+      x,
+      y,
+      width: defaultWidth,
+      height: defaultHeight,
+      ticketType: defaultTicketType,
+      capacity: 0,
       rows: [],
-      ticketType: ticketTypes[0]?.name || 'Standard'
+      labelX: x + defaultWidth / 2,
+      labelY: y - 15
     };
-
-    console.log('➕ Adding new section:', newSection);
-
-    const newSeatingMap = {
+    
+    const updatedMap = {
       ...seatingMap,
-      sections: [...seatingMap.sections, newSection]
+      sections: [...(seatingMap.sections || []), newSection]
     };
-
-    setSeatingMap(newSeatingMap);
+    
+    setSeatingMap(updatedMap);
+    setSelectedElement(newSection);
     saveToHistory();
-    setEditMode('select');
   };
 
-  // Handle canvas click for adding elements
+  // Xử lý khi click vào canvas
   const handleCanvasClick = (event) => {
     if (editMode === 'add-section') {
-      const svgCoords = getSVGCoordinates(event);
-      console.log('🎯 Canvas click for new section at:', svgCoords);
-      addSection(svgCoords.x, svgCoords.y);
+      const coords = getSVGCoordinates(event);
+      addSection(coords.x, coords.y);
+      setEditMode('select'); // Chuyển về chế độ select sau khi thêm section
+    } else if (editMode.startsWith('add-') && venueObjectTypes[editMode.substring(4)]) {
+      // Handle adding venue objects like entrance, exit, etc.
+      const coords = getSVGCoordinates(event);
+      addVenueObject(editMode.substring(4), coords.x, coords.y);
+      setEditMode('select'); // Switch back to select mode after adding
     } else {
-      // Deselect if clicking on empty space
+      // Bỏ chọn khi click vào khoảng trống
       setSelectedElement(null);
+      setSelectedRowIndex(null);
+      setContextMenu({ visible: false, x: 0, y: 0, type: null, element: null });
     }
   };
 
-  // Delete selected element
+  // Xóa phần tử đang được chọn
   const deleteSelectedElement = () => {
     if (!selectedElement) return;
-
-    const newSeatingMap = { ...seatingMap };
     
     if (selectedElement.type === 'section') {
-      newSeatingMap.sections = newSeatingMap.sections.filter(s => s.name !== selectedElement.name);
-      console.log('🗑️ Deleted section:', selectedElement.name);
+      const updatedSections = seatingMap.sections.filter(section => section.id !== selectedElement.id);
+      
+      setSeatingMap({
+        ...seatingMap,
+        sections: updatedSections
+      });
+      
+      setSelectedElement(null);
+      saveToHistory();
+    } else if (selectedElement.type === 'venueObject') {
+      const updatedVenueObjects = seatingMap.venueObjects.filter(obj => obj.id !== selectedElement.id);
+      
+      setSeatingMap({
+        ...seatingMap,
+        venueObjects: updatedVenueObjects
+      });
+      
+      setSelectedElement(null);
+      saveToHistory();
     }
+  };
+  
+  // Thêm hàng ghế mới vào section
+  const addRowToSection = (sectionId) => {
+    const section = seatingMap.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    
+    // Tạo hàng mới
+    const rowCount = section.rows ? section.rows.length : 0;
+    const rowName = getRowLabel(rowCount);
+    
+    const newRow = {
+      name: rowName,
+      seats: []
+    };
+    
+    // Cập nhật section
+    const updatedSection = {
+      ...section,
+      rows: [...(section.rows || []), newRow]
+    };
+    
+    // Cập nhật seating map
+    const updatedSections = seatingMap.sections.map(s => 
+      s.id === sectionId ? updatedSection : s
+    );
+    
+    setSeatingMap({
+      ...seatingMap,
+      sections: updatedSections
+    });
+    
+    // Cập nhật selected element
+    setSelectedElement(updatedSection);
+    setSelectedRowIndex(rowCount);
+    saveToHistory();
+  };
+  
+  // Thêm ghế vào hàng
+  const addSeatsToRow = (sectionId, rowIndex, seatCount) => {
+    const section = seatingMap.sections.find(s => s.id === sectionId);
+    if (!section || !section.rows || rowIndex >= section.rows.length) return;
+    
+    const row = section.rows[rowIndex];
+    const existingSeatCount = row.seats ? row.seats.length : 0;
+    
+    // Tính toán vị trí cho ghế mới
+    const sectionWidth = section.width || 180;
+    const seatSpacing = 15;
+    const startX = section.x + 20;
+    const rowY = section.y + 30 + rowIndex * 20;
+    
+    // Tạo ghế mới
+    const newSeats = [];
+    for (let i = 0; i < seatCount; i++) {
+      const seatNumber = existingSeatCount + i + 1;
+      newSeats.push({
+        number: seatNumber,
+        x: startX + (existingSeatCount + i) * seatSpacing,
+        y: rowY,
+        status: 'available'
+      });
+    }
+    
+    // Cập nhật hàng
+    const updatedRow = {
+      ...row,
+      seats: [...(row.seats || []), ...newSeats]
+    };
+    
+    // Cập nhật section
+    const updatedRows = [...section.rows];
+    updatedRows[rowIndex] = updatedRow;
+    
+    const updatedSection = {
+      ...section,
+      rows: updatedRows,
+      capacity: (section.capacity || 0) + seatCount
+    };
+    
+    // Cập nhật seating map
+    const updatedSections = seatingMap.sections.map(s => 
+      s.id === sectionId ? updatedSection : s
+    );
+    
+    setSeatingMap({
+      ...seatingMap,
+      sections: updatedSections
+    });
+    
+    saveToHistory();
+  };
+  
+  // Tạo layout ghế tự động cho section
+  const generateAutoSeatingLayout = (sectionId, options) => {
+    const { rows, seatsPerRow, rowSpacing, seatSpacing, pattern } = options;
+    const section = seatingMap.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    
+    // Xóa rows hiện tại nếu có
+    const updatedSection = { ...section, rows: [], capacity: 0 };
+    
+    // Tính toán vị trí bắt đầu
+    const startX = section.x + 20;
+    const startY = section.y + 30;
+    
+    // Tạo layout dựa trên pattern
+    let newRows = [];
+    
+    switch (pattern) {
+      case 'grid':
+        // Layout lưới đơn giản
+        newRows = createGridSeating(updatedSection, startX, startY, rows, seatsPerRow, rowSpacing, seatSpacing);
+        break;
+      case 'chevrons':
+        // Layout dạng yên ngựa
+        newRows = renderChevronsSeating(updatedSection, startX, startY, rows, seatsPerRow, rowSpacing, seatSpacing, 10);
+        break;
+      case 'curved':
+        // Layout dạng cong
+        newRows = createCurvedSeating(updatedSection, startX, startY, rows, seatsPerRow, rowSpacing, seatSpacing);
+        break;
+      default:
+        // Mặc định là grid
+        newRows = createGridSeating(updatedSection, startX, startY, rows, seatsPerRow, rowSpacing, seatSpacing);
+    }
+    
+    // Cập nhật section
+    updatedSection.rows = newRows;
+    updatedSection.capacity = newRows.reduce((total, row) => total + row.seats.length, 0);
+    
+    // Cập nhật seating map
+    const updatedSections = seatingMap.sections.map(s => 
+      s.id === sectionId ? updatedSection : s
+    );
+    
+    setSeatingMap({
+      ...seatingMap,
+      sections: updatedSections
+    });
+    
+    saveToHistory();
+  };
+  
+  // Tạo layout lưới
+  const createGridSeating = (section, startX, startY, rows, seatsPerRow, rowSpacing, seatSpacing) => {
+    const newRows = [];
+    
+    for (let rowIndex = 0; rowIndex < rows; rowIndex++) {
+      const rowY = startY + rowIndex * rowSpacing;
+      const seats = [];
+      
+      for (let seatIndex = 0; seatIndex < seatsPerRow; seatIndex++) {
+        seats.push({
+          number: seatIndex + 1,
+          x: startX + seatIndex * seatSpacing,
+          y: rowY,
+          status: 'available'
+        });
+      }
+      
+      newRows.push({
+        name: getRowLabel(rowIndex),
+        seats
+      });
+    }
+    
+    return newRows;
+  };
+  
+  // Tạo layout cong
+  const createCurvedSeating = (section, startX, startY, rows, seatsPerRow, rowSpacing, seatSpacing) => {
+    const newRows = [];
+    const centerX = startX + (seatsPerRow * seatSpacing) / 2;
+    const radius = 150;
+    
+    for (let rowIndex = 0; rowIndex < rows; rowIndex++) {
+      const seats = [];
+      const rowRadius = radius + rowIndex * rowSpacing;
+      
+      for (let seatIndex = 0; seatIndex < seatsPerRow; seatIndex++) {
+        // Tính góc cho mỗi ghế
+        const angle = -Math.PI / 3 + (Math.PI * 2/3) * (seatIndex / (seatsPerRow - 1));
+        
+        // Tính tọa độ dựa trên góc và bán kính
+        const x = centerX + rowRadius * Math.cos(angle);
+        const y = startY + rowRadius * Math.sin(angle);
+        
+        seats.push({
+          number: seatIndex + 1,
+          x,
+          y,
+          status: 'available'
+        });
+      }
+      
+      newRows.push({
+        name: getRowLabel(rowIndex),
+        seats
+      });
+    }
+    
+    return newRows;
+  };
 
-    setSeatingMap(newSeatingMap);
-    setSelectedElement(null);
+  // Thêm hàm addVenueObject để thêm các đối tượng vào venue
+  const addVenueObject = (objectType, x, y) => {
+    if (!venueObjectTypes[objectType]) return;
+    
+    const objectId = `${objectType}-${Date.now()}`;
+    const typeInfo = venueObjectTypes[objectType];
+    
+    const newObject = {
+      id: objectId,
+      type: objectType,
+      name: typeInfo.name,
+      x,
+      y,
+      width: typeInfo.width,
+      height: typeInfo.height,
+      color: typeInfo.color,
+      rotation: 0,
+    };
+    
+    const updatedMap = {
+      ...seatingMap,
+      venueObjects: [...(seatingMap.venueObjects || []), newObject]
+    };
+    
+    setSeatingMap(updatedMap);
+    setSelectedElement({ ...newObject, type: 'venueObject' });
     saveToHistory();
   };
 
-  // Get color for ticket type - memoized to update when ticketTypes changes
-  const getTicketTypeColor = useCallback((ticketTypeName) => {
-    // First try to find color from ticketTypes prop
-    const ticketType = ticketTypes.find(tt => tt.name === ticketTypeName);
+  // Thêm hàm renderVenueObject để hiển thị các đối tượng venue
+  const renderVenueObject = (object, isSelected) => {
+    const typeInfo = venueObjectTypes[object.type];
     
-    console.log(`🎨 Getting color for "${ticketTypeName}":`, {
-      found: !!ticketType,
-      color: ticketType?.color,
-      allTicketTypes: ticketTypes.map(tt => ({ name: tt.name, color: tt.color }))
+    // Không render nếu không tìm thấy thông tin loại object
+    if (!typeInfo) return null;
+    
+    return (
+      <g
+        key={object.id}
+        className={`venue-object ${isSelected ? 'selected' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedElement({ ...object, type: 'venueObject' });
+        }}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          handleMouseDown(e, object, 'venueObject');
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          handleContextMenu(e, 'venueObject', object);
+        }}
+        transform={`rotate(${object.rotation || 0}, ${object.x + (object.width/2)}, ${object.y + (object.height/2)})`}
+      >
+        {/* Object background */}
+        <rect
+          x={object.x}
+          y={object.y}
+          width={object.width}
+          height={object.height}
+          fill={object.color}
+          fillOpacity="0.7"
+          stroke={object.color}
+          strokeWidth={isSelected ? 3 : 1.5}
+          rx="3"
+          cursor="move"
+        />
+        
+        {/* Object icon/text */}
+        <text
+          x={object.x + object.width / 2}
+          y={object.y + object.height / 2 + 5}
+          textAnchor="middle"
+          fill="white"
+          fontSize="14"
+          fontWeight="bold"
+          className="venue-object-text"
+          pointerEvents="none"
+        >
+          {object.type.charAt(0).toUpperCase()}
+        </text>
+        
+        {/* Object label */}
+        <text
+          x={object.x + object.width / 2}
+          y={object.y - 8}
+          textAnchor="middle"
+          fill={object.color}
+          fontSize="12"
+          fontWeight="bold"
+          className="venue-object-label"
+          pointerEvents="none"
+        >
+          {object.name}
+        </text>
+      </g>
+    );
+  };
+
+  // Mở rộng hàm contextMenu để hỗ trợ venue objects
+  const renderContextMenu = () => {
+    if (!contextMenu.visible) return null;
+    
+    return (
+      <div 
+        className="context-menu"
+        style={{ 
+          position: 'absolute',
+          left: `${contextMenu.x}px`,
+          top: `${contextMenu.y}px`
+        }}
+      >
+        {contextMenu.type === 'section' && (
+          <div className="menu-items">
+            <div onClick={() => handleMenuItemClick('add-row')}>➕ Thêm hàng</div>
+            <div onClick={() => handleMenuItemClick('auto-layout')}>🪑 Tạo chỗ ngồi tự động</div>
+            <div onClick={() => handleMenuItemClick('delete-section')}>🗑️ Xóa khu vực</div>
+          </div>
+        )}
+        
+        {contextMenu.type === 'venueObject' && (
+          <div className="menu-items">
+            <div onClick={() => handleMenuItemClick('rotate-object')}>🔄 Xoay</div>
+            <div onClick={() => handleMenuItemClick('rename-object')}>✏️ Đổi tên</div>
+            <div onClick={() => handleMenuItemClick('delete-object')}>🗑️ Xóa</div>
+          </div>
+        )}
+      </div>
+    );
+  };
+  
+  // Mở rộng hàm handleMenuItemClick để hỗ trợ venue objects
+  const handleMenuItemClick = (action) => {
+    const element = contextMenu.element;
+    
+    setContextMenu({ visible: false, x: 0, y: 0, type: null, element: null });
+    
+    if (action === 'add-row' && contextMenu.type === 'section') {
+      addRowToSection(element.id);
+    } else if (action === 'auto-layout' && contextMenu.type === 'section') {
+      // Open auto layout dialog
+      // For now, just add a simple layout
+      generateAutoSeatingLayout(element.id, {
+        rows: 5,
+        seatsPerRow: 10,
+        rowSpacing: 20,
+        seatSpacing: 15,
+        pattern: 'grid'
+      });
+    } else if (action === 'delete-section' && contextMenu.type === 'section') {
+      deleteSection(element.id);
+    } else if (action === 'rotate-object' && contextMenu.type === 'venueObject') {
+      // Xoay đối tượng thêm 90 độ
+      rotateVenueObject(element.id);
+    } else if (action === 'rename-object' && contextMenu.type === 'venueObject') {
+      const newName = prompt('Nhập tên mới cho đối tượng:', element.name);
+      if (newName) {
+        renameVenueObject(element.id, newName);
+      }
+    } else if (action === 'delete-object' && contextMenu.type === 'venueObject') {
+      deleteVenueObject(element.id);
+    }
+  };
+
+  // Thêm các hàm xử lý cho venue objects
+  const rotateVenueObject = (objectId) => {
+    const updatedObjects = seatingMap.venueObjects.map(obj => {
+      if (obj.id === objectId) {
+        const currentRotation = obj.rotation || 0;
+        return { ...obj, rotation: (currentRotation + 90) % 360 };
+      }
+      return obj;
     });
     
-    if (ticketType && ticketType.color) {
-      return ticketType.color;
+    setSeatingMap({
+      ...seatingMap,
+      venueObjects: updatedObjects
+    });
+    
+    // Cập nhật selected element nếu đang được chọn
+    if (selectedElement?.id === objectId && selectedElement.type === 'venueObject') {
+      const updatedObj = updatedObjects.find(obj => obj.id === objectId);
+      setSelectedElement({ ...updatedObj, type: 'venueObject' });
     }
     
-    // Fallback to predefined colors
-    const colors = {
-      'VIP': '#8B5CF6',
-      'Premium': '#F59E0B', 
-      'Standard': '#3B82F6',
-      'Economy': '#10B981',
-      'Golden': '#FFD700',
-      'Golden Circle': '#FFD700',
-      'Silver': '#C0C0C0',
-      'Bronze': '#CD7F32'
-    };
-    
-    const fallbackColor = colors[ticketTypeName] || '#6B7280';
-    console.log(`🎨 Using fallback color for "${ticketTypeName}": ${fallbackColor}`);
-    return fallbackColor;
-  }, [ticketTypes]); // Re-create when ticketTypes changes
+    saveToHistory();
+  };
 
-  // Update section properties with force re-render
-  const updateSectionProperties = (sectionName, properties) => {
-    const newSeatingMap = { ...seatingMap };
-    const sectionIndex = newSeatingMap.sections.findIndex(s => s.name === sectionName);
+  const renameVenueObject = (objectId, newName) => {
+    const updatedObjects = seatingMap.venueObjects.map(obj => {
+      if (obj.id === objectId) {
+        return { ...obj, name: newName };
+      }
+      return obj;
+    });
     
-    if (sectionIndex !== -1) {
-      newSeatingMap.sections[sectionIndex] = {
-        ...newSeatingMap.sections[sectionIndex],
-        ...properties
-      };
-      
-      setSeatingMap(newSeatingMap);
-      // Force re-render if ticketType changed (affects colors)
-      if (properties.ticketType) {
-        setRenderKey(prev => prev + 1);
-      }
-      console.log('📝 Updated section properties:', properties);
-      
-      // Force update selected element to reflect changes
-      if (selectedElement && selectedElement.name === sectionName) {
-        setSelectedElement({
-          ...selectedElement,
-          ...properties
-        });
-      }
+    setSeatingMap({
+      ...seatingMap,
+      venueObjects: updatedObjects
+    });
+    
+    // Cập nhật selected element nếu đang được chọn
+    if (selectedElement?.id === objectId && selectedElement.type === 'venueObject') {
+      const updatedObj = updatedObjects.find(obj => obj.id === objectId);
+      setSelectedElement({ ...updatedObj, type: 'venueObject' });
     }
+    
+    saveToHistory();
+  };
+
+  const deleteVenueObject = (objectId) => {
+    const updatedObjects = seatingMap.venueObjects.filter(obj => obj.id !== objectId);
+    
+    setSeatingMap({
+      ...seatingMap,
+      venueObjects: updatedObjects
+    });
+    
+    // Xóa selected element nếu đang được chọn
+    if (selectedElement?.id === objectId && selectedElement.type === 'venueObject') {
+      setSelectedElement(null);
+    }
+    
+    saveToHistory();
+  };
+
+  const deleteSection = (sectionId) => {
+    const updatedSections = seatingMap.sections.filter(s => s.id !== sectionId);
+    
+    setSeatingMap({
+      ...seatingMap,
+      sections: updatedSections
+    });
+    
+    // Xóa selected element nếu đang được chọn
+    if (selectedElement?.id === sectionId && selectedElement.type === 'section') {
+      setSelectedElement(null);
+    }
+    
+    saveToHistory();
   };
 
   return (
@@ -368,7 +902,44 @@ const InteractiveSeatingDesigner = ({
               onClick={() => setEditMode('add-section')}
               title="Thêm khu vực"
             >
-              <FaPlus /> Thêm khu
+              <FaPlus /> Khu
+            </button>
+
+            {/* Venue object tools */}
+            <button 
+              className={`tool-btn ${editMode === 'add-entrance' ? 'active' : ''}`}
+              onClick={() => setEditMode('add-entrance')}
+              title="Thêm lối vào"
+            >
+              <FaDoorOpen /> Lối vào
+            </button>
+            <button 
+              className={`tool-btn ${editMode === 'add-exit' ? 'active' : ''}`}
+              onClick={() => setEditMode('add-exit')}
+              title="Thêm lối ra"
+            >
+              <FaDoorClosed /> Lối ra
+            </button>
+            <button 
+              className={`tool-btn ${editMode === 'add-restroom' ? 'active' : ''}`}
+              onClick={() => setEditMode('add-restroom')}
+              title="Thêm nhà vệ sinh"
+            >
+              <FaToilet /> WC
+            </button>
+            <button 
+              className={`tool-btn ${editMode === 'add-food' ? 'active' : ''}`}
+              onClick={() => setEditMode('add-food')}
+              title="Thêm quầy thức ăn"
+            >
+              <FaHamburger /> Thức ăn
+            </button>
+            <button 
+              className={`tool-btn ${editMode === 'add-drinks' ? 'active' : ''}`}
+              onClick={() => setEditMode('add-drinks')}
+              title="Thêm quầy nước"
+            >
+              <FaGlassMartiniAlt /> Đồ uống
             </button>
           </div>
         </div>
@@ -439,7 +1010,9 @@ const InteractiveSeatingDesigner = ({
                   y={seatingMap.stage.y}
                   width={seatingMap.stage.width}
                   height={seatingMap.stage.height}
-                  fill="#1a1a1a"
+                  fill={layoutType === 'footballStadium' ? '#3a6e2a' : 
+                        layoutType === 'basketballArena' ? '#b75b1a' : 
+                        "#1a1a1a"}
                   stroke="#333"
                   strokeWidth="2"
                   rx="5"
@@ -463,6 +1036,17 @@ const InteractiveSeatingDesigner = ({
                 {/* Football field markings */}
                 {layoutType === 'footballStadium' && (
                   <g pointerEvents="none">
+                    {/* Pitch background */}
+                    <rect
+                      x={seatingMap.stage.x + 10}
+                      y={seatingMap.stage.y + 10}
+                      width={seatingMap.stage.width - 20}
+                      height={seatingMap.stage.height - 20}
+                      fill="#4a8c3a"
+                      stroke="white"
+                      strokeWidth="2"
+                    />
+                    
                     {/* Center circle */}
                     <circle
                       cx={seatingMap.stage.x + seatingMap.stage.width / 2}
@@ -470,31 +1054,53 @@ const InteractiveSeatingDesigner = ({
                       r="15"
                       fill="none"
                       stroke="white"
-                      strokeWidth="1"
+                      strokeWidth="1.5"
                     />
+                    
                     {/* Center line */}
                     <line
                       x1={seatingMap.stage.x + seatingMap.stage.width / 2}
-                      y1={seatingMap.stage.y + 5}
+                      y1={seatingMap.stage.y + 10}
                       x2={seatingMap.stage.x + seatingMap.stage.width / 2}
-                      y2={seatingMap.stage.y + seatingMap.stage.height - 5}
+                      y2={seatingMap.stage.y + seatingMap.stage.height - 10}
+                      stroke="white"
+                      strokeWidth="1.5"
+                    />
+                    
+                    {/* Goals */}
+                    <rect
+                      x={seatingMap.stage.x + seatingMap.stage.width / 2 - 20}
+                      y={seatingMap.stage.y + 8}
+                      width="40"
+                      height="4"
+                      fill="white"
+                    />
+                    <rect
+                      x={seatingMap.stage.x + seatingMap.stage.width / 2 - 20}
+                      y={seatingMap.stage.y + seatingMap.stage.height - 12}
+                      width="40"
+                      height="4"
+                      fill="white"
+                    />
+                    
+                    {/* Penalty areas */}
+                    <rect
+                      x={seatingMap.stage.x + seatingMap.stage.width/2 - 40}
+                      y={seatingMap.stage.y + 10}
+                      width="80"
+                      height="25"
+                      fill="none"
                       stroke="white"
                       strokeWidth="1"
                     />
-                    {/* Goals */}
                     <rect
-                      x={seatingMap.stage.x + seatingMap.stage.width / 2 - 10}
-                      y={seatingMap.stage.y}
-                      width="20"
-                      height="3"
-                      fill="white"
-                    />
-                    <rect
-                      x={seatingMap.stage.x + seatingMap.stage.width / 2 - 10}
-                      y={seatingMap.stage.y + seatingMap.stage.height - 3}
-                      width="20"
-                      height="3"
-                      fill="white"
+                      x={seatingMap.stage.x + seatingMap.stage.width/2 - 40}
+                      y={seatingMap.stage.y + seatingMap.stage.height - 35}
+                      width="80"
+                      height="25"
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="1"
                     />
                   </g>
                 )}
@@ -502,6 +1108,17 @@ const InteractiveSeatingDesigner = ({
                 {/* Basketball court markings */}
                 {layoutType === 'basketballArena' && (
                   <g pointerEvents="none">
+                    {/* Court background */}
+                    <rect
+                      x={seatingMap.stage.x + 10}
+                      y={seatingMap.stage.y + 10}
+                      width={seatingMap.stage.width - 20}
+                      height={seatingMap.stage.height - 20}
+                      fill="#c67941"
+                      stroke="white"
+                      strokeWidth="2"
+                    />
+                    
                     {/* Center circle */}
                     <circle
                       cx={seatingMap.stage.x + seatingMap.stage.width / 2}
@@ -509,29 +1126,69 @@ const InteractiveSeatingDesigner = ({
                       r="12"
                       fill="none"
                       stroke="white"
-                      strokeWidth="1"
+                      strokeWidth="1.5"
                     />
+                    
                     {/* Center line */}
                     <line
                       x1={seatingMap.stage.x + seatingMap.stage.width / 2}
-                      y1={seatingMap.stage.y}
+                      y1={seatingMap.stage.y + 10}
                       x2={seatingMap.stage.x + seatingMap.stage.width / 2}
-                      y2={seatingMap.stage.y + seatingMap.stage.height}
+                      y2={seatingMap.stage.y + seatingMap.stage.height - 10}
+                      stroke="white"
+                      strokeWidth="1.5"
+                    />
+                    
+                    {/* Three-point lines */}
+                    <path
+                      d={`M${seatingMap.stage.x + 30} ${seatingMap.stage.y + 30} 
+                          A 40 40 0 0 1 ${seatingMap.stage.x + seatingMap.stage.width - 30} ${seatingMap.stage.y + 30}`}
+                      fill="none"
                       stroke="white"
                       strokeWidth="1"
                     />
+                    <path
+                      d={`M${seatingMap.stage.x + 30} ${seatingMap.stage.y + seatingMap.stage.height - 30} 
+                          A 40 40 0 0 0 ${seatingMap.stage.x + seatingMap.stage.width - 30} ${seatingMap.stage.y + seatingMap.stage.height - 30}`}
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="1"
+                    />
+                    
+                    {/* Free throw lines */}
+                    <line 
+                      x1={seatingMap.stage.x + 50}
+                      y1={seatingMap.stage.y + 35}
+                      x2={seatingMap.stage.x + seatingMap.stage.width - 50}
+                      y2={seatingMap.stage.y + 35}
+                      stroke="white"
+                      strokeWidth="1"
+                    />
+                    <line 
+                      x1={seatingMap.stage.x + 50}
+                      y1={seatingMap.stage.y + seatingMap.stage.height - 35}
+                      x2={seatingMap.stage.x + seatingMap.stage.width - 50}
+                      y2={seatingMap.stage.y + seatingMap.stage.height - 35}
+                      stroke="white"
+                      strokeWidth="1"
+                    />
+                    
                     {/* Baskets */}
                     <circle
                       cx={seatingMap.stage.x + seatingMap.stage.width / 2}
-                      cy={seatingMap.stage.y + 5}
-                      r="2"
+                      cy={seatingMap.stage.y + 15}
+                      r="3"
                       fill="orange"
+                      stroke="white"
+                      strokeWidth="0.5"
                     />
                     <circle
                       cx={seatingMap.stage.x + seatingMap.stage.width / 2}
-                      cy={seatingMap.stage.y + seatingMap.stage.height - 5}
-                      r="2"
+                      cy={seatingMap.stage.y + seatingMap.stage.height - 15}
+                      r="3"
                       fill="orange"
+                      stroke="white"
+                      strokeWidth="0.5"
                     />
                   </g>
                 )}
@@ -539,62 +1196,12 @@ const InteractiveSeatingDesigner = ({
             )}
 
             {/* Sections */}
-            {seatingMap.sections.map((section, index) => (
-              <g 
-                key={`section-${renderKey}-${index}-${section.name}`}
-                className={`section-element ${selectedElement?.name === section.name ? 'selected' : ''}`}
-                onMouseDown={(e) => {
-                  console.log('🏛️ Section mousedown event triggered:', section.name);
-                  handleMouseDown(e, section, 'section');
-                }}
-                style={{ cursor: editMode === 'select' ? 'grab' : 'default' }}
-              >
-                <rect
-                  x={section.x}
-                  y={section.y}
-                  width={section.width || 150}
-                  height={section.height || 100}
-                  fill={getTicketTypeColor(section.ticketType)}
-                  fillOpacity="0.3"
-                  stroke={getTicketTypeColor(section.ticketType)}
-                  strokeWidth="2"
-                  rx="8"
-                  className="draggable-element"
-                  style={{ pointerEvents: 'all' }}
-                />
-                <text
-                  x={section.x + (section.width || 150) / 2}
-                  y={section.y + 20}
-                  textAnchor="middle"
-                  fill={getTicketTypeColor(section.ticketType)}
-                  fontSize="14"
-                  fontWeight="bold"
-                  pointerEvents="none"
-                >
-                  {section.name}
-                </text>
-                <text
-                  x={section.x + (section.width || 150) / 2}
-                  y={section.y + 40}
-                  textAnchor="middle"
-                  fill="#666"
-                  fontSize="12"
-                  pointerEvents="none"
-                >
-                  {section.capacity} ghế
-                </text>
-                <text
-                  x={section.x + (section.width || 150) / 2}
-                  y={section.y + 55}
-                  textAnchor="middle"
-                  fill="#666"
-                  fontSize="10"
-                  pointerEvents="none"
-                >
-                  {section.ticketType}
-                </text>
-              </g>
-            ))}
+            {seatingMap.sections.map((section, index) => renderSection(section, selectedElement?.name === section.name))}
+
+            {/* Venue Objects */}
+            {seatingMap.venueObjects && seatingMap.venueObjects.map((object) => 
+              renderVenueObject(object, selectedElement?.id === object.id)
+            )}
 
             {/* Selection indicator */}
             {selectedElement && (
@@ -618,6 +1225,9 @@ const InteractiveSeatingDesigner = ({
           <div className="designer-instructions">
             {editMode === 'select' && <p>✋ Kéo thả để di chuyển các phần tử</p>}
             {editMode === 'add-section' && <p>➕ Click vào canvas để thêm khu vực mới</p>}
+            {editMode.startsWith('add-') && editMode !== 'add-section' && (
+              <p>➕ Click vào canvas để thêm {venueObjectTypes[editMode.substring(4)]?.name.toLowerCase() || 'đối tượng'}</p>
+            )}
           </div>
         </div>
 
@@ -661,7 +1271,7 @@ const InteractiveSeatingDesigner = ({
                     />
                   </div>
                 </div>
-              ) : (
+              ) : selectedElement.type === 'section' ? (
                 <div>
                   <h6>Khu vực: {selectedElement.name}</h6>
                   <div className="form-group">
@@ -671,7 +1281,7 @@ const InteractiveSeatingDesigner = ({
                       value={selectedElement.name}
                       onChange={(e) => {
                         const newName = e.target.value;
-                        updateSectionProperties(selectedElement.name, { name: newName });
+                        updateSectionProperties(selectedElement.id, { name: newName });
                         setSelectedElement({ ...selectedElement, name: newName });
                       }}
                     />
@@ -682,7 +1292,7 @@ const InteractiveSeatingDesigner = ({
                       value={selectedElement.ticketType}
                       onChange={(e) => {
                         const newTicketType = e.target.value;
-                        updateSectionProperties(selectedElement.name, { ticketType: newTicketType });
+                        updateSectionProperties(selectedElement.id, { ticketType: newTicketType });
                         setSelectedElement({ ...selectedElement, ticketType: newTicketType });
                       }}
                     >
@@ -700,7 +1310,7 @@ const InteractiveSeatingDesigner = ({
                       value={selectedElement.capacity}
                       onChange={(e) => {
                         const newCapacity = parseInt(e.target.value);
-                        updateSectionProperties(selectedElement.name, { capacity: newCapacity });
+                        updateSectionProperties(selectedElement.id, { capacity: newCapacity });
                         setSelectedElement({ ...selectedElement, capacity: newCapacity });
                       }}
                     />
@@ -712,7 +1322,7 @@ const InteractiveSeatingDesigner = ({
                       value={selectedElement.width || 150}
                       onChange={(e) => {
                         const newWidth = parseInt(e.target.value);
-                        updateSectionProperties(selectedElement.name, { width: newWidth });
+                        updateSectionProperties(selectedElement.id, { width: newWidth });
                         setSelectedElement({ ...selectedElement, width: newWidth });
                       }}
                     />
@@ -724,18 +1334,104 @@ const InteractiveSeatingDesigner = ({
                       value={selectedElement.height || 100}
                       onChange={(e) => {
                         const newHeight = parseInt(e.target.value);
-                        updateSectionProperties(selectedElement.name, { height: newHeight });
+                        updateSectionProperties(selectedElement.id, { height: newHeight });
                         setSelectedElement({ ...selectedElement, height: newHeight });
                       }}
                     />
                   </div>
                 </div>
-              )}
+              ) : selectedElement.type === 'venueObject' ? (
+                <div>
+                  <h6>Đối tượng: {selectedElement.name}</h6>
+                  <div className="form-group">
+                    <label>Tên:</label>
+                    <input
+                      type="text"
+                      value={selectedElement.name}
+                      onChange={(e) => {
+                        const newName = e.target.value;
+                        renameVenueObject(selectedElement.id, newName);
+                      }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Độ rộng:</label>
+                    <input
+                      type="number"
+                      value={selectedElement.width}
+                      onChange={(e) => {
+                        const newWidth = parseInt(e.target.value);
+                        const updatedObjects = seatingMap.venueObjects.map(obj => {
+                          if (obj.id === selectedElement.id) {
+                            return { ...obj, width: newWidth };
+                          }
+                          return obj;
+                        });
+                        
+                        setSeatingMap({
+                          ...seatingMap,
+                          venueObjects: updatedObjects
+                        });
+                        setSelectedElement({ ...selectedElement, width: newWidth });
+                      }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Độ cao:</label>
+                    <input
+                      type="number"
+                      value={selectedElement.height}
+                      onChange={(e) => {
+                        const newHeight = parseInt(e.target.value);
+                        const updatedObjects = seatingMap.venueObjects.map(obj => {
+                          if (obj.id === selectedElement.id) {
+                            return { ...obj, height: newHeight };
+                          }
+                          return obj;
+                        });
+                        
+                        setSeatingMap({
+                          ...seatingMap,
+                          venueObjects: updatedObjects
+                        });
+                        setSelectedElement({ ...selectedElement, height: newHeight });
+                      }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Góc xoay:</label>
+                    <input
+                      type="number"
+                      value={selectedElement.rotation || 0}
+                      step="15"
+                      onChange={(e) => {
+                        const newRotation = parseInt(e.target.value);
+                        const updatedObjects = seatingMap.venueObjects.map(obj => {
+                          if (obj.id === selectedElement.id) {
+                            return { ...obj, rotation: newRotation };
+                          }
+                          return obj;
+                        });
+                        
+                        setSeatingMap({
+                          ...seatingMap,
+                          venueObjects: updatedObjects
+                        });
+                        setSelectedElement({ ...selectedElement, rotation: newRotation });
+                      }}
+                    />
+                  </div>
+                  <button 
+                    className="tool-btn danger"
+                    onClick={() => deleteVenueObject(selectedElement.id)}
+                  >
+                    <FaTrash /> Xóa đối tượng
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : (
-            <div className="no-selection">
-              <p>Chọn một phần tử để chỉnh sửa thuộc tính</p>
-            </div>
+            <p>Chọn một phần tử để xem thuộc tính</p>
           )}
 
           {/* Summary */}
@@ -752,6 +1448,9 @@ const InteractiveSeatingDesigner = ({
           </div>
         </div>
       </div>
+
+      {/* Context menu */}
+      {renderContextMenu()}
     </div>
   );
 };
