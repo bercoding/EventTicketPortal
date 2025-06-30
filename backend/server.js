@@ -18,6 +18,7 @@ const commentRoutes = require('./routes/comment'); // Add missing import
 const venueRoutes = require('./routes/venue'); // Add missing import
 const socketHandler = require('./socket/socketHandler'); // Sẽ tạo file này sau
 const contentRoutes = require('./routes/contentRoutes');
+const friendRoutes = require('./routes/friend'); // Sửa tham chiếu đúng tên file
 
 const mongoose = require('mongoose');
 const path = require('path');
@@ -25,10 +26,6 @@ const { createServer } = require('http');
 const socketIo = require('socket.io');
 const cron = require('node-cron');
 const { cancelExpiredTickets } = require('./services/ticketService');
-
-const friendRoutes = require('./routes/friendRoutes'); 
-require('dotenv').config();
-
 
 const app = express();
 const server = http.createServer(app); // Tạo HTTP server từ Express app
