@@ -4,10 +4,15 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 
-const useManageEventLogic = () => {
-  const { eventId } = useParams();
+const useManageEventLogic = (eventId) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  
+  // Validate eventId parameter
+  if (!eventId || eventId === 'null' || eventId === 'undefined') {
+    console.error('❌ useManageEventLogic: Invalid eventId provided:', eventId);
+    throw new Error('Invalid eventId provided to useManageEventLogic');
+  }
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState({
     organizers: [],
@@ -70,6 +75,15 @@ const useManageEventLogic = () => {
 
   const fetchEvent = async () => {
     try {
+      // Double-check eventId before API call
+      if (!eventId || eventId === 'null' || eventId === 'undefined') {
+        console.error('❌ fetchEvent: Invalid eventId detected:', eventId);
+        toast.error('ID sự kiện không hợp lệ');
+        navigate('/events');
+        return;
+      }
+      
+      console.log('🔍 fetchEvent: Making API call with eventId:', eventId);
       const response = await api.get(`/events/${eventId}`);
       const eventData = response.data.data;
       const primaryOrganizer = eventData.organizers && eventData.organizers.length > 0 ? eventData.organizers[0] : {};

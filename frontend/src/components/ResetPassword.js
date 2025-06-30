@@ -36,7 +36,7 @@ function ResetPassword() {
 
         setLoading(true);
         try {
-            await authAPI.resetPassword({ email, otp, newPassword });
+            await authAPI.resetPasswordWithOTP(email, otp, newPassword);
             toast.success('Mật khẩu của bạn đã được đặt lại thành công! Vui lòng đăng nhập bằng mật khẩu mới.');
             navigate('/login');
         } catch (error) {

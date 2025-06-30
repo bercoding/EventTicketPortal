@@ -16,19 +16,21 @@ const transporter = nodemailer.createTransport({
   // }
 });
 
-const sendEmail = async (to, subject, html) => {
+const sendEmail = async ({ email, subject, message }) => {
   try {
-    await transporter.sendMail({
-      from: `"Event Ticket Portal" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`, // Tên người gửi và địa chỉ
-      to: to, // Danh sách người nhận
-      subject: subject, // Chủ đề email
-      html: html, // Nội dung HTML của email
-    });
-    console.log('Email sent successfully to:', to);
+    const mailOptions = {
+      from: `"Event Ticket Portal" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: email,
+      subject: subject,
+      html: message,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully to:', email);
+    return true;
   } catch (error) {
     console.error('Error sending email:', error);
-    // Cân nhắc việc throw lỗi ở đây để controller có thể xử lý
-    // throw new Error('Failed to send email');
+    throw error;
   }
 };
 

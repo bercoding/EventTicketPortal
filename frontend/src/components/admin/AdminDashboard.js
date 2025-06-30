@@ -18,6 +18,13 @@ const AdminDashboard = () => {
             link: '/admin/events'
         },
         {
+            title: 'Duyệt chủ sự kiện',
+            description: 'Phê duyệt yêu cầu trở thành chủ sự kiện',
+            icon: '👨‍💼',
+            color: 'from-indigo-500 to-indigo-600',
+            link: '/admin/owner-requests'
+        },
+        {
             title: 'Xử lý Khiếu nại',
             description: 'Giải quyết khiếu nại từ người dùng',
             icon: '📝',
@@ -43,10 +50,17 @@ const AdminDashboard = () => {
         },
         {
             type: 'event',
-            message: 'Sự kiện "Concert Rock 2024" đã được duyệt',
+            message: 'Sự kiện "Concert Rock Việt Nam 2025" đã được duyệt',
             time: '15 phút trước',
             icon: '✅',
             color: 'text-green-600'
+        },
+        {
+            type: 'owner_request',
+            message: 'Yêu cầu trở thành chủ sự kiện từ "Công ty Sự kiện ABC"',
+            time: '20 phút trước',
+            icon: '👨‍💼',
+            color: 'text-indigo-600'
         },
         {
             type: 'complaint',

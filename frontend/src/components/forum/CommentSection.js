@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
-import { FaThumbsUp, FaComment, FaRegThumbsUp, FaRegCommentDots, FaEdit, FaTrash, FaRegImage } from 'react-icons/fa';
+import { FaThumbsUp, FaComment, FaRegThumbsUp, FaRegCommentDots, FaEdit, FaTrash, FaRegImage, FaReply, FaEllipsisV } from 'react-icons/fa';
 import { IoSend } from 'react-icons/io5';
 import CommentForm from './comment/CommentForm';
 import CommentModal from './comment/CommentModal';
 import CommentList from './comment/CommentList';
+import { forumAPI } from '../../services/api';
+import { AuthContext } from '../../context/AuthContext';
+import { getAvatarPlaceholder, handleImageError } from '../../utils/imageHelpers';
 
 const FbCommentItem = ({
   comment,
@@ -71,7 +74,7 @@ const FbCommentItem = ({
 
   return (
     <div className={`flex items-start gap-2 mb-4 ${level > 0 ? 'ml-8 border-l-2 border-gray-200 pl-4' : ''}`}>
-      <img src={comment.userID?.avatar || 'https://via.placeholder.com/32'} alt="avatar" className="w-9 h-9 rounded-full object-cover border border-gray-200 shadow-sm" />
+      <img src={comment.userID?.avatar || getAvatarPlaceholder()} alt="avatar" className="w-9 h-9 rounded-full object-cover border border-gray-200 shadow-sm" onError={(e) => handleImageError(e, 'avatar')} />
       <div className="flex-1">
         <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-1">

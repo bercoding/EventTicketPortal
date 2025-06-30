@@ -1,6 +1,8 @@
-const { client } = require('../config/google');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Tạo token JWT
 const generateToken = (id) => {
@@ -9,83 +11,93 @@ const generateToken = (id) => {
 
 // Google Login
 exports.googleAuth = async (req, res) => {
-    try {
-        const { credential } = req.body;
+    const { token } = req.body;
 
-        // Verify Google token
+    console.log('🔐 Google Auth attempt with token:', token ? 'provided' : 'missing');
+
+    try {
+        // Xác thực token với Google
         const ticket = await client.verifyIdToken({
-            idToken: credential,
-            audience: process.env.GOOGLE_CLIENT_ID,
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID
         });
 
         const payload = ticket.getPayload();
-        const { sub: googleId, email, name, picture } = payload;
-
-        console.log('Google payload:', { googleId, email, name, picture });
+        const { email, name, picture } = payload;
+        
+        console.log('👤 Google user data:', { email, name });
 
         // Kiểm tra user đã tồn tại chưa
-        let user = await User.findOne({
-            $or: [
-                { email: email },
-                { googleId: googleId }
-            ]
-        });
+        let user = await User.findOne({ email });
 
-        if (user) {
-            // User đã tồn tại, cập nhật thông tin Google nếu chưa có
-            if (!user.googleId) {
-                user.googleId = googleId;
-                user.avatar = picture;
-                await user.save();
+        if (!user) {
+            console.log('👤 Creating new user from Google auth');
+            
+            // Tạo username unique từ email
+            const baseUsername = email.split('@')[0];
+            let username = baseUsername;
+            let counter = 1;
+            
+            // Kiểm tra username đã tồn tại chưa
+            while (await User.findOne({ username })) {
+                username = `${baseUsername}${counter}`;
+                counter++;
             }
-
-            // Kiểm tra user có bị ban không
-            if (user.isBanned) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Tài khoản của bạn đã bị khóa',
-                    banned: true,
-                    banReason: user.banReason || 'Vi phạm điều khoản sử dụng'
-                });
-            }
-        } else {
-            // Tạo user mới
+            
+            console.log('📝 Generated unique username:', username);
+            
+            // Tạo user mới nếu chưa tồn tại
             user = await User.create({
                 email,
-                fullName: name,
-                username: email.split('@')[0] + '_' + Date.now(), // Tạo username unique
-                googleId,
+                username,
+                fullName: name || email.split('@')[0], // Sử dụng name từ Google hoặc fallback
+                googleId: payload.sub,
                 avatar: picture,
-                password: 'google_auth_' + Date.now(), // Password dummy
-                role: 'user'
+                isVerified: true // Email đã được xác thực bởi Google
+            });
+            
+            console.log('✅ Created new user:', user.email, 'with fullName:', user.fullName);
+        } else {
+            console.log('👤 Found existing user, updating Google data');
+            // Cập nhật thông tin Google nếu user đã tồn tại
+            user.googleId = payload.sub;
+            if (picture) user.avatar = picture;
+            if (name && !user.fullName) user.fullName = name; // Cập nhật fullName nếu chưa có
+            await user.save();
+        }
+
+        // Kiểm tra user có bị ban không
+        if (user.isBanned) {
+            console.log('❌ User is banned:', user.email);
+            return res.status(403).json({
+                success: false,
+                message: 'Tài khoản của bạn đã bị khóa',
+                banned: true,
+                banReason: user.banReason || 'Vi phạm điều khoản sử dụng'
             });
         }
 
-        // Cập nhật last login
-        user.lastLoginAt = new Date();
-        await user.save();
-
-        // Tạo JWT token
-        const token = generateToken(user._id);
+        // Tạo token JWT
+        const jwtToken = generateToken(user._id);
+        
+        console.log('✅ Google login successful for user:', user.email, user._id);
 
         res.status(200).json({
             success: true,
-            token,
+            token: jwtToken,
             user: {
                 id: user._id,
                 username: user.username,
                 email: user.email,
-                fullName: user.fullName,
-                avatar: user.avatar,
-                role: user.role
+                role: user.role,
+                avatar: user.avatar
             }
         });
-
     } catch (error) {
-        console.error('Google auth error:', error);
+        console.error('Google Auth Error:', error);
         res.status(400).json({
             success: false,
-            message: 'Đăng nhập Google thất bại',
+            message: 'Đăng nhập bằng Google thất bại',
             error: error.message
         });
     }

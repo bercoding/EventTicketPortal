@@ -1,50 +1,118 @@
 const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema({
-  bookingId: {
+  // POS payment fields
+  pos_TxnRef: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  pos_TransactionId: {
+    type: String,
+    sparse: true
+  },
+  pos_PayDate: {
+    type: Date
+  },
+  
+  // VietQR fields
+  vietqr_qrDataURL: {
+    type: String
+  },
+  vietqr_bankInfo: {
+    accountNo: String,
+    accountName: String,
+    bankName: String
+  },
+  vietqr_isFallback: {
+    type: Boolean,
+    default: false
+  },
+  
+  // PayOS fields
+  payos_orderCode: {
+    type: String
+  },
+  payos_checkoutUrl: {
+    type: String
+  },
+  payos_paymentLinkId: {
+    type: String
+  },
+  payos_transactionDateTime: {
+    type: Date
+  },
+  payos_status: {
+    type: String
+  },
+  event: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Booking',
+    ref: 'Event',
     required: true
   },
-  userId: {
+  user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  amount: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  currency: {
+  selectedSeats: [{
+    sectionName: String,
+    rowName: String,
+    seatNumber: String,
+    price: Number,
+    ticketType: String
+  }],
+  selectedTickets: [{
+    ticketTypeId: String,
+    quantity: Number,
+    price: Number,
+    ticketTypeName: String
+  }],
+  bookingType: {
     type: String,
-    default: 'VND'
+    enum: ['seating', 'simple'],
+    default: 'seating'
   },
-  paymentMethod: {
-    type: {
-      type: String,
-      required: true
-    },
-    details: Object
+  totalAmount: {
+    type: Number,
+    required: true
+  },
+  orderInfo: {
+    type: String,
+    default: 'Thanh toán vé sự kiện'
   },
   status: {
     type: String,
-    enum: ['pending', 'completed', 'failed', 'refunded'],
+    enum: ['pending', 'success', 'failed', 'cancelled', 'completed'],
     default: 'pending'
   },
-  transactionId: String,
-  paymentGateway: String,
-  paymentDate: Date,
-  refundAmount: Number,
-  refundDate: Date,
-  metadata: Object
-}, { timestamps: true });
+  paymentMethod: {
+    type: String,
+    enum: ['pos'],
+    default: 'pos'
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+// Update the updatedAt field before saving
+paymentSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
 
 // Indexes
-paymentSchema.index({ bookingId: 1 });
-paymentSchema.index({ userId: 1 });
+paymentSchema.index({ pos_TxnRef: 1 });
+paymentSchema.index({ user: 1 });
+paymentSchema.index({ event: 1 });
 paymentSchema.index({ status: 1 });
-paymentSchema.index({ transactionId: 1 });
+paymentSchema.index({ createdAt: -1 });
 
 const Payment = mongoose.model('Payment', paymentSchema);
 

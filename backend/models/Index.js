@@ -3,6 +3,7 @@ const Event = require('./Event');
 const Venue = require('./Venue');
 const Booking = require('./Booking');
 const Ticket = require('./Ticket');
+const TicketType = require('./TicketType');
 const Payment = require('./Payment');
 const Review = require('./Review');
 const Post = require('./Post');
@@ -18,6 +19,7 @@ module.exports = {
   Venue,
   Booking,
   Ticket,
+  TicketType,
   Payment,
   Review,
   Post,

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faPlus,
@@ -11,7 +12,9 @@ import {
   faTicketAlt,
   faUsers,
   faCog,
-  faMoneyBillWave
+  faMoneyBillWave,
+  faMapMarkedAlt,
+  faGlobe
 } from '@fortawesome/free-solid-svg-icons';
 import useCreateEventLogic from '../../hooks/useCreateEventLogic';
 import ImageUpload from '../../components/event/ImageUpload';
@@ -24,6 +27,9 @@ import ProgressBar from '../../components/event/ProgressBar';
 import Sidebar from '../../components/event/Sidebar';
 
 const CreateEvent = () => {
+  const location = useLocation();
+  const templateInfo = location.state;
+  
   const {
     formData,
     provinces,
@@ -50,7 +56,23 @@ const CreateEvent = () => {
     handleVenueLayoutChange,
     loading,
     user,
-  } = useCreateEventLogic();
+    // Template variables
+    isOnlineEvent,
+    isGeneralEvent,
+    isSeatingEvent
+  } = useCreateEventLogic(templateInfo);
+
+  // Set location type based on template - PHẢI ĐẶT TRƯỚC EARLY RETURN
+  React.useEffect(() => {
+    if (templateInfo?.templateType && formData.location.type !== (isOnlineEvent ? 'online' : 'offline')) {
+      handleChange({
+        target: {
+          name: 'location.type',
+          value: isOnlineEvent ? 'online' : 'offline'
+        }
+      });
+    }
+  }, [templateInfo, formData.location.type, handleChange, isOnlineEvent]);
 
   if (!user || user.role !== 'event_owner') {
     return (
@@ -62,6 +84,27 @@ const CreateEvent = () => {
     );
   }
 
+  // Xác định tiêu đề dựa trên template
+  const getPageTitle = () => {
+    if (isOnlineEvent) {
+      return '🌐 Tạo Sự Kiện Trực Tuyến';
+    }
+    if (isGeneralEvent) {
+      return '🎪 Tạo Sự Kiện Tham Gia Tự Do';
+    }
+    return '📝 Tạo Sự Kiện Mới';
+  };
+
+  const getPageDescription = () => {
+    if (isOnlineEvent) {
+      return 'Tạo sự kiện hoàn toàn trực tuyến với link tham gia';
+    }
+    if (isGeneralEvent) {
+      return 'Tạo sự kiện ngoài trời hoặc không gian mở, không ghế ngồi cố định';
+    }
+    return 'Tạo sự kiện với các tính năng tùy chỉnh';
+  };
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100 font-sans">
       <Sidebar />
@@ -69,8 +112,22 @@ const CreateEvent = () => {
       <main className="flex-1 p-10">
         <ProgressBar currentStep={currentStep} />
         
-        <h1 className="text-4xl font-extrabold mb-10 text-white text-center">Tạo Sự Kiện Mới Của Bạn</h1>
+        <h1 className="text-4xl font-extrabold mb-10 text-white text-center">
+          {getPageTitle()}
+        </h1>
         
+        {templateInfo && (
+          <div className="text-center mb-6">
+            <span className={`text-white px-4 py-2 rounded-full text-sm ${
+              isOnlineEvent ? 'bg-orange-600' : 
+              isGeneralEvent ? 'bg-green-600' : 
+              'bg-blue-600'
+            }`}>
+              {isOnlineEvent ? '🌐' : isGeneralEvent ? '🎪' : '📋'} Template: {templateInfo.templateName}
+            </span>
+          </div>
+        )}
+
         <form onSubmit={currentStep === 4 ? handleFinalSubmit : handleNextStep} className="space-y-10">
           {currentStep === 1 && (
             <div className="space-y-10">
@@ -116,31 +173,117 @@ const CreateEvent = () => {
                   <div className="space-y-4">
                     <label className="block text-sm font-medium text-gray-300">Địa chỉ sự kiện <span className="text-red-500">*</span></label>
                     <div className="flex space-x-6">
-                      <label className="inline-flex items-center text-gray-300 cursor-pointer">
+                      <label className={`inline-flex items-center text-gray-300 cursor-pointer ${
+                        isOnlineEvent ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}>
                         <input
                           type="radio"
                           name="location.type"
                           value="offline"
                           checked={formData.location.type === 'offline'}
                           onChange={handleChange}
-                          className="form-radio h-5 w-5 text-green-500 border-gray-600 bg-gray-700 focus:ring-green-500 focus:ring-offset-gray-800 transition-all duration-200"
+                          disabled={isOnlineEvent}
+                          className="form-radio h-5 w-5 text-green-500 border-gray-600 bg-gray-700 focus:ring-green-500 focus:ring-offset-gray-800 transition-all duration-200 disabled:opacity-50"
                         />
-                        <span className="ml-2 text-base">Sự kiện Offline</span>
+                        <span className="ml-2 text-base">
+                          Sự kiện Offline
+                          {isOnlineEvent && <span className="text-gray-500 text-sm ml-1">(Không khả dụng cho template này)</span>}
+                        </span>
                       </label>
-                      <label className="inline-flex items-center text-gray-300 cursor-pointer">
+                      <label className={`inline-flex items-center text-gray-300 cursor-pointer ${
+                        (isGeneralEvent && formData.location.type === 'offline') ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}>
                         <input
                           type="radio"
                           name="location.type"
                           value="online"
                           checked={formData.location.type === 'online'}
                           onChange={handleChange}
-                          className="form-radio h-5 w-5 text-green-500 border-gray-600 bg-gray-700 focus:ring-green-500 focus:ring-offset-gray-800 transition-all duration-200"
+                          disabled={isGeneralEvent && formData.location.type === 'offline'}
+                          className="form-radio h-5 w-5 text-green-500 border-gray-600 bg-gray-700 focus:ring-green-500 focus:ring-offset-gray-800 transition-all duration-200 disabled:opacity-50"
                         />
-                        <span className="ml-2 text-base">Sự kiện Online</span>
+                        <span className="ml-2 text-base">
+                          Sự kiện Online
+                          {isGeneralEvent && <span className="text-gray-500 text-sm ml-1">(Khuyến nghị offline cho template này)</span>}
+                        </span>
                       </label>
                     </div>
+                    
+                    {/* Thông tin template */}
+                    {templateInfo && (
+                      <div className={`mt-3 p-3 rounded-lg text-sm ${
+                        isOnlineEvent ? 'bg-orange-900/20 border border-orange-700' :
+                        isGeneralEvent ? 'bg-green-900/20 border border-green-700' :
+                        'bg-blue-900/20 border border-blue-700'
+                      }`}>
+                        <p className={`font-medium ${
+                          isOnlineEvent ? 'text-orange-400' :
+                          isGeneralEvent ? 'text-green-400' :
+                          'text-blue-400'
+                        }`}>
+                          {isOnlineEvent ? '🌐 Template Online:' :
+                           isGeneralEvent ? '🎪 Template Tự Do:' :
+                           '🪑 Template Ghế Ngồi:'} {templateInfo.templateName}
+                        </p>
+                        <p className="text-gray-300 mt-1">
+                          {isOnlineEvent ? 'Sự kiện hoàn toàn trực tuyến, không cần địa điểm vật lý' :
+                           isGeneralEvent ? 'Sự kiện ngoài trời hoặc không gian mở, không ghế ngồi cố định' :
+                           'Sự kiện trong nhà với ghế ngồi được sắp xếp theo sơ đồ cố định'}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
+                  {formData.location.type === 'online' && (
+                    <div className="space-y-6">
+                      <div className="bg-orange-900/20 border border-orange-700 rounded-lg p-4 mb-6">
+                        <h3 className="text-orange-400 font-semibold mb-2">🌐 Sự kiện Online</h3>
+                        <p className="text-gray-300 text-sm">
+                          Vui lòng cung cấp thông tin kết nối cho người tham dự sự kiện trực tuyến của bạn.
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="platform" className="block text-sm font-medium text-gray-300 mb-2">Nền tảng trực tuyến <span className="text-red-500">*</span></label>
+                        <select
+                          id="platform"
+                          name="location.platform"
+                          value={formData.location.platform}
+                          onChange={handleChange}
+                          required
+                          className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
+                        >
+                          <option value="">Chọn nền tảng</option>
+                          <option value="zoom">Zoom</option>
+                          <option value="google-meet">Google Meet</option>
+                          <option value="microsoft-teams">Microsoft Teams</option>
+                          <option value="facebook-live">Facebook Live</option>
+                          <option value="youtube-live">YouTube Live</option>
+                          <option value="other">Khác</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="meetingLink" className="block text-sm font-medium text-gray-300 mb-2">
+                          Link tham gia <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="url"
+                          id="meetingLink"
+                          name="location.meetingLink"
+                          value={formData.location.meetingLink}
+                          onChange={handleChange}
+                          required
+                          placeholder="https://zoom.us/j/... hoặc https://meet.google.com/..."
+                          className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          💡 Tip: Link này sẽ được gửi cho người tham dự sau khi đăng ký thành công
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
                   {formData.location.type === 'offline' && (
                     <div className="space-y-6">
                       <div>
@@ -321,49 +464,7 @@ const CreateEvent = () => {
               </FormSection>
 
               {/* organizing committee info */}
-              <FormSection title="Thông tin ban tổ chức" icon={faUserTie}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  <ImageUpload
-                    image={formData.organizer.logo}
-                    handleImageUpload={handleOrganizerLogoUpload}
-                    type="organizerLogo"
-                    title="Thêm logo ban tổ chức"
-                    description="(Tỷ lệ 275x275, tối đa 2MB)"
-                  />
-                  <div className="md:col-span-2 space-y-6">
-                    <div>
-                      <label htmlFor="organizerName" className="block text-sm font-medium text-gray-300 mb-2">Tên ban tổ chức <span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        id="organizerName"
-                        name="organizer.name"
-                        value={formData.organizer.name}
-                        onChange={handleChange}
-                        required
-                        maxLength={80}
-                        placeholder="Ví dụ: Công ty tổ chức sự kiện XYZ"
-                        className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                      />
-                      <p className="text-right text-xs text-gray-400 mt-1">{formData.organizer.name.length}/80</p>
-                    </div>
-                    <div>
-                      <label htmlFor="organizerInfo" className="block text-sm font-medium text-gray-300 mb-2">Thông tin ban tổ chức <span className="text-red-500">*</span></label>
-                      <textarea
-                        id="organizerInfo"
-                        name="organizer.info"
-                        value={formData.organizer.info}
-                        onChange={handleChange}
-                        required
-                        rows={4}
-                        maxLength={500}
-                        placeholder="Giới thiệu về ban tổ chức, kinh nghiệm và sứ mệnh của họ."
-                        className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                      ></textarea>
-                      <p className="text-right text-xs text-gray-400 mt-1">{formData.organizer.info.length}/500</p>
-                    </div>
-                  </div>
-                </div>
-              </FormSection>
+
             </div>
           )}
 
@@ -410,13 +511,68 @@ const CreateEvent = () => {
                       className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
                     />
                   </div>
-                  {formData.location.type === 'offline' && (
+                  {/* Chỉ hiển thị venue layout cho sự kiện có ghế ngồi */}
+                  {formData.location.type === 'offline' && !isGeneralEvent && (
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-300 mb-4">Mô hình khán đài <span className="text-red-500">*</span></label>
                       <VenueLayout 
                         selectedLayout={formData.location.venueLayout}
                         onLayoutChange={handleVenueLayoutChange}
                       />
+                    </div>
+                  )}
+
+                  {/* Hiển thị thông tin khác cho sự kiện online */}
+                  {isOnlineEvent && (
+                    <div className="col-span-2">
+                      <div>
+                        <label htmlFor="meetingLink" className="block text-sm font-medium text-gray-300 mb-2">Link tham gia <span className="text-red-500">*</span></label>
+                        <input
+                          type="url"
+                          id="meetingLink"
+                          name="location.meetingLink"
+                          value={formData.location.meetingLink || ''}
+                          onChange={handleChange}
+                          required={isOnlineEvent}
+                          placeholder="https://zoom.us/j/123456789 hoặc https://meet.google.com/abc-defg-hij"
+                          className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Link sẽ được gửi qua email cho người tham gia</p>
+                      </div>
+                      <div className="mt-4">
+                        <label htmlFor="platform" className="block text-sm font-medium text-gray-300 mb-2">Nền tảng</label>
+                        <select
+                          id="platform"
+                          name="location.platform"
+                          value={formData.location.platform || 'zoom'}
+                          onChange={handleChange}
+                          className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
+                        >
+                          <option value="zoom">Zoom</option>
+                          <option value="google-meet">Google Meet</option>
+                          <option value="microsoft-teams">Microsoft Teams</option>
+                          <option value="facebook-live">Facebook Live</option>
+                          <option value="youtube-live">YouTube Live</option>
+                          <option value="other">Khác</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Thông tin bổ sung cho sự kiện general */}
+                  {isGeneralEvent && (
+                    <div className="col-span-2">
+                      <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+                        <h4 className="text-green-400 font-medium mb-2">🎪 Sự kiện tham gia tự do</h4>
+                        <p className="text-gray-300 text-sm">
+                          Sự kiện này không có ghế ngồi cố định. Khách hàng sẽ mua vé theo khu vực và tự do di chuyển trong khu vực đó.
+                        </p>
+                        <ul className="text-gray-400 text-sm mt-2 space-y-1">
+                          <li>• Không cần sơ đồ ghế ngồi</li>
+                          <li>• Quản lý theo số lượng người/khu vực</li>
+                          <li>• Phù hợp cho festival, hội chợ, workshop</li>
+                        </ul>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -445,8 +601,8 @@ const CreateEvent = () => {
                 </div>
               </FormSection>
 
-              {/* grandstand model */}
-              {formData.location.type === 'offline' && (
+              {/* Cấu hình sơ đồ khán đài - chỉ cho sự kiện có ghế ngồi */}
+              {formData.location.type === 'offline' && !isGeneralEvent && (
                 <FormSection title="Cấu hình sơ đồ khán đài" icon={faUsers}>
                   <p className="text-gray-400 mb-4">Thêm các khu vực (section) và số lượng chỗ ngồi cho từng khu vực trên sơ đồ khán đài của bạn.</p>
                   <div className="space-y-4">
@@ -466,6 +622,70 @@ const CreateEvent = () => {
                     >
                       <FontAwesomeIcon icon={faPlus} className="mr-2" /> Thêm khu vực
                     </button>
+                  </div>
+                </FormSection>
+              )}
+
+              {/* Thông tin bổ sung cho sự kiện general */}
+              {isGeneralEvent && (
+                <FormSection title="Quản lý khu vực" icon={faMapMarkedAlt}>
+                  <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+                    <h4 className="text-green-400 font-medium mb-3">🌳 Quản lý theo khu vực linh hoạt</h4>
+                    <p className="text-gray-300 text-sm mb-3">
+                      Sự kiện tự do không cần sơ đồ ghế cố định. Bạn chỉ cần tạo các loại vé theo khu vực (VIP, General, etc.) ở phần "Quản lý loại vé" phía trên.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <h5 className="text-green-300 font-medium mb-2">✅ Ưu điểm:</h5>
+                        <ul className="text-gray-400 space-y-1">
+                          <li>• Khách tự do di chuyển</li>
+                          <li>• Không cần chọn ghế cụ thể</li>
+                          <li>• Phù hợp sự kiện outdoor</li>
+                          <li>• Tương tác tự nhiên</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h5 className="text-yellow-300 font-medium mb-2">📋 Ví dụ phù hợp:</h5>
+                        <ul className="text-gray-400 space-y-1">
+                          <li>• Festival âm nhạc ngoài trời</li>
+                          <li>• Hội chợ, triển lãm</li>
+                          <li>• Workshop, hội thảo</li>
+                          <li>• Networking event</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </FormSection>
+              )}
+
+              {/* Thông tin cho sự kiện online */}
+              {isOnlineEvent && (
+                <FormSection title="Cài đặt sự kiện online" icon={faGlobe}>
+                  <div className="bg-orange-900/20 border border-orange-700 rounded-lg p-4">
+                    <h4 className="text-orange-400 font-medium mb-3">🌐 Sự kiện hoàn toàn trực tuyến</h4>
+                    <p className="text-gray-300 text-sm mb-3">
+                      Sự kiện online không cần địa điểm vật lý. Người tham gia sẽ nhận link tham gia qua email sau khi mua vé.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <h5 className="text-orange-300 font-medium mb-2">🚀 Tính năng:</h5>
+                        <ul className="text-gray-400 space-y-1">
+                          <li>• Không giới hạn địa lý</li>
+                          <li>• Link tự động gửi email</li>
+                          <li>• Hỗ trợ nhiều nền tảng</li>
+                          <li>• Quản lý số lượng tham gia</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h5 className="text-blue-300 font-medium mb-2">💡 Lưu ý:</h5>
+                        <ul className="text-gray-400 space-y-1">
+                          <li>• Chuẩn bị link trước sự kiện</li>
+                          <li>• Test kết nối trước</li>
+                          <li>• Có phương án dự phòng</li>
+                          <li>• Hướng dẫn người dùng</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 </FormSection>
               )}

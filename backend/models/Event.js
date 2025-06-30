@@ -1,5 +1,24 @@
 const mongoose = require('mongoose');
 
+const seatSchema = new mongoose.Schema({
+    number: { type: String, required: true },
+    status: { type: String, enum: ['available', 'sold', 'reserved'], default: 'available' },
+    x: { type: Number, required: true }, // Tọa độ X
+    y: { type: Number, required: true }, // Tọa độ Y
+    overridePrice: { type: Number } // Giá riêng cho ghế này nếu cần
+}, { _id: true });
+
+const rowSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    seats: [seatSchema]
+}, { _id: false });
+
+const sectionSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    ticketTier: { type: mongoose.Schema.Types.ObjectId, ref: 'TicketType' }, // Tham chiếu đến loại vé
+    rows: [rowSchema]
+}, { _id: false });
+
 const eventSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -25,31 +44,32 @@ const eventSchema = new mongoose.Schema({
   location: {
     type: {
       type: String,
-      enum: ['offline', 'online'],
-      default: 'offline'
+      enum: ['online', 'offline'],
+      required: true
     },
     venue: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Venue'
     },
-    venueName: {
-      type: String,
-      trim: true
-    },
-    address: {
-      type: String
-    },
-    ward: {
-      type: String
-    },
-    district: {
-      type: String
-    },
-    city: {
-      type: String
-    },
+    venueName: String,
+    address: String,
+    ward: String,
+    district: String,
+    city: String,
     country: {
-      type: String
+      type: String,
+      default: 'Vietnam'
+    },
+    venueLayout: {
+      type: String,
+      enum: ['hall', 'theater', 'stadium', 'outdoor'],
+      default: 'hall'
+    },
+    // Fields for online events
+    meetingLink: String,
+    platform: {
+      type: String,
+      enum: ['zoom', 'google-meet', 'microsoft-teams', 'facebook-live', 'youtube-live', 'other']
     },
     coordinates: {
       type: {
@@ -63,21 +83,13 @@ const eventSchema = new mongoose.Schema({
       }
     },
     latitude: Number,
-    longitude: Number,
-    venueLayout: {
-      type: String,
-      enum: ['hall', 'cinema', 'stadium'],
-      default: 'hall'
-    }
+    longitude: Number
   },
-  category: [{
-    type: String,
-    required: [true, 'Danh mục là bắt buộc']
-  }],
+  category: [String],
   tags: [String],
   status: {
     type: String,
-    enum: ['pending', 'approved', 'cancelled', 'completed'],
+    enum: ['pending', 'approved', 'rejected', 'cancelled', 'completed'],
     default: 'pending'
   },
   visibility: {
@@ -92,11 +104,12 @@ const eventSchema = new mongoose.Schema({
   }],
   capacity: {
     type: Number,
+    required: true,
     min: 1
   },
   availableSeats: {
     type: Number,
-    min: 0
+    default: function() { return this.capacity; }
   },
   eventOrganizerDetails: {
     logo: String,
@@ -104,49 +117,40 @@ const eventSchema = new mongoose.Schema({
     info: String
   },
   seatingMap: {
-    layout: Object,
-    sections: [{
-      name: String,
-      price: Number,
-      totalSeats: Number,
-      availableSeats: Number,
-      rows: [{
-        name: String,
-        seats: [{
-          number: String,
-          status: {
-            type: String,
-            enum: ['available', 'reserved', 'sold'],
-            default: 'available'
-          }
-        }]
+    layoutType: { 
+      type: String, 
+      enum: ['cinema', 'stadium', 'theater', 'concert', 'outdoor', 'custom'], 
+      required: function() { return this.templateType === 'seating'; }
+    },
+    sections: [sectionSchema],
+    stage: {
+      x: Number,
+      y: Number,
+      width: Number,
+      height: Number,
+      centerX: Number,
+      centerY: Number,
+      gradient: {
+        start: String,
+        end: String
+      },
+      lighting: [{
+        x: Number,
+        y: Number,
+        radius: Number
       }]
-    }]
+    }
   },
   ticketTypes: [{
-    name: {
-      type: String,
-      required: true
-    },
-    description: String,
-    price: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1
-    },
-    available: {
-      type: Number,
-      min: 0
-    },
-    benefits: [String],
-    salesStartDate: Date,
-    salesEndDate: Date
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TicketType'
   }],
+  // Template type để phân biệt loại sự kiện
+  templateType: {
+    type: String,
+    enum: ['seating', 'general', 'online'],
+    default: 'general'
+  },
   discountCodes: [{
     code: {
       type: String,
@@ -196,8 +200,33 @@ const eventSchema = new mongoose.Schema({
       type: Number,
       default: 0
     }
+  },
+  // Admin controllable features
+  featured: {
+    type: Boolean,
+    default: false
+  },
+  trending: {
+    type: Boolean,
+    default: false
+  },
+  special: {
+    type: Boolean,
+    default: false
+  },
+  featuredOrder: {
+    type: Number,
+    default: 0
+  },
+  trendingOrder: {
+    type: Number,
+    default: 0
+  },
+  specialOrder: {
+    type: Number,
+    default: 0
   }
-}, { timestamps: true });
+}, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 // Indexes
 eventSchema.index({ organizers: 1 });
@@ -208,6 +237,9 @@ eventSchema.index({ visibility: 1 });
 eventSchema.index({ 'location.city': 1 });
 eventSchema.index({ 'location.coordinates.coordinates': '2dsphere' });
 eventSchema.index({ title: 'text', description: 'text', tags: 'text' });
+eventSchema.index({ featured: 1, featuredOrder: 1 });
+eventSchema.index({ trending: 1, trendingOrder: 1 });
+eventSchema.index({ special: 1, specialOrder: 1 });
 
 // Đảm bảo ngày kết thúc sau ngày bắt đầu
 eventSchema.pre('save', function(next) {

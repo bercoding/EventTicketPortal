@@ -1,0 +1,179 @@
+.seating-preview {
+  width: 100%;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.seating-preview.empty {
+  padding: 40px;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+.seating-container {
+  padding: 20px;
+}
+
+.seating-svg {
+  width: 100%;
+  height: auto;
+  max-height: 500px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+/* Stage styling */
+.stage rect {
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+}
+
+.stage text {
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Section styling */
+.section rect {
+  transition: all 0.3s ease;
+}
+
+.section:hover rect {
+  opacity: 0.2 !important;
+  stroke-width: 3;
+}
+
+/* Seat styling */
+.seat {
+  transition: all 0.2s ease;
+}
+
+.seat-interactive {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.seat-interactive:hover {
+  r: 10;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* Legend */
+.seating-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 20px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.legend-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-section h5 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 4px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #333;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.legend-color.available {
+  background: #4CAF50;
+}
+
+.legend-color.unavailable {
+  background: #ccc;
+}
+
+/* Stats */
+.seating-stats {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+  padding: 16px;
+  background: #e3f2fd;
+  border-radius: 8px;
+  border-left: 4px solid #2196F3;
+}
+
+.stat {
+  font-size: 14px;
+  color: #1976D2;
+}
+
+.stat strong {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .seating-container {
+    padding: 16px;
+  }
+  
+  .seating-legend {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .seating-stats {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .seating-svg {
+    max-height: 300px;
+  }
+}
+
+/* Animation cho việc load */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.seating-preview {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Tooltip style for sections */
+.section {
+  cursor: pointer;
+}
+
+.section:hover text {
+  font-size: 14px;
+  font-weight: bold;
+} 
