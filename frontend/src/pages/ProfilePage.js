@@ -242,16 +242,24 @@ const ProfilePage = () => {
             <div className="bg-white shadow-xl rounded-lg overflow-hidden md:flex mb-8">
                 {/* Avatar Section */}
                 <div className="md:w-1/3 bg-gradient-to-br from-green-500 to-blue-600 p-6 md:p-8 text-center flex flex-col items-center justify-center">
-                    {avatarPreview ? (
-                        <img 
-                            src={avatarPreview} 
-                            alt="Avatar" 
-                            className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-md mx-auto mb-4"
-                            onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=No+Image'; }}
-                        />
-                    ) : (
-                        <FaUserCircle className="w-32 h-32 md:w-40 md:h-40 text-white opacity-75 mx-auto mb-4" />
-                    )}
+                    {(() => {
+                        console.log('avatarPreview:', avatarPreview, 'profileData.avatar:', profileData?.avatar);
+                        const backendUrl = "http://localhost:5001";
+                        let avatarSrc = avatarPreview;
+                        if (avatarPreview && avatarPreview.startsWith('/uploads')) {
+                            avatarSrc = backendUrl + avatarPreview;
+                        }
+                        return avatarSrc ? (
+                            <img 
+                                src={avatarSrc} 
+                                alt="Avatar" 
+                                className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-md mx-auto mb-4"
+                                onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=No+Image'; }}
+                            />
+                        ) : (
+                            <FaUserCircle className="w-32 h-32 md:w-40 md:h-40 text-white opacity-75 mx-auto mb-4" />
+                        );
+                    })()}
                     <input 
                         type="file"
                         id="avatarUpload"

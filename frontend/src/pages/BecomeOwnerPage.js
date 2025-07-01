@@ -60,6 +60,15 @@ const BecomeOwnerPage = () => {
             <div className="absolute inset-0 bg-black bg-opacity-60"></div>
             
             <div className="relative z-10 bg-white p-8 rounded-lg shadow-xl w-full max-w-4xl">
+                {/* Nút Thoát */}
+                <button
+                    type="button"
+                    onClick={() => navigate(-1)}
+                    className="absolute top-4 right-4 text-gray-500 hover:text-red-600 text-lg font-bold focus:outline-none"
+                    title="Thoát"
+                >
+                    ×
+                </button>
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">Become an Event Organizer</h1>
                     <p className="text-gray-600 mt-2">Fill out the form below to start hosting your own events.</p>

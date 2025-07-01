@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const OwnerRequest = require('../models/OwnerRequest');
 
 // @desc    Get current user profile
 // @route   GET /api/users/profile/me
@@ -73,13 +74,19 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     }
 
     // Update avatar URL
-    user.avatar = req.file.path;
+    let avatarPath = req.file.path.replace(/\\/g, '/'); // Đổi \\ thành /
+    const publicIndex = avatarPath.indexOf('public/');
+    if (publicIndex !== -1) {
+        avatarPath = avatarPath.substring(publicIndex + 'public/'.length - 1); // giữ lại /uploads/...
+    }
+    if (!avatarPath.startsWith('/')) avatarPath = '/' + avatarPath;
+    user.avatar = avatarPath;
     const updatedUser = await user.save();
 
     res.json({
         success: true,
         data: {
-            avatar: updatedUser.avatar
+            avatar: avatarPath
         }
     });
 });
@@ -125,9 +132,28 @@ const changePassword = asyncHandler(async (req, res) => {
 // @route   POST /api/users/owner-request
 // @access  Private
 const submitOwnerRequest = asyncHandler(async (req, res) => {
+    // Kiểm tra user đã có request đang chờ duyệt chưa
+    const existing = await OwnerRequest.findOne({ user: req.user.id, status: { $in: ['pending', 'under_review'] } });
+    if (existing) {
+        res.status(400);
+        throw new Error('Bạn đã có yêu cầu đăng ký đang chờ duyệt hoặc đang được xem xét.');
+    }
+
+    // Tạo mới request
+    const newRequest = new OwnerRequest({
+        user: req.user.id,
+        businessName: req.body.businessName,
+        businessType: req.body.businessType,
+        businessDescription: req.body.businessDescription,
+        contactInfo: req.body.contactInfo,
+        estimatedEventFrequency: req.body.estimatedEventFrequency,
+        previousExperience: req.body.previousExperience,
+        // Có thể bổ sung các trường khác nếu cần
+    });
+    await newRequest.save();
     res.json({
         success: true,
-        message: 'Owner request feature not implemented yet'
+        message: 'Yêu cầu đăng ký đối tác đã được gửi thành công. Vui lòng chờ admin duyệt.'
     });
 });
 
@@ -199,12 +225,6 @@ const getWalletTransactions = asyncHandler(async (req, res) => {
         }
     });
 });
-
-
-
-
-
-
 
 // @desc    Pay with wallet
 // @route   POST /api/users/wallet/pay

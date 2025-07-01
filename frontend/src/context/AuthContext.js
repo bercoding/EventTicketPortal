@@ -1,6 +1,7 @@
 // frontend/src/context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authAPI } from '../services/api';
+import { userProfileAPI } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -31,8 +32,17 @@ export const AuthProvider = ({ children }) => {
                 console.log('👤 User check response:', response);
                 
                 if (response.success && response.data) {
-                    console.log('✅ Setting user:', response.data.email, response.data.id);
-                    setUser(response.data);
+                    let userData = response.data;
+                    // Gọi thêm API lấy profile để lấy đủ thông tin
+                    try {
+                        const profile = await userProfileAPI.getCurrentUserProfile();
+                        // Merge profile vào userData (ưu tiên các trường của profile)
+                        userData = { ...userData, ...profile };
+                        console.log('✅ User data merged with profile:', userData);
+                    } catch (profileErr) {
+                        console.warn('⚠️ Không lấy được profile chi tiết:', profileErr);
+                    }
+                    setUser(userData);
                 } else {
                     console.log('❌ Invalid user data, clearing token');
                     localStorage.removeItem('token');
@@ -100,19 +110,10 @@ export const AuthProvider = ({ children }) => {
             console.log('📥 Login response:', response);
             
             if (response.success) {
-                const { token, user: userData } = response;
-                
-                console.log('✅ Login successful for user:', userData.email, userData.id);
-                console.log('🔑 Storing token and setting user');
-                
+                const { token } = response;
                 localStorage.setItem('token', token);
-                setUser(userData);
-                
-                // Verify the user was set correctly
-                setTimeout(() => {
-                    console.log('🔍 Verification - Current user state:', user?.email, user?.id);
-                }, 100);
-                
+                // Gọi lại checkUser để lấy đủ thông tin user
+                await checkUser();
                 return { success: true };
             } else {
                 console.log('❌ Login failed:', response.message);
@@ -166,15 +167,10 @@ export const AuthProvider = ({ children }) => {
             console.log('OTP verification response:', response);
             
             if (response.success) {
-                // Lưu token và user sau khi xác thực OTP thành công
-                const { token, user: userData } = response;
-                
-                console.log('✅ OTP verification successful for user:', userData.email);
-                console.log('🔑 Storing token and setting user');
-                
+                const { token } = response;
                 localStorage.setItem('token', token);
-                setUser(userData);
-                
+                // Gọi lại checkUser để lấy đủ thông tin user
+                await checkUser();
                 return { 
                     success: true, 
                     message: response.message || 'Xác thực OTP thành công.'
@@ -211,19 +207,10 @@ export const AuthProvider = ({ children }) => {
             console.log('📥 Google login response:', response);
             
             if (response.success) {
-                const { token: authToken, user } = response;
-                
-                console.log('✅ Google login successful for user:', user.email, user.id);
-                console.log('🔑 Storing token and setting user');
-                
+                const { token: authToken } = response;
                 localStorage.setItem('token', authToken);
-                setUser(user);
-                
-                // Verify the user was set correctly
-                setTimeout(() => {
-                    console.log('🔍 Verification - Current user state:', user?.email, user?.id);
-                }, 100);
-                
+                // Gọi lại checkUser để lấy đủ thông tin user
+                await checkUser();
                 return { success: true };
             } else {
                 console.log('❌ Google login failed:', response.message);

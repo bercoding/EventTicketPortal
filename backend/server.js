@@ -78,7 +78,7 @@ app.use(express.static('public', {
 }));
 
 // Serve uploaded files
-app.use('/uploads', express.static('uploads', {
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'), {
   maxAge: '1d',
   setHeaders: (res) => {
     res.set('Cache-Control', 'public, max-age=86400');

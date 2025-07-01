@@ -481,12 +481,11 @@ export const userProfileAPI = {
   },
   
   // Submit owner request
-  requestOwnerRole: async (requestData) => {
+  submitOwnerRequest: async (data) => {
     try {
-      const response = await api.post('/users/request-owner', requestData);
+      const response = await api.post('/users/request-owner', data);
       return response.data;
     } catch (error) {
-      console.error('Request owner role failed:', error.response?.data || error.message);
       throw error.response?.data || error;
     }
   },
