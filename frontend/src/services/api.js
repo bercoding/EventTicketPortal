@@ -1,51 +1,29 @@
 import axios from 'axios';
 
-// API URL configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+// Lấy cấu hình API từ biến môi trường
+const API_URL = 'http://localhost:5001/api';
+const API_BASE_URL = API_URL;
 
 console.log('🔧 API Configuration:');
-console.log('- REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
-console.log('- Final API_BASE_URL:', API_BASE_URL);
+console.log('- API_URL:', API_URL);
+console.log('- API_BASE_URL:', API_BASE_URL);
 
-// Create axios instance with better error handling
+// Export API_URL để sử dụng ở các file khác
+export { API_URL };
+
+// Cấu hình instance axios với baseURL
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  },
-  timeout: 30000,
-  withCredentials: false
+    'Content-Type': 'application/json'
+  }
 });
 
-// Request interceptor để log các request và thêm token
+// Log tất cả API requests trước khi gửi đi
 api.interceptors.request.use(
   (config) => {
-    const url = config.url || '';
-    const fullUrl = `${config.baseURL || API_BASE_URL}${url}`;
-    
-    // Log all API requests with full details
-    console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${fullUrl}`);
-    
-    // CRITICAL: Check for invalid eventId in URL with comprehensive patterns
-    const invalidPatterns = ['/null', '/undefined', '/null/', '/undefined/', '=null', '=undefined'];
-    const hasInvalidPattern = invalidPatterns.some(pattern => url.includes(pattern));
-    
-    if (hasInvalidPattern) {
-      console.error('🚨 BLOCKED: Request contains invalid eventId pattern!');
-      console.error('Full URL:', fullUrl);
-      console.error('Config:', config);
-      console.error('User agent:', navigator.userAgent);
-      console.error('Current location:', window.location.href);
-      console.trace('Request stack trace:');
-      
-      // Alert user for debugging
-      alert('🚨 API CALL BLOCKED!\n\nURL: ' + fullUrl + '\n\nThis invalid API call was prevented. You will be redirected to the events page.\n\nThis alert helps developers trace the bug source.');
-      
-      // Force redirect and block the request
-      window.location.replace('/events');
-      return Promise.reject(new Error(`Invalid eventId detected in request URL: ${fullUrl}`));
-    }
+    console.log('🌐 API Request:', config.method.toUpperCase(), config.baseURL + config.url);
     
     // Thêm token vào header nếu có
     const token = localStorage.getItem('token');
@@ -55,16 +33,16 @@ api.interceptors.request.use(
     } else {
       console.log('⚠️ No token found for request');
     }
-
+    
     return config;
   },
   (error) => {
-    console.error('🔴 Request Error:', error);
+    console.log('❌ API Request Error:', error);
     return Promise.reject(error);
   }
 );
 
-// Handle response with better error logging
+// Log tất cả API responses
 api.interceptors.response.use(
   (response) => {
     console.log('✅ API Response:', {
@@ -74,50 +52,53 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('❌ API Error:', {
-      message: error.message,
-      status: error.response?.status,
-      data: error.response?.data,
-      url: error.config?.url,
-      method: error.config?.method
-    });
-
-    // Debug authentication headers for upload routes
-    if (error.response?.status === 401 && error.config?.url?.includes('upload')) {
-      console.error('🔐 Debug Auth Header:', {
-        header: error.config?.headers?.Authorization ? 'Present (first 10 chars): ' + error.config.headers.Authorization.substring(0, 10) + '...' : 'Missing',
-        token: localStorage.getItem('token') ? 'Present in localStorage (first 10 chars): ' + localStorage.getItem('token').substring(0, 10) + '...' : 'Missing from localStorage',
-        contentType: error.config?.headers['Content-Type'] || 'Not specified'
-      });
-    }
-
-    // Handle authentication errors
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      console.log('🚫 Authentication/Authorization failed');
-      
-      // Check if token exists but is invalid
-      const token = localStorage.getItem('token');
-      if (token) {
-        console.log('🗑️ Removing invalid token');
-        localStorage.removeItem('token');
-      }
-      
-      // Don't redirect if on profile page or login page or create event page
-      const currentPath = window.location.pathname;
-      const isProfilePage = currentPath.includes('/profile') || currentPath.includes('/user-profile');
-      const isLoginPage = currentPath.includes('/login');
-      const isCreateEventPage = currentPath.includes('/create-event');
-      
-      // Redirect to login only if not already on login page or profile page or create event page
-      if (!isLoginPage && !isProfilePage && !isCreateEventPage) {
-        console.log('🔄 Redirecting to login page');
-        window.location.href = '/login';
-      }
-    }
-
+    console.log('❌ API Error:', error.response || error);
     return Promise.reject(error);
   }
 );
+
+// Add a test function to check backend connectivity
+const testBackendConnection = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/health-check`);
+    return {
+      success: true,
+      data: response.data,
+      message: 'Successfully connected to backend'
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      message: 'Failed to connect to backend'
+    };
+  }
+};
+
+export { api as default, testBackendConnection };
+
+// Utility function to save token
+export const saveToken = (token) => {
+  if (token) {
+    console.log('Token saved after login');
+    localStorage.setItem('token', token);
+  }
+};
+
+// Utility function to remove token
+export const removeToken = () => {
+  localStorage.removeItem('token');
+};
+
+// Utility function to get token
+export const getToken = () => {
+  return localStorage.getItem('token');
+};
+
+// Utility function to check if user is authenticated
+export const isAuthenticated = () => {
+  return !!getToken();
+};
 
 // Auth API with better error handling
 const authAPI = {
@@ -526,6 +507,7 @@ export const adminAPI = {
 
   // Event management
   getEvents: (params) => api.get('/admin/events', { params }),
+  getDebugEvents: () => api.get('/admin/debug/events'),
   approveEvent: (eventId) => api.post(`/admin/events/${eventId}/approve`),
   rejectEvent: (eventId, data) => api.post(`/admin/events/${eventId}/reject`, data),
 
@@ -604,6 +586,29 @@ export const ticketAPI = {
       return response.data;
     } catch (error) {
       console.error('Purchase ticket failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Verify ticket by scanning QR code
+  verifyTicket: async (qrCode, eventId) => {
+    try {
+      console.log('Verifying ticket with QR code:', qrCode, 'for event:', eventId);
+      const response = await api.post('/tickets/verify-qr', { qrCode, eventId });
+      return response.data;
+    } catch (error) {
+      console.error('Verify ticket failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Get ticket statistics for an event
+  getTicketStats: async (eventId) => {
+    try {
+      const response = await api.get(`/tickets/stats/${eventId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get ticket stats failed:', error.response?.data || error.message);
       throw error.response?.data || error;
     }
   }
@@ -690,5 +695,3 @@ export const uploadImage = async (file, type) => {
     };
   }
 };
-
-export default api;

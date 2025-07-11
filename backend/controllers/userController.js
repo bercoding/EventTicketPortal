@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const path = require('path');
 
 // @desc    Get current user profile
 // @route   GET /api/users/profile/me
@@ -37,6 +38,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     user.phone = req.body.phone || user.phone;
     user.dateOfBirth = req.body.dateOfBirth || user.dateOfBirth;
     user.address = req.body.address || user.address;
+    user.bio = req.body.bio || user.bio;
 
     const updatedUser = await user.save();
 
@@ -51,6 +53,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
             dateOfBirth: updatedUser.dateOfBirth,
             address: updatedUser.address,
             avatar: updatedUser.avatar,
+            bio: updatedUser.bio,
             role: updatedUser.role
         }
     });
@@ -72,15 +75,19 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         throw new Error('No avatar file provided');
     }
 
-    // Update avatar URL
-    user.avatar = req.file.path;
+    // Update avatar URL with proper path for serving from public directory
+    const fileName = path.basename(req.file.path);
+    user.avatar = `/uploads/avatars/${fileName}`;
+    console.log('Avatar path set to:', user.avatar);
+    
     const updatedUser = await user.save();
 
     res.json({
         success: true,
         data: {
             avatar: updatedUser.avatar
-        }
+        },
+        message: 'Avatar updated successfully'
     });
 });
 
@@ -199,12 +206,6 @@ const getWalletTransactions = asyncHandler(async (req, res) => {
         }
     });
 });
-
-
-
-
-
-
 
 // @desc    Pay with wallet
 // @route   POST /api/users/wallet/pay

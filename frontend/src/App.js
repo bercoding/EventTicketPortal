@@ -49,6 +49,7 @@ import ViolationReports from './components/admin/ViolationReports';
 import RevenueReport from './components/admin/RevenueReport';
 import OwnerRequests from './components/admin/OwnerRequests';
 import POSConfirmationAdmin from './pages/admin/POSConfirmation';
+import TicketManagement from './components/admin/TicketManagement';
 import OwnerLayout from './components/owner/OwnerLayout';
 import OwnerDashboard from './components/owner/OwnerDashboard';
 import OwnerEvents from './components/owner/OwnerEvents';
@@ -78,6 +79,9 @@ const NavigationMonitor = () => {
     
     return null; // This component doesn't render anything
 };
+
+// Layout Wrapper - removed since it's not being used correctly
+// This was causing "Component is not a function" errors
 
 const App = () => {
     const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || 'YOUR_DEFAULT_GOOGLE_CLIENT_ID';
@@ -118,50 +122,49 @@ const App = () => {
                                     <Route path="/payment/failure" element={<PaymentFailure />} />
                                     <Route path="/payment/pos-confirmation" element={<POSConfirmation />} />
 
-                                    <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
-                                        <Route path="/" element={<TicketboxHome />} />
-                                        <Route path="/home" element={<TicketboxHome />} />
-                                        <Route path="/old-home" element={<Home />} />
-                                        <Route path="/events" element={<AllEvents />} />
-                                        <Route path="/chat" element={<ChatPage />} />
-                                        <Route path="/forum" element={<Forum />} />
-                                        <Route path="/event-templates" element={<EventTemplateSelection />} />
-                                        <Route path="/create-event" element={<CreateEvent />} />
-                                        <Route path="/create-event-with-seating" element={<CreateEventWithSeating />} />
-                                        <Route path="/events/:id" element={<EventDetailPage />} />
-                                        <Route path="/events/:id/select-seats" element={<SelectSeatPage />} />
-                                        <Route path="/booking/:id" element={<BookingPage />} />
-                                        <Route path="/simple-booking/:id" element={<SimpleTicketBooking />} />
-                                        <Route path="/checkout" element={<PaymentCheckout />} />
-                                        <Route path="/my-tickets" element={<MyTicketsPage />} />
-                                        <Route path="/my-events" element={<MyEvents />} />
-                                        <Route path="/events/:id/manage" element={<ManageEvent />} />
-                                        <Route path="/manage-event/:eventId" element={<ManageEvent />} />
-                                        <Route path="/review" element={<Review />} />
-                                        <Route path="/user-profile" element={<ProfilePage />} />
-                                        <Route path="/profile" element={<ProfilePage />} />
-                                        <Route path="/profile/change-password" element={<ChangePasswordPage />} />
-                                        <Route path="/become-owner" element={<BecomeOwnerPage />} />
+                                    {/* Main Routes with Layout */}
+                                    <Route path="/" element={<PrivateRoute><MainLayout><TicketboxHome /></MainLayout></PrivateRoute>} />
+                                    <Route path="/home" element={<PrivateRoute><MainLayout><TicketboxHome /></MainLayout></PrivateRoute>} />
+                                    <Route path="/old-home" element={<PrivateRoute><MainLayout><Home /></MainLayout></PrivateRoute>} />
+                                    <Route path="/events" element={<PrivateRoute><MainLayout><AllEvents /></MainLayout></PrivateRoute>} />
+                                    <Route path="/chat" element={<PrivateRoute><MainLayout><ChatPage /></MainLayout></PrivateRoute>} />
+                                    <Route path="/forum" element={<PrivateRoute><MainLayout><Forum /></MainLayout></PrivateRoute>} />
+                                    <Route path="/event-templates" element={<PrivateRoute><MainLayout><EventTemplateSelection /></MainLayout></PrivateRoute>} />
+                                    <Route path="/create-event" element={<PrivateRoute><MainLayout><CreateEvent /></MainLayout></PrivateRoute>} />
+                                    <Route path="/create-event-with-seating" element={<PrivateRoute><MainLayout><CreateEventWithSeating /></MainLayout></PrivateRoute>} />
+                                    <Route path="/events/:id" element={<PrivateRoute><MainLayout><EventDetailPage /></MainLayout></PrivateRoute>} />
+                                    <Route path="/events/:id/select-seats" element={<PrivateRoute><MainLayout><SelectSeatPage /></MainLayout></PrivateRoute>} />
+                                    <Route path="/booking/:id" element={<PrivateRoute><MainLayout><BookingPage /></MainLayout></PrivateRoute>} />
+                                    <Route path="/simple-booking/:id" element={<PrivateRoute><MainLayout><SimpleTicketBooking /></MainLayout></PrivateRoute>} />
+                                    <Route path="/checkout" element={<PrivateRoute><MainLayout><PaymentCheckout /></MainLayout></PrivateRoute>} />
+                                    <Route path="/my-tickets" element={<PrivateRoute><MainLayout><MyTicketsPage /></MainLayout></PrivateRoute>} />
+                                    <Route path="/my-events" element={<PrivateRoute><MainLayout><MyEvents /></MainLayout></PrivateRoute>} />
+                                    <Route path="/events/:id/manage" element={<PrivateRoute><MainLayout><ManageEvent /></MainLayout></PrivateRoute>} />
+                                    <Route path="/manage-event/:eventId" element={<PrivateRoute><MainLayout><ManageEvent /></MainLayout></PrivateRoute>} />
+                                    <Route path="/review" element={<PrivateRoute><MainLayout><Review /></MainLayout></PrivateRoute>} />
+                                    <Route path="/user-profile" element={<PrivateRoute><MainLayout><ProfilePage /></MainLayout></PrivateRoute>} />
+                                    <Route path="/profile" element={<PrivateRoute><MainLayout><ProfilePage /></MainLayout></PrivateRoute>} />
+                                    <Route path="/profile/change-password" element={<PrivateRoute><MainLayout><ChangePasswordPage /></MainLayout></PrivateRoute>} />
+                                    <Route path="/become-owner" element={<PrivateRoute><MainLayout><BecomeOwnerPage /></MainLayout></PrivateRoute>} />
 
-                                        {/* Owner Routes */}
-                                        <Route path="/owner" element={<PrivateRoute><OwnerLayout /></PrivateRoute>}>
-                                            <Route index element={<OwnerDashboard />} /> 
-                                        </Route>
+                                    {/* Owner Routes */}
+                                    <Route path="/owner" element={<PrivateRoute><OwnerLayout /></PrivateRoute>}>
+                                        <Route index element={<OwnerDashboard />} /> 
                                     </Route>
                                     
-                                                        <Route path="/admin" element={<PrivateRoute roles={['admin']}><AdminLayout /></PrivateRoute>}>
-                        <Route index element={<AdminDashboard />} />
-                        <Route path="users" element={<UserManagement />} />
-                        <Route path="events" element={<EventManagement />} />
-                        <Route path="featured-events" element={<AdminEventManagement />} />
-                        <Route path="complaints" element={<ComplaintManagement />} />
-                        <Route path="posts" element={<PostManagement />} />
-                        <Route path="violations" element={<ViolationReports />} />
-                        <Route path="revenue" element={<RevenueReport />} />
-                        <Route path="owner-requests" element={<OwnerRequests />} />
-                        <Route path="pos-confirmation" element={<POSConfirmationAdmin />} />
-                    </Route>
-
+                                    <Route path="/admin" element={<PrivateRoute roles={['admin']}><AdminLayout /></PrivateRoute>}>
+                                        <Route index element={<AdminDashboard />} />
+                                        <Route path="users" element={<UserManagement />} />
+                                        <Route path="events" element={<EventManagement />} />
+                                        <Route path="featured-events" element={<AdminEventManagement />} />
+                                        <Route path="complaints" element={<ComplaintManagement />} />
+                                        <Route path="posts" element={<PostManagement />} />
+                                        <Route path="violations" element={<ViolationReports />} />
+                                        <Route path="revenue" element={<RevenueReport />} />
+                                        <Route path="owner-requests" element={<OwnerRequests />} />
+                                        <Route path="pos-confirmation" element={<POSConfirmationAdmin />} />
+                                        <Route path="ticket-management" element={<TicketManagement />} />
+                                    </Route>
                                 
                                 </Routes>
                                 <NavigationMonitor />

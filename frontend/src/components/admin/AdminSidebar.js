@@ -10,7 +10,8 @@ import {
     FaBullhorn,
     FaDollarSign,
     FaUserTie,
-    FaCreditCard
+    FaCreditCard,
+    FaTicketAlt
 } from 'react-icons/fa';
 
 const AdminSidebar = () => {
@@ -36,6 +37,12 @@ const AdminSidebar = () => {
             path: '/admin/events',
             icon: FaCalendarCheck,
             description: 'Duyệt và quản lý sự kiện'
+        },
+        {
+            name: 'Quản lý vé',
+            path: '/admin/ticket-management',
+            icon: FaTicketAlt,
+            description: 'Quét và xác thực vé'
         },
         {
             name: 'Thanh toán POS',

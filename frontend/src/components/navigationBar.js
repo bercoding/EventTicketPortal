@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, forwardRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -12,8 +12,9 @@ import {
   faCog
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/AuthContext';
+import { formatAvatarUrl } from '../utils/imageHelpers';
 
-const NavigationBar = () => {
+const NavigationBar = forwardRef(({ className = '' }, ref) => {
   const { user, logout } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -47,7 +48,7 @@ const NavigationBar = () => {
   };
 
   return (
-    <nav className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
+    <nav ref={ref} className={`bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg z-50 ${className}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo và tên trang */}
@@ -118,7 +119,7 @@ const NavigationBar = () => {
                     <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white">
                       <img 
                         className="w-full h-full object-cover" 
-                        src={user.avatar || '/images/placeholder-avatar.svg'} 
+                        src={formatAvatarUrl(user.avatar)} 
                         alt="Avatar" 
                         onError={(e) => {e.target.src = '/images/placeholder-avatar.svg'}}
                       />
@@ -193,6 +194,6 @@ const NavigationBar = () => {
       </div>
     </nav>
   );
-};
+});
 
 export default NavigationBar;

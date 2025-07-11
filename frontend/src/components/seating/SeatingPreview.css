@@ -1,29 +1,116 @@
 .seating-preview {
   width: 100%;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  height: 100%;
+  position: relative;
   overflow: hidden;
 }
 
-.seating-preview.empty {
-  padding: 40px;
-  text-align: center;
-  color: #666;
-  font-style: italic;
-}
-
 .seating-container {
-  padding: 20px;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  position: relative;
+  background-color: #1a1e2e;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .seating-svg {
   width: 100%;
-  height: auto;
-  max-height: 500px;
-  border: 1px solid #e0e0e0;
+  height: 100%;
+  background-color: #1a1e2e;
+}
+
+/* Fix for venue objects visibility */
+.venue-object rect {
+  opacity: 0.85;
+  stroke-width: 1.5px;
+}
+
+.venue-object text {
+  pointer-events: none;
+}
+
+/* Fix for sections overlapping */
+.section {
+  opacity: 0.9;
+}
+
+.section rect {
+  opacity: 0.3;
+  stroke-width: 1px;
+}
+
+.section:hover rect {
+  opacity: 0.5;
+  stroke-width: 2px;
+}
+
+.section text {
+  font-weight: bold;
+  pointer-events: none;
+}
+
+.seat {
+  transition: transform 0.1s ease-in-out;
+}
+
+.seat.clickable:hover {
+  transform: scale(1.2);
+  z-index: 10;
+}
+
+.hovered-section rect {
+  opacity: 0.6;
+  stroke-width: 2px;
+}
+
+.selected-section rect {
+  opacity: 0.7;
+  stroke-width: 2.5px;
+}
+
+/* Legend styles */
+.seating-legend {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 5px;
+  background-color: #f8f9fa;
+}
+
+.legend-title {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-right: 15px;
+}
+
+.color-box {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  margin-right: 5px;
+}
+
+/* Empty state */
+.seating-preview.empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px;
+  background-color: #f8f9fa;
   border-radius: 8px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  color: #6c757d;
 }
 
 /* Stage styling */
@@ -35,21 +122,7 @@
   text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
 }
 
-/* Section styling */
-.section rect {
-  transition: all 0.3s ease;
-}
-
-.section:hover rect {
-  opacity: 0.2 !important;
-  stroke-width: 3;
-}
-
 /* Seat styling */
-.seat {
-  transition: all 0.2s ease;
-}
-
 .seat.clickable {
   cursor: pointer;
 }
@@ -65,10 +138,6 @@
 /* Venue objects styling */
 .venue-object {
   transition: all 0.3s ease;
-}
-
-.venue-object rect {
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
 }
 
 .venue-object-label {

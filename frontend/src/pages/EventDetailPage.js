@@ -59,11 +59,15 @@ const EventDetailPage = () => {
         const isOutdoorEvent = event.location?.venueLayout === 'outdoor' || 
                                event.location?.venueName?.toLowerCase().includes('ngoài trời');
         
+        // Restore original logic to choose appropriate booking flow
         if (hasSeatingMap) {
+            console.log('🎭 Redirecting to seat selection for event with seating map');
             navigate(`/events/${id}/select-seats`);
         } else if (isOnlineEvent || isOutdoorEvent) {
+            console.log('🎫 Redirecting to simple booking for online/outdoor event');
             navigate(`/simple-booking/${id}`);
         } else {
+            console.log('🎫 Redirecting to standard booking');
             navigate(`/booking/${id}`);
         }
     };

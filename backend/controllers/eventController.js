@@ -1,118 +1,383 @@
+const asyncHandler = require('express-async-handler');
 const Event = require('../models/Event');
 const Venue = require('../models/Venue');
 const User = require('../models/User');
 const TicketType = require('../models/TicketType');
 const Ticket = require('../models/Ticket');
-const asyncHandler = require('express-async-handler');
 const mongoose = require('mongoose');
 
-// Create a new event (original version)
-const createEvent = asyncHandler(async (req, res) => {
+// Lấy danh sách sự kiện
+const getEvents = asyncHandler(async (req, res) => {
   const { 
-    title, description, images, startDate, endDate, location, category, tags,
-    capacity, visibility, status, detailedDescription, termsAndConditions, organizer,
-    organizers, seatingMap
-  } = req.body;
-
-  console.log('Received organizer in createEvent:', organizer);
-
-  // Validate required fields
-  if (!title || !description || !startDate || !endDate || !organizers || organizers.length === 0 || !location || !location.venueName || !location.address || !location.city) {
-    res.status(400);
-    throw new Error('Vui lòng cung cấp đầy đủ thông tin: title, description, startDate, endDate, organizers, venueName, address, city');
+    category, 
+    search, 
+    featured, 
+    trending, 
+    special, 
+    upcoming,
+    limit = 10,
+    page = 1
+  } = req.query;
+  
+  const query = { status: 'approved' }; // Chỉ lấy sự kiện đã được phê duyệt
+  
+  // Tìm kiếm theo category nếu có
+  if (category) {
+    query.category = { $in: Array.isArray(category) ? category : [category] };
   }
-
-  // Validate dates
-  if (new Date(startDate) >= new Date(endDate)) {
-    res.status(400);
-    throw new Error('Ngày bắt đầu không thể sau ngày kết thúc');
+  
+  // Tìm kiếm theo từ khóa
+  if (search) {
+    query.$or = [
+      { title: { $regex: search, $options: 'i' } },
+      { description: { $regex: search, $options: 'i' } },
+      { tags: { $in: [new RegExp(search, 'i')] } }
+    ];
   }
-
-  // Validate capacity
-  if (capacity !== undefined && (!Number.isInteger(capacity) || capacity < 1)) {
-    res.status(400);
-    throw new Error('Sức chứa phải là số nguyên dương');
+  
+  // Lọc theo featured/trending/special
+  if (featured === 'true') query.featured = true;
+  if (trending === 'true') query.trending = true;
+  if (special === 'true') query.special = true;
+  
+  // Lọc sự kiện sắp diễn ra
+  if (upcoming === 'true') {
+    query.startDate = { $gte: new Date() };
   }
-
-  // Validate organizers (check if they are valid ObjectIds and exist)
-  const invalidOrganizers = organizers.filter(id => !mongoose.Types.ObjectId.isValid(id));
-  if (invalidOrganizers.length > 0) {
-    res.status(400);
-    throw new Error(`Các giá trị không phải ObjectId hợp lệ: ${invalidOrganizers.join(', ')}`);
-  }
-
-  const organizerExists = await User.find({ _id: { $in: organizers } });
-  if (organizerExists.length !== organizers.length) {
-    res.status(400);
-    throw new Error('Một hoặc nhiều người tổ chức không tồn tại');
-  }
-
-  // Find or create venue based on provided location details
-  let venueId;
-  if (location.type === 'offline') {
-    const existingVenue = await Venue.findOne({
-      name: location.venueName,
-      address: location.address,
-      city: location.city
-    });
-
-    if (existingVenue) {
-      venueId = existingVenue._id;
-    } else {
-      const newVenue = await Venue.create({
-        name: location.venueName,
-        address: location.address,
-        ward: location.ward,
-        district: location.district,
-        city: location.city,
-        country: location.country || 'Vietnam',
-      });
-      venueId = newVenue._id;
-    }
-  }
-
-  const eventData = {
-    title,
-    description,
-    images: images || {},
-    startDate,
-    endDate,
-    organizers,
-    location: {
-      type: location.type,
-      venue: venueId,
-      venueName: location.venueName,
-      address: location.address,
-      ward: location.ward,
-      district: location.district,
-      city: location.city,
-      country: location.country || 'Vietnam',
-      venueLayout: location.venueLayout
-    },
-    category: category || [],
-    tags: tags || [],
-    capacity,
-    visibility: visibility || 'public',
-    status: status || 'pending',
-    detailedDescription: detailedDescription || { mainProgram: '', guests: '', specialExperiences: '' },
-    termsAndConditions: termsAndConditions || '',
-    eventOrganizerDetails: organizer || { logo: '', name: '', info: '' },
-    availableSeats: capacity,
-    seatingMap: seatingMap || { layout: {}, sections: [] }
+  
+  const options = {
+    page: parseInt(page),
+    limit: parseInt(limit),
+    sort: { createdAt: -1 },
+    populate: [
+      { path: 'organizers', select: 'username fullName avatar' },
+      { path: 'ticketTypes' }
+    ]
   };
+  
+  try {
+    const events = await Event.find(query)
+      .populate('organizers', 'username fullName avatar')
+      .populate('ticketTypes')
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .sort({ createdAt: -1 });
+    
+    const total = await Event.countDocuments(query);
+    
+    res.json({
+      success: true,
+      count: events.length,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit)),
+      data: events
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy danh sách sự kiện',
+      error: error.message
+    });
+  }
+});
 
-  const event = await Event.create(eventData);
+// Lấy thông tin chi tiết của một sự kiện
+const getEventById = asyncHandler(async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id)
+      .populate('organizers', 'username fullName avatar email')
+      .populate('ticketTypes')
+      .populate('location.venue');
+      
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sự kiện'
+      });
+    }
+    
+    // Tăng lượt xem
+    event.views += 1;
+    await event.save();
+    
+    res.json({
+      success: true,
+      data: event
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy thông tin sự kiện',
+      error: error.message
+    });
+  }
+});
 
-  // Populate organizers and venue
-  const populatedEvent = await Event.findById(event._id)
+// Tạo một sự kiện mới
+const createEvent = asyncHandler(async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Vui lòng đăng nhập để tạo sự kiện'
+      });
+    }
+    
+    // Thêm organizer là người tạo sự kiện
+    const eventData = {
+      ...req.body,
+      organizers: [req.user._id]
+    };
+    
+    const createdEvent = await Event.create(eventData);
+    
+    // Tạo ticket types nếu có
+    if (req.body.ticketTypes && Array.isArray(req.body.ticketTypes)) {
+      const ticketTypeIds = [];
+      
+      for (const tt of req.body.ticketTypes) {
+        const ticketType = await TicketType.create({
+          name: tt.name,
+          price: tt.price || 0,
+          totalQuantity: tt.totalQuantity || 100,
+          availableQuantity: tt.availableQuantity || tt.totalQuantity || 100,
+          description: tt.description || '',
+          color: tt.color || '#3B82F6',
+          event: createdEvent._id
+        });
+        
+        ticketTypeIds.push(ticketType._id);
+      }
+      
+      // Cập nhật event với danh sách ticketTypes
+      createdEvent.ticketTypes = ticketTypeIds;
+      await createdEvent.save();
+    }
+    
+    // Trả về event đã được populate
+    const populatedEvent = await Event.findById(createdEvent._id)
+      .populate('organizers', 'username email fullName avatar')
+      .populate('location.venue', 'name address')
+      .populate('ticketTypes');
+      
+    res.status(201).json({
+      success: true,
+      message: 'Tạo sự kiện thành công!',
+      data: populatedEvent
+    });
+  } catch (error) {
+    console.error('Error creating event:', error);
+    res.status(500).json({
+      success: false,
+      message: `Không thể tạo sự kiện: ${error.message}`
+    });
+  }
+});
+
+// Cập nhật thông tin sự kiện
+const updateEvent = asyncHandler(async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sự kiện'
+      });
+    }
+    
+    // Kiểm tra quyền - chỉ cho phép người tạo hoặc admin cập nhật
+    if (req.user.role !== 'admin' && !event.organizers.includes(req.user._id)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Không có quyền cập nhật sự kiện này'
+      });
+    }
+    
+    // Cập nhật thông tin
+    const updatedEvent = await Event.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    )
     .populate('organizers', 'username email fullName avatar')
-    .populate('location.venue', 'name address')
-    .lean();
+    .populate('ticketTypes');
+    
+    res.json({
+      success: true,
+      message: 'Cập nhật sự kiện thành công',
+      data: updatedEvent
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Không thể cập nhật sự kiện: ${error.message}`
+    });
+  }
+});
 
-  res.status(201).json({
-    success: true,
-    data: populatedEvent
-  });
+// Xóa sự kiện
+const deleteEvent = asyncHandler(async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sự kiện'
+      });
+    }
+    
+    // Chỉ cho phép admin xóa sự kiện
+    if (req.user.role !== 'admin') {
+      return res.status(401).json({
+        success: false,
+        message: 'Chỉ admin mới có quyền xóa sự kiện'
+      });
+    }
+    
+    // Xóa tất cả ticket types liên quan
+    await TicketType.deleteMany({ event: event._id });
+    
+    // Xóa sự kiện
+    await event.remove();
+    
+    res.json({
+      success: true,
+      message: 'Xóa sự kiện thành công'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Không thể xóa sự kiện: ${error.message}`
+    });
+  }
+});
+
+// Preview seating map - không yêu cầu đăng nhập
+const previewSeatingMap = asyncHandler(async (req, res) => {
+  try {
+    const { layoutType, totalSeats, totalSections, venueType } = req.body;
+    
+    // Tạo một số loại vé mẫu nếu không có
+    let ticketTypes = req.body.ticketTypes || [
+      {
+        name: 'Vé Thường',
+        price: 0,
+        totalQuantity: Math.floor(totalSeats * 0.7),
+        availableQuantity: Math.floor(totalSeats * 0.7),
+        description: 'Vé thường cho sự kiện',
+        color: '#3B82F6',
+        _id: new mongoose.Types.ObjectId()
+      },
+      {
+        name: 'VIP',
+        price: 0,
+        totalQuantity: Math.floor(totalSeats * 0.3),
+        availableQuantity: Math.floor(totalSeats * 0.3),
+        description: 'Vé VIP',
+        color: '#EF4444',
+        _id: new mongoose.Types.ObjectId()
+      }
+    ];
+    
+    // Sử dụng helper function để tạo seating map
+    const stage = {
+      x: 250,
+      y: 20,
+      width: 300,
+      height: 60,
+      centerX: 400,
+      centerY: 50,
+      gradient: {
+        start: '#4f46e5',
+        end: '#1e40af'
+      },
+      lighting: [
+        { x: 280, y: 10, radius: 3 },
+        { x: 320, y: 10, radius: 3 },
+        { x: 360, y: 10, radius: 3 },
+        { x: 400, y: 10, radius: 3 },
+        { x: 440, y: 10, radius: 3 },
+        { x: 480, y: 10, radius: 3 },
+        { x: 520, y: 10, radius: 3 }
+      ]
+    };
+    
+    const seatOptions = {
+      totalSeats: totalSeats || 100,
+      totalSections: totalSections || 5,
+      venueType: venueType || layoutType || 'theater'
+    };
+    
+    // Tạo seatingMap sử dụng generateSeatingMap
+    const seatingMap = generateSeatingMap(seatOptions, ticketTypes);
+    
+    res.json({
+      success: true,
+      data: seatingMap
+    });
+  } catch (error) {
+    console.error('Error previewing seating map:', error);
+    res.status(500).json({
+      success: false,
+      message: `Không thể tạo bản xem trước sơ đồ chỗ ngồi: ${error.message}`
+    });
+  }
+});
+
+// Cập nhật sơ đồ chỗ ngồi tạm thời
+const updateSeatingMapTemp = asyncHandler(async (req, res) => {
+  try {
+    const { eventId } = req.params;
+
+    // Validate event exists and user has permission
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sự kiện'
+      });
+    }
+
+    // Check if user is organizer or admin
+    if (req.user.role !== 'admin' && !event.organizers.some(org => org.toString() === req.user._id.toString())) {
+      return res.status(401).json({
+        success: false,
+        message: 'Không có quyền cập nhật sự kiện này'
+      });
+    }
+
+    console.log('🎭 Updating seating map for event:', eventId);
+
+    // Generate a fixed layout for the event
+    const fixedLayout = createFixedLayout();
+    console.log(`🎭 Created fixed layout with ${fixedLayout.sections.length} sections`);
+
+    // If there are ticket types, assign them to sections
+    if (event.ticketTypes && event.ticketTypes.length > 0) {
+      for (const section of fixedLayout.sections) {
+        section.ticketTier = event.ticketTypes[0]; // Assign first ticket type to all sections
+      }
+    }
+
+    // Update the event with the new seating map
+    event.seatingMap = fixedLayout;
+    await event.save();
+
+    res.json({
+      success: true,
+      message: 'Cập nhật sơ đồ chỗ ngồi thành công',
+      data: event.seatingMap
+    });
+  } catch (error) {
+    console.error('Error updating seating map:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi cập nhật sơ đồ chỗ ngồi'
+    });
+  }
 });
 
 // Helper function để tạo màu sắc mặc định cho ticket types
@@ -128,314 +393,348 @@ const getDefaultColorForTicketType = (ticketName) => {
   return '#6B7280'; // Màu xám mặc định
 };
 
-// Tạo sự kiện với tùy chọn số ghế/khu cho Event Owner
+// Create event with seating
 const createEventWithSeating = asyncHandler(async (req, res) => {
-  const { 
-    title, description, images, startDate, endDate, location, category, tags,
-    visibility, status, detailedDescription, termsAndConditions, organizer,
-    seatOptions, customSeatingMap, designMode, ticketTypes: ticketTypesData, templateType
-  } = req.body;
-
-  console.log('🎭 Creating event with design mode:', designMode);
-  console.log('🎭 Seat options:', seatOptions);
-  console.log('🎭 Custom seating map:', customSeatingMap ? 'provided' : 'not provided');
-
-  // Validate required fields
-  if (!title || !description || !startDate || !endDate) {
-    res.status(400);
-    throw new Error('Vui lòng cung cấp đầy đủ thông tin: title, description, startDate, endDate');
-  }
-
-  // Xác định loại template
-  const isOnlineEvent = templateType === 'online';
-  const isGeneralEvent = templateType === 'general';
-  const isSeatingEvent = templateType === 'seating';
-
-  // Validation khác nhau cho từng template
-  if (isOnlineEvent) {
-    // Online event - cần link tham gia
-    if (!location?.meetingLink) {
-      res.status(400);
-      throw new Error('Vui lòng cung cấp link tham gia cho sự kiện online');
+  console.log('🎭 createEventWithSeating called');
+  try {
+    // Kiểm tra xem người dùng đã đăng nhập
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Vui lòng đăng nhập để tạo sự kiện' 
+      });
     }
-  } else {
-    // Offline event - cần địa điểm
-    if (!location?.venueName || !location?.address) {
-      res.status(400);
-      throw new Error('Vui lòng cung cấp đầy đủ thông tin địa điểm cho sự kiện offline');
-    }
-  }
-
-  // Chỉ validate seating cho sự kiện có ghế ngồi
-  if (isSeatingEvent) {
-    if (designMode === 'template') {
-    if (!seatOptions || !seatOptions.totalSeats || !seatOptions.totalSections) {
-      res.status(400);
-      throw new Error('Vui lòng cung cấp thông tin về số ghế và số khu');
-      }
-    } else if (designMode === 'custom') {
-      if (!customSeatingMap || !customSeatingMap.sections || customSeatingMap.sections.length === 0) {
-        res.status(400);
-        throw new Error('Vui lòng thiết kế sơ đồ chỗ ngồi hoặc chọn template');
-      }
-    }
-  }
-
-  if (!ticketTypesData || !Array.isArray(ticketTypesData) || ticketTypesData.length === 0) {
-    res.status(400);
-    throw new Error('Vui lòng cung cấp ít nhất một loại vé.');
-  }
-
-  // Validate dates
-  if (new Date(startDate) >= new Date(endDate)) {
-    res.status(400);
-    throw new Error('Ngày bắt đầu không thể sau ngày kết thúc');
-  }
-
-  // Tính capacity dựa trên template và design mode
-  let eventCapacity;
-  if (isSeatingEvent) {
-    if (designMode === 'custom' && customSeatingMap) {
-      eventCapacity = customSeatingMap.sections.reduce((total, section) => total + (section.capacity || 0), 0);
-    } else {
-    eventCapacity = seatOptions.totalSeats;
-    }
-  } else {
-    // General/Online: tổng số vé
-    eventCapacity = ticketTypesData.reduce((sum, ticket) => sum + (ticket.quantity || ticket.totalQuantity || 0), 0);
-  }
-
-  // 1. Tạo sự kiện cơ bản
-  const eventData = {
-    title,
-    description,
-    images: images || {},
-    startDate,
-    endDate,
-    organizers: [req.user._id], // Event owner là người tạo
-    location: {
-      type: location?.type || (isOnlineEvent ? 'online' : 'offline'),
-      venueName: location?.venueName,
-      address: location?.address,
-      ward: location?.ward,
-      district: location?.district,
-      city: location?.city,
-      country: location?.country || 'Vietnam',
-      // Thêm thông tin cho online event
-      meetingLink: location?.meetingLink,
-      platform: location?.platform
-    },
-    category: category || [],
-    tags: tags || [],
-    capacity: eventCapacity,
-    visibility: visibility || 'public',
-    status: status || 'pending',
-    detailedDescription: detailedDescription || { mainProgram: '', guests: '', specialExperiences: '' },
-    termsAndConditions: termsAndConditions || '',
-    organizer: { logo: '', name: req.user.fullName || req.user.username, info: '' },
-    eventOrganizerDetails: { logo: '', name: req.user.fullName || req.user.username, info: '' },
-    availableSeats: eventCapacity,
-    seatingMap: isSeatingEvent ? {
-      layoutType: seatOptions?.venueType || 'theater',
-      sections: []
-    } : null,
-    ticketTypes: [],
-    templateType: templateType || 'general' // Lưu template type
-  };
-
-  const event = new Event(eventData);
-  
-  // Debug mapping từ frontend data
-  console.log('🎫 TicketTypes data received:');
-  console.log('Raw ticketTypesData:', JSON.stringify(ticketTypesData, null, 2));
-  console.log('Array length:', ticketTypesData.length);
-  ticketTypesData.forEach((tt, index) => {
-    console.log(`Ticket ${index}: {
-  name: '${tt.name}',
-  price: ${tt.price},
-  quantity: ${tt.quantity},
-  totalQuantity: ${tt.totalQuantity},
-  description: '${tt.description}'
-}`);
-  });
-
-  // 2. Tạo các loại vé với màu sắc và debug mapping
-  const ticketTypesToCreate = ticketTypesData.map(tt => {
-    const finalQuantity = tt.quantity || tt.totalQuantity;
-    console.log(`🔍 Mapping ticket type: ${tt.name}`);
-    console.log(`  - Original tt.quantity: ${tt.quantity} (${typeof tt.quantity})`);
-    console.log(`  - Original tt.totalQuantity: ${tt.totalQuantity} (${typeof tt.totalQuantity})`);
-    console.log(`  - Final quantity: ${finalQuantity} (${typeof finalQuantity})`);
     
-    return {
-      name: tt.name,
-      price: tt.price,
-      description: tt.description,
-      quantity: finalQuantity,
-      color: tt.color || getDefaultColorForTicketType(tt.name),
-      event: event._id
+    console.log('Request body keys:', Object.keys(req.body));
+    
+    // Giới hạn kích thước và độ phức tạp của seatingMap
+    let seatingMap = req.body.seatingMap;
+    
+    // Ensure seatingMap is an object
+    if (typeof seatingMap === 'string') {
+      try {
+        seatingMap = JSON.parse(seatingMap);
+        console.log('🎭 Parsed seatingMap from string');
+      } catch (error) {
+        console.error('❌ Error parsing seatingMap:', error);
+        seatingMap = {};
+      }
+    }
+    
+    // Create a new object with the original data plus defaults for missing fields
+    const processedSeatingMap = {
+      ...(seatingMap || {}),  // Keep all original data
+      layoutType: seatingMap?.layoutType || 'theater',
+      sections: Array.isArray(seatingMap?.sections) ? [...seatingMap.sections] : [],
+      stage: seatingMap?.stage || { x: 400, y: 50, width: 300, height: 60 },
+      venueObjects: Array.isArray(seatingMap?.venueObjects) ? [...seatingMap.venueObjects] : []
     };
-  });
-
-  const createdTicketTypes = await Promise.all(
-    ticketTypesToCreate.map(ttData => TicketType.create(ttData))
-  );
-  
-  // Log created types để verify
-  console.log('🎫 Creating tickets for ' + (isSeatingEvent ? 'seating' : isOnlineEvent ? 'online' : 'general') + '/online event');
-  console.log('Created ticket types:', createdTicketTypes.map(tt => ({
-    id: tt._id,
-    name: tt.name,
-    quantity: tt.quantity,
-    price: tt.price
-  })));
-
-  const ticketTypeIds = createdTicketTypes.map(tt => tt._id);
-
-  // 3. Tạo sơ đồ ghế chỉ cho sự kiện có ghế ngồi
-  if (isSeatingEvent) {
-    console.log('🎭 Generating seating map for seating event...');
     
-    let seatingMap;
-    if (designMode === 'custom' && customSeatingMap) {
-      console.log('🎨 Using custom seating map');
-      seatingMap = {
-        ...customSeatingMap,
-        layoutType: 'custom'
-      };
+    // Use the processed seating map for further operations
+    seatingMap = processedSeatingMap;
+    
+    // Log the seating map for debugging
+    console.log(`🎭 Processed seating map: layoutType=${seatingMap.layoutType}, sections=${seatingMap.sections.length}, venueObjects=${seatingMap.venueObjects?.length || 0}`);
+    
+    // Xử lý và tối ưu hóa seatingMap để giảm kích thước
+    if (seatingMap && seatingMap.sections && seatingMap.sections.length > 0) {
+      // In thông tin seatingMap trước khi xử lý
+      console.log(`🎭 Sections count: ${seatingMap.sections.length}`);
       
-      // Convert custom sections to proper format and generate seat details
-      seatingMap.sections = customSeatingMap.sections.map(section => {
-        const seatSpacing = 25;
-        const rowSpacing = 30;
-        const rowsPerSection = Math.max(1, Math.ceil(Math.sqrt(section.capacity || 50)));
-        const seatsPerRow = Math.ceil((section.capacity || 50) / rowsPerSection);
-        
-        const rows = [];
-        let seatNumber = 1;
-        
-        for (let j = 0; j < rowsPerSection && seatNumber <= (section.capacity || 50); j++) {
-          const row = {
-            name: `${section.name}${j + 1}`,
-            seats: []
-          };
+      // Giới hạn số lượng section
+      if (seatingMap.sections.length > 20) {
+        seatingMap.sections = seatingMap.sections.slice(0, 20);
+      }
+      
+      // Process each section to ensure row data is properly structured
+      seatingMap.sections = seatingMap.sections.map(section => {
+        // Handle case where rows might be numeric
+        if (typeof section.rows === 'number' || typeof section.rows === 'string') {
+          const numRows = parseInt(section.rows) || 10;
+          const seatsPerRow = parseInt(section.seatsPerRow) || 15;
           
-          for (let k = 0; k < seatsPerRow && seatNumber <= (section.capacity || 50); k++) {
-            row.seats.push({
-              number: `${section.name}${j + 1}-${k + 1}`,
-              status: 'available',
-              x: (section.x || 0) + k * seatSpacing,
-              y: (section.y || 0) + j * rowSpacing,
-              _id: new (require('mongoose')).Types.ObjectId()
+          // Create proper row schema objects
+          const rows = [];
+          for (let i = 0; i < Math.min(numRows, 15); i++) {
+            const rowName = String.fromCharCode(65 + i); // A, B, C...
+            const seats = [];
+            
+            for (let j = 0; j < Math.min(seatsPerRow, 30); j++) {
+              seats.push({
+                number: `${j + 1}`,
+                status: 'available',
+                x: j * 20, 
+                y: i * 20
+              });
+            }
+            
+            rows.push({
+              name: rowName,
+              seats: seats
             });
-            seatNumber++;
           }
           
-          if (row.seats.length > 0) {
-            rows.push(row);
+          return {
+            ...section,
+            rows: rows
+          };
+        }
+        
+        // Ensure rows is an array
+        if (!Array.isArray(section.rows)) {
+          section.rows = [];
+        }
+        
+        // Process each row to ensure proper structure
+        section.rows = section.rows.map(row => {
+          // Ensure seats is an array
+          if (!Array.isArray(row.seats)) {
+            row.seats = [];
+          }
+          
+          // Process each seat to remove _id and ensure proper structure
+          row.seats = row.seats.map(seat => {
+            // Create a new seat object without _id field
+            const { _id, ...seatWithoutId } = seat;
+            
+            // Ensure required fields
+            return {
+              ...seatWithoutId,
+              number: seat.number || '1',
+              status: seat.status || 'available',
+              x: Number(seat.x) || 0,
+              y: Number(seat.y) || 0
+            };
+          });
+          
+          return {
+            ...row,
+            name: row.name || 'A'
+          };
+        });
+        
+        return section;
+      });
+    }
+    
+    // Make sure location.venueLayout matches seatingMap.layoutType
+    if (!req.body.location) {
+      req.body.location = {};
+    }
+    
+    // Ensure venueLayout is valid and matches layoutType
+    const layoutType = seatingMap?.layoutType || 'theater';
+    req.body.location.venueLayout = layoutType;
+    
+    // Log important validation values to help debugging
+    console.log(`🔍 Layout synchronization: seatingMap.layoutType=${layoutType}, location.venueLayout=${req.body.location.venueLayout}`);
+    
+    // Ensure capacity is set (required field)
+    if (!req.body.capacity) {
+      // Calculate capacity from seating map or set default
+      let capacity = 100; // Default capacity
+      if (seatingMap && seatingMap.sections) {
+        capacity = seatingMap.sections.reduce((total, section) => {
+          if (Array.isArray(section.rows)) {
+            return total + section.rows.reduce((rowTotal, row) => {
+              return rowTotal + (Array.isArray(row.seats) ? row.seats.length : 0);
+            }, 0);
+          }
+          return total;
+        }, 0);
+      }
+      req.body.capacity = capacity > 0 ? capacity : 100;
+    }
+    
+    // Extract ticket types data from request body - look for ticketTypesData first, then fall back to ticketTypes
+    let ticketTypesData = req.body.ticketTypesData || req.body.ticketTypes || [];
+    
+    console.log('Ticket types data source:', {
+      hasTicketTypesData: !!req.body.ticketTypesData,
+      hasTicketTypes: !!req.body.ticketTypes,
+      ticketTypesDataType: typeof req.body.ticketTypesData,
+      ticketTypesType: typeof req.body.ticketTypes
+    });
+    
+    // Ensure ticketTypes is an array of plain objects, not a string
+    if (typeof ticketTypesData === 'string') {
+      try {
+        console.log('Parsing ticket types from string:', ticketTypesData.substring(0, 100) + '...');
+        ticketTypesData = JSON.parse(ticketTypesData);
+      } catch (e) {
+        console.error('Error parsing ticket types:', e);
+        ticketTypesData = [];
+      }
+    }
+
+    // Validate ticketTypesData is an array
+    if (!Array.isArray(ticketTypesData)) {
+      console.log('Converting non-array ticket types to array:', typeof ticketTypesData);
+      ticketTypesData = [];
+    }
+
+    console.log(`🎫 Ticket types data (${typeof ticketTypesData}):`, ticketTypesData.length);
+
+    // Tạo event với dữ liệu đã được tối ưu hóa
+    const eventData = {
+      ...req.body,
+      organizers: [req.user._id],
+      seatingMap: seatingMap, // Sử dụng seatingMap đã được tối ưu
+      templateType: 'seating',
+      // Remove ticketTypes from event creation as we'll create them separately
+      ticketTypes: []
+    };
+    
+    // Create event first without ticket types
+    const createdEvent = await Event.create(eventData);
+    
+    // Ensure ticket types exist and create them if provided
+    if (Array.isArray(ticketTypesData) && ticketTypesData.length > 0) {
+      console.log('🎫 Creating ticket types:', ticketTypesData.length);
+      
+      const ticketTypeIds = [];
+      for (const tt of ticketTypesData) {
+        const ticketType = await TicketType.create({
+          name: tt.name,
+          price: tt.price || 0,
+          description: tt.description || '',
+          totalQuantity: tt.totalQuantity || 100,
+          availableQuantity: tt.availableQuantity || tt.totalQuantity || 100,
+          color: tt.color || '#3B82F6',
+          event: createdEvent._id
+        });
+        ticketTypeIds.push(ticketType._id);
+      }
+      
+      // Update event with ticket type IDs
+      createdEvent.ticketTypes = ticketTypeIds;
+      await createdEvent.save();
+      
+      // Process seatingMap to update ticketTier references with actual ticket type IDs
+      if (createdEvent.seatingMap && createdEvent.seatingMap.sections && createdEvent.seatingMap.sections.length > 0) {
+        console.log(`🎫 Processing seatingMap for event...`);
+        console.log(`🎫 Available ticket types: ${ticketTypeIds.length}`);
+        
+        // Check if seatingMap is valid or needs regeneration
+        let useFixedLayout = false;
+        
+        // Check if seatingMap is empty or invalid
+        if (!createdEvent.seatingMap.sections || createdEvent.seatingMap.sections.length === 0) {
+          console.log("🎭 No sections found, using fixed layout");
+          useFixedLayout = true;
+        } else {
+          // Check if sections have valid coordinates and dimensions
+          const hasInvalidSections = createdEvent.seatingMap.sections.some(section => 
+            typeof section.x !== 'number' || 
+            typeof section.y !== 'number' ||
+            typeof section.width !== 'number' || 
+            typeof section.height !== 'number'
+          );
+          
+          if (hasInvalidSections) {
+            console.log("🎭 Found sections with invalid coordinates, using fixed layout");
+            useFixedLayout = true;
+          }
+          
+          // Check if sections have seats
+          const hasSections = createdEvent.seatingMap.sections.some(section => 
+            Array.isArray(section.rows) && section.rows.length > 0 && 
+            section.rows.some(row => Array.isArray(row.seats) && row.seats.length > 0)
+          );
+          
+          if (!hasSections) {
+            console.log("🎭 No seats found in sections, using fixed layout");
+            useFixedLayout = true;
           }
         }
         
-        // Find matching ticket type
-        const matchingTicketType = createdTicketTypes.find(tt => 
-          tt.name === section.ticketType || tt.name.toLowerCase().includes(section.ticketType?.toLowerCase())
-        ) || createdTicketTypes[0];
+        // ALWAYS use fixed layout to ensure consistency
+        console.log("🎭 Using fixed layout for guaranteed reliability");
+        useFixedLayout = true;
         
-        return {
-          name: section.name,
-          ticketTier: matchingTicketType._id,
-          capacity: section.capacity || 50,
-          x: section.x || 0,
-          y: section.y || 0,
-          width: section.width || 150,
-          height: section.height || 100,
-          rows: rows
-        };
-      });
-    } else {
-      console.log('📋 Using template seating map');
-      seatingMap = generateSeatingMap(seatOptions, createdTicketTypes);
-    }
-    
-    console.log('🎭 Generated seating map:', seatingMap.sections.length, 'sections, layout:', seatingMap.layoutType);
-    
-    event.seatingMap = seatingMap;
-    console.log('🎭 Set seatingMap on event object');
-    
-    // 4. Tạo tickets cho tất cả ghế
-    await event.save();
-    console.log('🎭 Event saved with seatingMap');
-    
-    const ticketsCreated = await generateTicketsFromSeatingMap(event._id, seatingMap, createdTicketTypes);
-    console.log(`✅ Created ${ticketsCreated} tickets for seating event ${event.title}`);
-  } else {
-    // General/Online events: tạo tickets theo quantity
-    await event.save();
-    let totalTicketsCreated = 0;
-    
-    for (const ticketType of createdTicketTypes) {
-      // Explicit conversion và validation
-      let quantityToCreate = parseInt(ticketType.quantity);
-      if (isNaN(quantityToCreate)) {
-        // Fallback: try to get from original input data  
-        const originalTT = ticketTypesToCreate.find(tt => tt.name === ticketType.name);
-        quantityToCreate = parseInt(originalTT?.quantity);
-      }
-      
-      console.log(`Processing ticket type: ${ticketType.name}, quantity: ${quantityToCreate} (type: ${typeof quantityToCreate})`);
-      console.log(`  - ticketType.quantity: ${ticketType.quantity} (${typeof ticketType.quantity})`);
-      console.log(`  - parsed quantity: ${quantityToCreate} (${typeof quantityToCreate})`);
-      
-      if (!quantityToCreate || quantityToCreate <= 0 || isNaN(quantityToCreate)) {
-        console.log(`⚠️ Skipping ticket type ${ticketType.name} - invalid quantity: ${quantityToCreate}`);
-        continue;
-      }
-      
-      console.log(`Creating ${quantityToCreate} tickets for ${ticketType.name}`);
-      const tickets = [];
-      for (let i = 1; i <= quantityToCreate; i++) {
-        tickets.push({
-          event: event._id,
-          ticketType: ticketType.name, // String thay vì ObjectId
-          price: ticketType.price, // Sử dụng price thay vì originalPrice/finalPrice
-          status: 'available',
-          qrCode: `${event._id}-${ticketType.name}-${i}-${Date.now()}${Math.random().toString(36).substr(2, 5)}`,
-          seat: {
-            seatNumber: isOnlineEvent ? `ONLINE-${i}` : `GENERAL-${i}`
+        // If we need to regenerate the seating map, do it here
+        if (useFixedLayout) {
+          console.log("🎭 Generating fixed seating layout");
+          const fixedLayout = createFixedLayout();
+          
+          // Assign the first ticket type to all sections
+          if (ticketTypeIds.length > 0) {
+            for (const section of fixedLayout.sections) {
+              section.ticketTier = ticketTypeIds[0];
+            }
           }
-        });
+          
+          // Update the event with the new seating map
+          createdEvent.seatingMap = fixedLayout;
+          await createdEvent.save();
+          console.log("✅ Fixed seating layout saved to event");
+        } else {
+          // Otherwise, just update the ticket tiers in the existing seating map
+          let ticketTierIndex = 0;
+          for (const section of createdEvent.seatingMap.sections) {
+            // Ensure each section has a ticketTier associated with it
+            if (!section.ticketTier && ticketTypeIds.length > 0) {
+              section.ticketTier = ticketTypeIds[ticketTierIndex % ticketTypeIds.length];
+              ticketTierIndex++;
+            }
+          }
+          
+          await createdEvent.save();
+          console.log("✅ Updated ticket tiers in seating map");
+        }
+      } else {
+        // If there's no seating map at all, create one using fixed layout
+        console.log("🎭 No seating map found, creating a fixed layout");
+        const fixedLayout = createFixedLayout();
+        
+        // Assign the first ticket type to all sections
+        if (ticketTypeIds.length > 0) {
+          for (const section of fixedLayout.sections) {
+            section.ticketTier = ticketTypeIds[0];
+          }
+        }
+        
+        createdEvent.seatingMap = fixedLayout;
+        await createdEvent.save();
+        console.log("✅ Fixed seating layout created and saved to event");
       }
       
-      if (tickets.length > 0) {
-        await Ticket.insertMany(tickets);
-        totalTicketsCreated += tickets.length;
-        console.log(`✅ Created ${tickets.length} tickets for ${ticketType.name}`);
+      // Ensure we preserve the stage and venue objects exactly as provided
+      if (seatingMap && seatingMap.stage) {
+        createdEvent.seatingMap.stage = JSON.parse(JSON.stringify(seatingMap.stage));
       }
+      
+      if (seatingMap && Array.isArray(seatingMap.venueObjects)) {
+        createdEvent.seatingMap.venueObjects = JSON.parse(JSON.stringify(seatingMap.venueObjects));
+      }
+      
+      // Ensure we save the event with all the processed data
+      await createdEvent.save();
+      
+      console.log(`✅ Created ${ticketTypeIds.length} ticket types for event`);
+      console.log(`✅ Final seating map has ${createdEvent.seatingMap.sections.length} sections, ${createdEvent.seatingMap.venueObjects?.length || 0} venue objects`);
+      console.log(`✅ Stage position: (${createdEvent.seatingMap.stage.x}, ${createdEvent.seatingMap.stage.y})`);
     }
-    
-    console.log(`✅ Created ${totalTicketsCreated} tickets for ${templateType} event ${event.title}`);
+
+    // Populate organizers and venue
+    const populatedEvent = await Event.findById(createdEvent._id)
+      .populate('organizers', 'username email fullName avatar')
+      .populate('location.venue', 'name address')
+      .populate('ticketTypes')
+      .lean();
+
+    res.status(201).json({
+      success: true,
+      message: 'Tạo sự kiện thành công!',
+      data: populatedEvent
+    });
+  } catch (error) {
+    console.error('Error creating event with seating:', error);
+    return res.status(500).json({ 
+      success: false,
+      message: `Không thể tạo sự kiện với tùy chọn ghế: ${error.message}`
+    });
   }
-
-  event.ticketTypes = ticketTypeIds;
-  await event.save();
-  
-  const populatedEvent = await Event.findById(event._id)
-    .populate('organizers', 'username email fullName avatar')
-    .populate('ticketTypes');
-
-  // Debug: Verify seatingMap was saved
-  console.log('🔍 Final verification - seatingMap sections:', populatedEvent.seatingMap?.sections?.length || 'null');
-  if (populatedEvent.seatingMap && populatedEvent.seatingMap.sections) {
-    console.log('✅ SeatingMap successfully saved with', populatedEvent.seatingMap.sections.length, 'sections');
-  } else {
-    console.log('❌ SeatingMap is null or empty after save!');
-  }
-
-  res.status(201).json({
-    success: true,
-    message: `Tạo sự kiện ${templateType} thành công!`,
-    data: populatedEvent
-  });
 });
 
 // Helper function để tính toán spacing responsive dựa trên số ghế
@@ -511,25 +810,59 @@ const generateSeatingMap = (seatOptions, ticketTypes) => {
     ]
   };
 
+  // Tạo các vật thể phụ trợ mặc định cho venue
+  const defaultVenueObjects = [
+    { type: 'entrance', label: 'Lối vào', x: 100, y: 500, width: 60, height: 30 },
+    { type: 'exit', label: 'Lối ra', x: 700, y: 500, width: 60, height: 30 },
+    { type: 'wc', label: 'WC', x: 100, y: 400, width: 40, height: 40 },
+    { type: 'food', label: 'Thức ăn', x: 700, y: 400, width: 40, height: 40 }
+  ];
+
   // Tạo layout dựa trên venue type
   console.log(`🎭 Switching on venueType: ${venueType}`);
-  switch (venueType) {
+  let seatingMap;
+  
+  // Make sure a valid layoutType is used
+  let layoutType = 'theater';
+  
+  switch (venueType.toLowerCase()) {
     case 'stadium':
-      return generateStadiumLayout(totalSeats, totalSections, ticketTypes, stage);
+      layoutType = 'stadium';
+      seatingMap = generateStadiumLayout(totalSeats, totalSections, ticketTypes, stage);
+      break;
     case 'concert':
-      return generateConcertLayout(totalSeats, totalSections, ticketTypes, stage);
-    case 'outdoor':
-      return generateOutdoorLayout(totalSeats, totalSections, ticketTypes, stage);
-    case 'footballStadium':
-      console.log(`🎭 Matched footballStadium case - calling generateFootballStadiumLayout`);
-      return generateFootballStadiumLayout(totalSeats, totalSections, ticketTypes, stage);
-    case 'basketballArena':
-      console.log(`🎭 Matched basketballArena case - calling generateBasketballArenaLayout`);
-      return generateBasketballArenaLayout(totalSeats, totalSections, ticketTypes, stage);
+      layoutType = 'concert';
+      seatingMap = generateConcertLayout(totalSeats, totalSections, ticketTypes, stage);
+      break;
     case 'theater':
+      layoutType = 'theater';
+      seatingMap = generateTheaterLayout(totalSeats, totalSections, ticketTypes, stage);
+      break;
+    case 'outdoor':
+      layoutType = 'outdoor';
+      seatingMap = generateOutdoorLayout(totalSeats, totalSections, ticketTypes, stage);
+      break;
+    case 'footballstadium':
+      layoutType = 'footballStadium';
+      seatingMap = generateFootballStadiumLayout(totalSeats, totalSections, ticketTypes, stage);
+      break;
+    case 'basketballarena':
+      layoutType = 'basketballArena';
+      seatingMap = generateBasketballArenaLayout(totalSeats, totalSections, ticketTypes, stage);
+      break;
     default:
-      return generateTheaterLayout(totalSeats, totalSections, ticketTypes, stage);
+      console.log('🎭 Using default theater layout');
+      layoutType = 'theater';
+      seatingMap = generateTheaterLayout(totalSeats, totalSections, ticketTypes, stage);
   }
+  
+  // Always ensure layoutType is set in the return object
+  return {
+    ...seatingMap,
+    layoutType: layoutType,
+    stage: seatingMap.stage || stage,
+    venueObjects: seatingMap.venueObjects || defaultVenueObjects
+  };
 };
 
 // Stadium Layout: Oval arrangement around central field
@@ -1016,80 +1349,120 @@ const generateBasketballArenaLayout = (totalSeats, totalSections, ticketTypes, s
   const rowsPerSection = Math.ceil(Math.sqrt(seatsPerSection / 2.5)); // Wider sections for arena
   const seatsPerRow = Math.ceil(seatsPerSection / rowsPerSection);
   
+  console.log(`🏀 === BASKETBALL ARENA LAYOUT CALLED ===`);
   console.log(`🏀 Basketball Arena Layout: ${totalSeats} seats, ${totalSections} sections`);
   console.log(`📐 Section size: ${rowsPerSection} rows x ${seatsPerRow} seats`);
-  console.log(`📏 Spacing: seat=${seatSpacing}, row=${rowSpacing}, section=${sectionSpacing}`);
   
-  // Get ticket types with fallbacks
-  const courtsideType = ticketTypes.find(tt => tt.name.toLowerCase().includes('courtside')) || ticketTypes[0];
-  const lowerBowlType = ticketTypes.find(tt => tt.name.toLowerCase().includes('lower')) || ticketTypes[1] || ticketTypes[0];
-  const clubLevelType = ticketTypes.find(tt => tt.name.toLowerCase().includes('club')) || ticketTypes[2] || ticketTypes[0];
-  const upperBowlType = ticketTypes.find(tt => tt.name.toLowerCase().includes('upper')) || ticketTypes[ticketTypes.length - 1];
+  // Find ticket types for different section tiers
+  const vipType = ticketTypes.find(t => t.name.toLowerCase().includes('vip')) || ticketTypes[0];
+  const courtSideType = ticketTypes.find(t => t.name.toLowerCase().includes('courtside') || t.name.toLowerCase().includes('premium')) || vipType;
+  const lowerType = ticketTypes.find(t => t.name.toLowerCase().includes('lower') || t.name.toLowerCase().includes('main')) || ticketTypes[1] || vipType;
+  const upperType = ticketTypes.find(t => t.name.toLowerCase().includes('upper') || t.name.toLowerCase().includes('balcony')) || ticketTypes[2] || ticketTypes[0];
   
-  const sectionWidth = seatsPerRow * seatSpacing;
-  const sectionHeight = rowsPerSection * rowSpacing;
+  // Create basketball court dimensions
+  const courtX = 400 - 75; // Center X - half width
+  const courtY = 300 - 40; // Center Y - half height
+  const courtWidth = 150;
+  const courtHeight = 80;
   
-  // Basketball court in center
-  const courtX = 350;
-  const courtY = 300;
-  const courtWidth = 100;
-  const courtHeight = 60;
+  // Create sections around the court - lower tier first (closer to court)
+  const sectionTypes = [courtSideType, courtSideType, courtSideType, courtSideType, 
+                        lowerType, lowerType, lowerType, lowerType,
+                        upperType, upperType, upperType, upperType];
   
+  // Create sections in tiers around the court
+  const centerX = courtX + courtWidth/2;
+  const centerY = courtY + courtHeight/2;
   let sectionIndex = 0;
   
-  // Courtside sections (premium, closest to court)
-  const courtsideSections = Math.max(1, Math.floor(totalSections * 0.1)); // 10% courtside
-  const courtsideRadius = 90;
-  const courtsideAngleStep = (Math.PI * 2) / Math.max(courtsideSections, 4);
-  
-  for (let i = 0; i < courtsideSections && sectionIndex < totalSections; i++) {
-    const angle = i * courtsideAngleStep;
-    const x = courtX + courtWidth/2 + courtsideRadius * Math.cos(angle) - sectionWidth/2;
-    const y = courtY + courtHeight/2 + courtsideRadius * Math.sin(angle) - sectionHeight/2;
-    sections.push(createSection(`COURT-${i+1}`, courtsideType._id, seatsPerSection, rowsPerSection, seatsPerRow, x, y, seatSpacing, rowSpacing));
-    sectionIndex++;
-  }
-  
-  // Lower Bowl (main seating around court)
-  const lowerBowlSections = Math.max(1, Math.floor(totalSections * 0.3)); // 30% lower bowl
-  const lowerRadius = 150;
-  const lowerAngleStep = (Math.PI * 2) / Math.max(lowerBowlSections, 6);
-  
-  for (let i = 0; i < lowerBowlSections && sectionIndex < totalSections; i++) {
-    const angle = i * lowerAngleStep;
-    const x = courtX + courtWidth/2 + lowerRadius * Math.cos(angle) - sectionWidth/2;
-    const y = courtY + courtHeight/2 + lowerRadius * Math.sin(angle) - sectionHeight/2;
-    sections.push(createSection(`L-${String.fromCharCode(65 + i)}`, lowerBowlType._id, seatsPerSection, rowsPerSection, seatsPerRow, x, y, seatSpacing, rowSpacing));
-    sectionIndex++;
-  }
-  
-  // Club Level (elevated with amenities)
-  const clubLevelSections = Math.max(1, Math.floor(totalSections * 0.25)); // 25% club level
-  const clubRadius = 210;
-  const clubAngleStep = (Math.PI * 2) / Math.max(clubLevelSections, 6);
-  
-  for (let i = 0; i < clubLevelSections && sectionIndex < totalSections; i++) {
-    const angle = i * clubAngleStep;
-    const x = courtX + courtWidth/2 + clubRadius * Math.cos(angle) - sectionWidth/2;
-    const y = courtY + courtHeight/2 + clubRadius * Math.sin(angle) - sectionHeight/2;
-    sections.push(createSection(`C-${String.fromCharCode(65 + i)}`, clubLevelType._id, seatsPerSection, rowsPerSection, seatsPerRow, x, y, seatSpacing, rowSpacing));
-    sectionIndex++;
-  }
-  
-  // Upper Bowl (highest tier, budget seating)
-  const remainingSections = totalSections - sectionIndex;
-  if (remainingSections > 0) {
-    const upperRadius = 270;
-    const upperAngleStep = (Math.PI * 2) / Math.max(remainingSections, 6);
+  // First tier - courtside (small sections very close to court)
+  if (sectionIndex < totalSections) {
+    const radius = courtHeight + 20; // Very close to court
+    const sectionsInTier = Math.min(4, totalSections - sectionIndex);
+    const angleStep = (Math.PI * 2) / sectionsInTier;
     
-    for (let i = 0; i < remainingSections; i++) {
-      const angle = i * upperAngleStep;
-      const x = courtX + courtWidth/2 + upperRadius * Math.cos(angle) - sectionWidth/2;
-      const y = courtY + courtHeight/2 + upperRadius * Math.sin(angle) - sectionHeight/2;
-      sections.push(createSection(`U-${String.fromCharCode(65 + i)}`, upperBowlType._id, seatsPerSection, rowsPerSection, seatsPerRow, x, y, seatSpacing, rowSpacing));
+    for (let i = 0; i < sectionsInTier; i++) {
+      const angle = i * angleStep;
+      const x = centerX + radius * Math.cos(angle) - (seatsPerRow * seatSpacing) / 2;
+      const y = centerY + radius * Math.sin(angle) - (rowsPerSection * rowSpacing) / 2;
+      
+      const sectionName = `CS${i + 1}`; // CS = Courtside
+      const section = createSection(
+        sectionName, 
+        courtSideType._id, 
+        Math.floor(seatsPerSection * 0.8), // Courtside sections are smaller
+        Math.max(2, Math.floor(rowsPerSection * 0.5)), // Fewer rows
+        Math.ceil(seatsPerRow * 1.2), // More seats per row for premium experience
+        x, 
+        y, 
+        seatSpacing, 
+        rowSpacing
+      );
+      sections.push(section);
+      console.log(`Section ${sectionName}: Position (${x}, ${y})`);
       sectionIndex++;
     }
   }
+  
+  // Second tier - lower bowl (main sections)
+  if (sectionIndex < totalSections) {
+    const radius = courtHeight + 100; // Farther from court
+    const remainingSections = Math.min(Math.floor(totalSections * 0.5), totalSections - sectionIndex);
+    const angleStep = (Math.PI * 2) / remainingSections;
+    
+    for (let i = 0; i < remainingSections; i++) {
+      const angle = i * angleStep;
+      const x = centerX + radius * Math.cos(angle) - (seatsPerRow * seatSpacing) / 2;
+      const y = centerY + radius * Math.sin(angle) - (rowsPerSection * rowSpacing) / 2;
+      
+      const sectionName = `L${i + 1}`; // L = Lower
+      const section = createSection(
+        sectionName, 
+        lowerType._id, 
+        seatsPerSection,
+        rowsPerSection,
+        seatsPerRow,
+        x, 
+        y, 
+        seatSpacing, 
+        rowSpacing
+      );
+      sections.push(section);
+      console.log(`Section ${sectionName}: Position (${x}, ${y})`);
+      sectionIndex++;
+    }
+  }
+  
+  // Third tier - upper bowl (remaining sections)
+  if (sectionIndex < totalSections) {
+    const radius = courtHeight + 200; // Much farther from court
+    const remainingSections = totalSections - sectionIndex;
+    const angleStep = (Math.PI * 2) / remainingSections;
+    
+    for (let i = 0; i < remainingSections; i++) {
+      const angle = i * angleStep;
+      const x = centerX + radius * Math.cos(angle) - (seatsPerRow * seatSpacing) / 2;
+      const y = centerY + radius * Math.sin(angle) - (rowsPerSection * rowSpacing) / 2;
+      
+      const sectionName = `U${i + 1}`; // U = Upper
+      const section = createSection(
+        sectionName, 
+        upperType._id, 
+        seatsPerSection,
+        Math.ceil(rowsPerSection * 1.2), // More rows in upper sections
+        seatsPerRow,
+        x, 
+        y, 
+        seatSpacing, 
+        rowSpacing
+      );
+      sections.push(section);
+      console.log(`Section ${sectionName}: Position (${x}, ${y})`);
+      sectionIndex++;
+    }
+  }
+  
+  console.log(`🏀 Created ${sections.length} sections for basketball arena`);
   
   // Update stage to represent basketball court
   const basketballCourt = {
@@ -1098,8 +1471,8 @@ const generateBasketballArenaLayout = (totalSeats, totalSections, ticketTypes, s
     y: courtY,
     width: courtWidth,
     height: courtHeight,
-    centerX: courtX + courtWidth/2,
-    centerY: courtY + courtHeight/2
+    centerX: centerX,
+    centerY: centerY
   };
   
   return { 
@@ -1109,447 +1482,178 @@ const generateBasketballArenaLayout = (totalSeats, totalSections, ticketTypes, s
   };
 };
 
-// Helper function to create a section
-const createSection = (sectionName, ticketTier, totalSeats, rowsPerSection, seatsPerRow, sectionX, sectionY, seatSpacing, rowSpacing) => {
-  const section = {
-    name: sectionName,
-    ticketTier: ticketTier,
-    rows: []
-  };
-  
-  let seatNumber = 1;
-  
-  for (let j = 0; j < rowsPerSection && seatNumber <= totalSeats; j++) {
-    const row = {
-      name: `${sectionName}${j + 1}`, // A1, A2, B1, B2...
-      seats: []
-    };
-    
-    for (let k = 0; k < seatsPerRow && seatNumber <= totalSeats; k++) {
-      row.seats.push({
-        number: `${sectionName}${j + 1}-${k + 1}`, // A1-1, A1-2...
-        status: 'available',
-        x: sectionX + k * seatSpacing,
-        y: sectionY + j * rowSpacing,
-        _id: new (require('mongoose')).Types.ObjectId()
-      });
-      seatNumber++;
-    }
-    
-    if (row.seats.length > 0) {
-      section.rows.push(row);
-    }
-  }
-  
-  return section;
-};
-
-// Get all events
-const getEvents = asyncHandler(async (req, res) => {
-  const { visibility, featured, special, trending, category, limit, sort } = req.query;
-  
-  console.log('🔍 getEvents called with query params:', req.query);
-  
-  // Build query object
-  const query = {};
-  
-  // Filter by visibility
-  if (visibility) {
-    query.visibility = visibility;
-  }
-  
-  // Filter by admin controllable features
-  if (featured === 'true') {
-    query.featured = true;
-  }
-  
-  if (special === 'true') {
-    query.special = true;
-  }
-  
-  if (trending === 'true') {
-    query.trending = true;
-  }
-  
-  // Filter by category
-  if (category && category !== 'all') {
-    query.category = { $in: [category] };
-  }
-  
-  // Only show approved events for public access
-  query.status = 'approved';
-  
-  console.log('📝 MongoDB query object:', JSON.stringify(query, null, 2));
-  
-  // Build sort object
-  let sortQuery = { createdAt: -1 }; // Default sort by newest
-  
-  if (featured === 'true') {
-    sortQuery = { featuredOrder: 1, createdAt: -1 };
-  } else if (special === 'true') {
-    sortQuery = { specialOrder: 1, createdAt: -1 };
-  } else if (trending === 'true') {
-    sortQuery = { trendingOrder: 1, createdAt: -1 };
-  } else if (sort === 'date_asc') {
-    sortQuery = { startDate: 1 };
-  } else if (sort === 'date_desc') {
-    sortQuery = { startDate: -1 };
-  } else if (sort === 'name_asc') {
-    sortQuery = { title: 1 };
-  } else if (sort === 'name_desc') {
-    sortQuery = { title: -1 };
-  }
-  
-  console.log('🔄 Sort query:', JSON.stringify(sortQuery, null, 2));
-  
-  let eventQuery = Event.find(query)
-    .populate('organizers', 'username email fullName avatar')
-    .populate('location.venue', 'name address')
-    .populate('ticketTypes')
-    .sort(sortQuery);
-    
-  // Apply limit if specified
-  if (limit && !isNaN(parseInt(limit))) {
-    eventQuery = eventQuery.limit(parseInt(limit));
-    console.log('📏 Applied limit:', parseInt(limit));
-  }
-  
-  const events = await eventQuery.lean();
-  console.log('📊 Found events count:', events.length);
-  
-  if (events.length > 0) {
-    console.log('📋 First event title:', events[0].title);
-  }
-
-  // Tính số vé đã bán cho mỗi event
-  for (let event of events) {
-    if (event.ticketTypes && event.ticketTypes.length > 0) {
-      for (let ticketType of event.ticketTypes) {
-        // Đếm số vé đã bán từ Ticket collection
-        const soldCount = await Ticket.countDocuments({
-          event: event._id,
-          ticketType: ticketType._id,
-          status: { $in: ['purchased', 'used'] }
-        });
-        ticketType.sold = soldCount;
-      }
-    }
-  }
-    
-  res.status(200).json({
-    success: true,
-    events: events,
-    data: events
-  });
-});
-
-// Get a single event by ID
-const getEventById = asyncHandler(async (req, res) => {
-  // ===== CRITICAL FIX: Validate eventId is not string "null" or "undefined" =====
-  const eventId = req.params.id;
-  if (eventId === "null" || eventId === "undefined" || !eventId) {
-    console.error('Invalid eventId received in getEventById:', eventId, typeof eventId);
-    res.status(400);
-    throw new Error('ID sự kiện không hợp lệ');
-  }
-
-  const event = await Event.findById(eventId)
-    .populate('organizers', 'username email fullName avatar')
-    .populate('location.venue', 'name address')
-    .populate('ticketTypes')
-    .lean();
-    
-  if (!event) {
-    res.status(404);
-    throw new Error(`Không tìm thấy sự kiện với ID ${eventId}`);
-  }
-
-  // Tính số vé đã bán cho event này
-  if (event.ticketTypes && event.ticketTypes.length > 0) {
-    for (let ticketType of event.ticketTypes) {
-      // Đếm số vé đã bán từ Ticket collection
-      const soldCount = await Ticket.countDocuments({
-        event: event._id,
-        ticketType: ticketType._id,
-        status: { $in: ['purchased', 'used'] }
-      });
-      ticketType.sold = soldCount;
-    }
-  }
-
-  res.status(200).json({
-    success: true,
-    data: event
-  });
-});
-
-// Update an event
-const updateEvent = asyncHandler(async (req, res) => {
-  const { title, description, images, startDate, endDate, organizers, location, category, tags,
-    capacity, visibility, status, detailedDescription, termsAndConditions, organizer,
-    availableSeats, seatingMap } = req.body;
-  const event = await Event.findById(req.params.id);
-
-  if (!event) {
-    res.status(404);
-    throw new Error(`Không tìm thấy sự kiện với ID ${req.params.id}`);
-  }
-
-  // Update fields
-  event.title = title !== undefined ? title : event.title;
-  event.description = description !== undefined ? description : event.description;
-  event.images = images !== undefined ? images : event.images;
-  event.startDate = startDate !== undefined ? startDate : event.startDate;
-  event.endDate = endDate !== undefined ? endDate : event.endDate;
-  event.category = category !== undefined ? category : event.category;
-  event.tags = tags !== undefined ? tags : event.tags;
-  event.capacity = capacity !== undefined ? capacity : event.capacity;
-  event.visibility = visibility !== undefined ? visibility : event.visibility;
-  event.status = status !== undefined ? status : event.status;
-  event.detailedDescription = detailedDescription !== undefined ? detailedDescription : event.detailedDescription;
-  event.termsAndConditions = termsAndConditions !== undefined ? termsAndConditions : event.termsAndConditions;
-  event.eventOrganizerDetails = organizer !== undefined ? organizer : event.eventOrganizerDetails;
-  event.availableSeats = availableSeats !== undefined ? availableSeats : event.availableSeats;
-
-  // Handle location update
-  if (location) {
-    event.location.type = location.type !== undefined ? location.type : event.location.type;
-    event.location.venueName = location.venueName !== undefined ? location.venueName : event.location.venueName;
-    event.location.address = location.address !== undefined ? location.address : event.location.address;
-    event.location.ward = location.ward !== undefined ? location.ward : event.location.ward;
-    event.location.district = location.district !== undefined ? location.district : event.location.district;
-    event.location.city = location.city !== undefined ? location.city : event.location.city;
-    event.location.country = location.country !== undefined ? location.country : event.location.country;
-    event.location.venueLayout = location.venueLayout !== undefined ? location.venueLayout : event.location.venueLayout;
-
-    if (location.type === 'offline') {
-      let venueId;
-      const existingVenue = await Venue.findOne({
-        name: location.venueName || event.location.venueName,
-        address: location.address || event.location.address,
-        city: location.city || event.location.city
-      });
-
-      if (existingVenue) {
-        venueId = existingVenue._id;
-      } else {
-        const newVenue = await Venue.create({
-          name: location.venueName || event.location.venueName,
-          address: location.address || event.location.address,
-          ward: location.ward || event.location.ward,
-          district: location.district || event.location.district,
-          city: location.city || event.location.city,
-          country: location.country || event.location.country || 'Vietnam',
-        });
-        venueId = newVenue._id;
-      }
-      event.location.venue = venueId;
-    } else {
-      event.location.venue = undefined;
-    }
-  }
-
-  // Validate organizers if provided
-  if (organizers) {
-    if (!Array.isArray(organizers) || organizers.length === 0) {
-      res.status(400);
-      throw new Error('Organizers phải là một mảng không rỗng chứa ObjectId');
-    }
-
-    const invalidOrganizers = organizers.filter(id => !mongoose.Types.ObjectId.isValid(id));
-    if (invalidOrganizers.length > 0) {
-      res.status(400);
-      throw new Error(`Các giá trị không phải ObjectId hợp lệ: ${invalidOrganizers.join(', ')}`);
-    }
-
-    const organizerExists = await User.find({ _id: { $in: organizers } });
-    if (organizerExists.length !== organizers.length) {
-      res.status(400);
-      throw new Error('Một hoặc nhiều người tổ chức không tồn tại');
-    }
-    event.organizers = organizers;
-  }
-
-  // Handle seatingMap update
-  if (seatingMap) {
-    event.seatingMap = seatingMap;
-  }
-
-  const updatedEvent = await event.save();
-
-  // Populate organizers and venue
-  const populatedEvent = await Event.findById(updatedEvent._id)
-    .populate('organizers', 'username email fullName avatar')
-    .populate('location.venue', 'name address')
-    .lean();
-
-  res.status(200).json({
-    success: true,
-    data: populatedEvent
-  });
-});
-
-// Delete an event
-const deleteEvent = asyncHandler(async (req, res) => {
-  const event = await Event.findById(req.params.id);
-
-  if (!event) {
-    res.status(404);
-    throw new Error(`Không tìm thấy sự kiện với ID ${req.params.id}`);
-  }
-
-  await event.deleteOne();
-
-  res.status(200).json({
-    success: true,
-    message: 'Sự kiện đã được xóa thành công'
-  });
-});
-
-// Get events by owner ID
-const getEventsByOwnerId = asyncHandler(async (req, res) => {
-  const { ownerId } = req.params;
-
-  if (!mongoose.Types.ObjectId.isValid(ownerId)) {
-    res.status(400);
-    throw new Error('ID người sở hữu không hợp lệ');
-  }
-
-  const events = await Event.find({ organizers: ownerId })
-    .populate('organizers', 'username email fullName avatar')
-    .populate('location.venue', 'name address')
-    .lean();
-
-  res.status(200).json({
-    success: true,
-    data: events
-  });
-});
-
-// *** HÀM MỚI: TẠO TICKETS TỪ SEATING MAP ***
-const generateTicketsFromSeatingMap = async (eventId, seatingMap, ticketTypes) => {
-  const tickets = [];
-  let totalTicketsCreated = 0;
-  
-  // Tạo map từ ticketType ID sang price
-  const ticketTypeMap = {};
-  ticketTypes.forEach(tt => {
-    ticketTypeMap[tt._id.toString()] = {
-      name: tt.name,
-      price: tt.price
-    };
-  });
-
-  // Duyệt qua tất cả sections và seats để tạo tickets
-  for (const section of seatingMap.sections) {
-    for (const row of section.rows) {
-      for (const seat of row.seats) {
-        const ticketInfo = ticketTypeMap[section.ticketTier.toString()];
-        
-        if (ticketInfo) {
-          tickets.push({
-            event: eventId,
-            user: null, // Chưa có người mua
-            price: ticketInfo.price,
-            status: 'available', // Thay vì 'active' là 'available'
-            qrCode: `${eventId}-${section.name}-${seat.number}-${Date.now()}${Math.random().toString(36).substr(2, 5)}`,
-            bookingId: null, // Chưa có booking
-            ticketType: ticketInfo.name,
-            seat: {
-              section: section.name,
-              row: row.name,
-              seatNumber: seat.number
-            },
-            isUsed: false
-          });
-          totalTicketsCreated++;
-        }
-      }
-    }
-  }
-
-  // Batch insert để tối ưu performance
-  if (tickets.length > 0) {
-    await Ticket.insertMany(tickets);
-  }
-
-  return totalTicketsCreated;
-};
-
-// Get ticket statistics for an event
+// Get event ticket stats for dashboard
 const getEventTicketStats = asyncHandler(async (req, res) => {
-  const { eventId } = req.params;
-  const Ticket = require('../models/Ticket');
-  
-  const stats = await Ticket.aggregate([
-    { $match: { event: new mongoose.Types.ObjectId(eventId) } },
-    {
-      $group: {
-        _id: '$status',
-        count: { $sum: 1 }
-      }
-    }
-  ]);
-  
-  const totalTickets = await Ticket.countDocuments({ event: eventId });
-  
-  const formattedStats = {
-    total: totalTickets,
-    available: 0,
-    active: 0,
-    returned: 0
-  };
-  
-  stats.forEach(stat => {
-    formattedStats[stat._id] = stat.count;
-  });
-  
-  res.json({
-    success: true,
-    data: formattedStats
-  });
-});
-
-// Preview seating map endpoint
-const previewSeatingMap = asyncHandler(async (req, res) => {
-  const { seatOptions, ticketTypes } = req.body;
-
-  // Validate input
-  if (!seatOptions || !seatOptions.totalSeats || !seatOptions.totalSections) {
-    res.status(400);
-    throw new Error('seatOptions với totalSeats và totalSections là bắt buộc');
-  }
-
-  if (!ticketTypes || !Array.isArray(ticketTypes) || ticketTypes.length === 0) {
-    res.status(400);
-    throw new Error('ticketTypes là bắt buộc và phải là array');
-  }
-
   try {
-    // Generate seating map preview
-    const seatingMap = generateSeatingMap(seatOptions, ticketTypes);
+    const { eventId } = req.params;
     
-    console.log(`🎭 Generated seating preview: ${seatOptions.totalSeats} seats, ${seatOptions.totalSections} sections, layout: ${seatOptions.venueType}`);
+    // Validate event exists
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sự kiện'
+      });
+    }
+    
+    // Get all tickets for this event
+    const tickets = await Ticket.find({ event: eventId });
+    
+    // Get ticket types for this event
+    const ticketTypes = await TicketType.find({ event: eventId });
+    
+    // Calculate stats
+    const stats = {
+      totalTickets: tickets.length,
+      soldTickets: tickets.filter(ticket => ticket.status === 'sold').length,
+      reservedTickets: tickets.filter(ticket => ticket.status === 'reserved').length,
+      availableTickets: tickets.filter(ticket => ticket.status === 'available').length,
+      ticketTypeStats: []
+    };
+    
+    // Calculate stats per ticket type
+    for (const type of ticketTypes) {
+      const typeTickets = tickets.filter(ticket => ticket.ticketType.toString() === type._id.toString());
+      stats.ticketTypeStats.push({
+        typeId: type._id,
+        typeName: type.name,
+        typeColor: type.color,
+        total: typeTickets.length,
+        sold: typeTickets.filter(ticket => ticket.status === 'sold').length,
+        reserved: typeTickets.filter(ticket => ticket.status === 'reserved').length,
+        available: typeTickets.filter(ticket => ticket.status === 'available').length,
+      });
+    }
     
     res.json({
       success: true,
-      data: seatingMap
+      data: stats
     });
   } catch (error) {
-    console.error('Error generating seating preview:', error);
-    res.status(500);
-    throw new Error('Không thể tạo preview sơ đồ ghế: ' + error.message);
+    console.error('Error getting event ticket stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy thống kê vé'
+    });
   }
 });
 
+// Helper function to generate seating layouts
+const createFixedLayout = () => {
+  // Create two fixed sections with predefined coordinates - with more spacing between them
+  const sections = [
+    {
+      name: "Khu 1 (Vé Thường)",
+      x: 100,  // Moved further left
+      y: 250,  // Moved up slightly
+      width: 350,
+      height: 200,
+      rows: []
+    },
+    {
+      name: "Khu 2 (Vé Thường)", 
+      x: 650,  // Increased distance from first section
+      y: 250,  // Aligned with first section
+      width: 350,
+      height: 200,
+      rows: []
+    }
+  ];
+
+  // Generate 5 rows per section with 10 seats each
+  sections.forEach((section, sectionIndex) => {
+    for (let r = 0; r < 5; r++) {
+      const rowName = String.fromCharCode(65 + r); // A, B, C, etc.
+      const rowY = section.y + 40 + (r * 35); // Increased spacing between rows
+      
+      const seats = [];
+      for (let s = 0; s < 10; s++) {
+        seats.push({
+          // Remove the _id field - let MongoDB generate it
+          number: s + 1,
+          status: 'available',
+          // Place seats evenly within the section width with more space
+          x: section.x + 30 + (s * 30), // Increased spacing between seats
+          y: rowY
+        });
+      }
+      
+      section.rows.push({
+        name: rowName,
+        seats: seats
+      });
+    }
+  });
+
+  // Define venue objects like entrances, exits, and facilities
+  const venueObjects = [
+    { 
+      type: 'entrance',
+      label: 'LỐI VÀO',
+      x: 100,
+      y: 550,
+      width: 100,
+      height: 40
+    },
+    { 
+      type: 'exit',
+      label: 'LỐI RA',
+      x: 800,
+      y: 550,
+      width: 100,
+      height: 40
+    },
+    { 
+      type: 'wc',
+      label: 'WC',
+      x: 100, 
+      y: 620,
+      width: 80,
+      height: 40
+    },
+    { 
+      type: 'wc',
+      label: 'WC',
+      x: 820,
+      y: 620,
+      width: 80,
+      height: 40
+    },
+    { 
+      type: 'food',
+      label: 'ĐỒ ĂN',
+      x: 250,
+      y: 620,
+      width: 80,
+      height: 40
+    },
+    { 
+      type: 'drinks',
+      label: 'NƯỚC',
+      x: 650,
+      y: 620,
+      width: 80,
+      height: 40
+    }
+  ];
+
+  return {
+    layoutType: 'theater', // Add the required layoutType field
+    sections,
+    stage: { x: 400, y: 80, width: 400, height: 100 },
+    venueObjects: venueObjects
+  };
+};
+
+// Export all controller functions
 module.exports = {
-  createEvent,
-  createEventWithSeating,
   getEvents,
   getEventById,
+  createEvent,
   updateEvent,
   deleteEvent,
-  getEventsByOwnerId,
-  getEventTicketStats,
-  previewSeatingMap
+  updateSeatingMapTemp,
+  createEventWithSeating,
+  previewSeatingMap,
+  getEventTicketStats
 };

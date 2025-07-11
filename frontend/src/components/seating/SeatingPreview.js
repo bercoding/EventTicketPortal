@@ -6,7 +6,8 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [hoveredSeat, setHoveredSeat] = useState(null);
 
-  if (!seatingMap || !seatingMap.sections) {
+  // Handle completely missing seatingMap
+  if (!seatingMap) {
     return (
       <div className="seating-preview empty">
         <p>Chưa có sơ đồ ghế</p>
@@ -14,7 +15,44 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
     );
   }
 
-  const { sections, stage, venueObjects = [] } = seatingMap;
+  // Ensure sections exist with fallbacks
+  const normalizedSeatingMap = {
+    ...seatingMap, // Keep all original properties
+    layoutType: seatingMap.layoutType || 'theater',
+    sections: Array.isArray(seatingMap.sections) ? seatingMap.sections : [],
+    stage: seatingMap.stage || { x: 400, y: 50, width: 300, height: 60 },
+    venueObjects: Array.isArray(seatingMap.venueObjects) 
+      ? seatingMap.venueObjects.map(obj => ({
+          ...obj, // Keep all original properties
+          // Ensure objectType is consistent (some objects might use 'type' instead of 'objectType')
+          objectType: obj.objectType || obj.type || 'other',
+          // Ensure dimensions are numbers but preserve original values
+          width: Number(obj.width) || 30,
+          height: Number(obj.height) || 30,
+          x: Number(obj.x) || 0,
+          y: Number(obj.y) || 0,
+          rotation: Number(obj.rotation) || 0
+        })) 
+      : []
+  };
+  
+  // Log the normalized seating map for debugging
+  console.log('Normalized seatingMap:', 
+    `layoutType=${normalizedSeatingMap.layoutType}, ` +
+    `sections=${normalizedSeatingMap.sections.length}, ` +
+    `venueObjects=${normalizedSeatingMap.venueObjects.length}`
+  );
+
+  // If no sections at all, show empty message
+  if (normalizedSeatingMap.sections.length === 0) {
+    return (
+      <div className="seating-preview empty">
+        <p>Chưa có khu vực ghế nào</p>
+      </div>
+    );
+  }
+
+  const { sections, stage, venueObjects = [] } = normalizedSeatingMap;
 
   // Định nghĩa các loại venue object
   const venueObjectTypes = {
@@ -25,6 +63,7 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
     'drinks': { name: 'Quầy nước', icon: <FaGlassMartiniAlt />, color: '#9C27B0' },
     'accessible': { name: 'Lối đi cho người khuyết tật', icon: <FaWheelchair />, color: '#03A9F4' },
     'info': { name: 'Quầy thông tin', icon: <FaInfoCircle />, color: '#607D8B' },
+    'other': { name: 'Khác', icon: <FaInfoCircle />, color: '#607D8B' }
   };
 
   // Color mapping cho các loại vé - cập nhật với màu sắc mới
@@ -165,7 +204,7 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
     const height = maxY - minY;
 
     // Xác định viewport dựa trên loại layout
-    const layoutType = seatingMap.layoutType || 'custom';
+    const layoutType = normalizedSeatingMap.layoutType || 'custom';
     let viewportWidth = width;
     let viewportHeight = height;
     
@@ -211,26 +250,28 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
 
   // Render venue objects như lối vào, nhà vệ sinh, ...
   const renderVenueObject = (object) => {
-    const typeInfo = venueObjectTypes[object.type];
+    const objectType = object.objectType || object.type || 'other';
+    const typeInfo = venueObjectTypes[objectType] || venueObjectTypes['other'];
     
-    // Không render nếu không tìm thấy thông tin loại object
-    if (!typeInfo) return null;
+    // Default values for safety
+    const defaultColor = '#888888';
+    const defaultName = object.label || typeInfo.name || 'Vật thể';
 
     return (
       <g 
         key={object.id}
         className="venue-object"
-        transform={`rotate(${object.rotation || 0}, ${object.x + (object.width/2)}, ${object.y + (object.height/2)})`}
+        transform={`translate(${object.x}, ${object.y}) rotate(${object.rotation || 0}, ${object.width/2}, ${object.height/2})`}
       >
         {/* Object background */}
         <rect
-          x={object.x}
-          y={object.y}
-          width={object.width}
-          height={object.height}
-          fill={object.color || typeInfo.color}
-          fillOpacity="0.7"
-          stroke={object.color || typeInfo.color}
+          x={0}
+          y={0}
+          width={object.width || 30}
+          height={object.height || 30}
+          fill={object.color || (typeInfo ? typeInfo.color : defaultColor)}
+          fillOpacity="0.8"
+          stroke={object.color || (typeInfo ? typeInfo.color : defaultColor)}
           strokeWidth="1.5"
           rx="3"
         />
@@ -238,33 +279,38 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
         {/* Object label */}
         {showLabels && (
           <text
-            x={object.x + object.width / 2}
-            y={object.y - 8}
+            x={(object.width || 30) / 2}
+            y={-8}
             textAnchor="middle"
-            fill={object.color || typeInfo.color}
+            fill={object.color || (typeInfo ? typeInfo.color : defaultColor)}
             fontSize="12"
             fontWeight="bold"
             className="venue-object-label"
           >
-            {object.name}
+            {object.label || defaultName}
           </text>
         )}
         
         {/* Object icon/text */}
         <text
-          x={object.x + object.width / 2}
-          y={object.y + object.height / 2 + 5}
+          x={(object.width || 30) / 2}
+          y={(object.height || 30) / 2 + 5}
           textAnchor="middle"
           fill="white"
           fontSize="14"
           fontWeight="bold"
           className="venue-object-text"
         >
-          {object.type.charAt(0).toUpperCase()}
+          {objectType ? objectType.charAt(0).toUpperCase() : '?'}
         </text>
       </g>
     );
   };
+
+  // Filter out any potentially problematic venue objects
+  const safeVenueObjects = venueObjects.filter(obj => 
+    obj && typeof obj === 'object' && (obj.objectType || obj.type)
+  );
 
   return (
     <div className="seating-preview">
@@ -278,8 +324,8 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
                 y={stage.y}
                 width={stage.width}
                 height={stage.height}
-                fill={seatingMap.layoutType === 'footballStadium' ? '#3a6e2a' : 
-                      seatingMap.layoutType === 'basketballArena' ? '#b75b1a' : 
+                fill={normalizedSeatingMap.layoutType === 'footballStadium' ? '#3a6e2a' : 
+                      normalizedSeatingMap.layoutType === 'basketballArena' ? '#b75b1a' : 
                       "#1a1a1a"}
                 stroke="#333"
                 strokeWidth="2"
@@ -293,12 +339,12 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
                 fontSize="14"
                 fontWeight="bold"
               >
-                {seatingMap.layoutType === 'footballStadium' ? 'SÂN BÓNG ĐÁ' : 
-                 seatingMap.layoutType === 'basketballArena' ? 'SÂN BÓNG RỔ' : 
+                {normalizedSeatingMap.layoutType === 'footballStadium' ? 'SÂN BÓNG ĐÁ' : 
+                 normalizedSeatingMap.layoutType === 'basketballArena' ? 'SÂN BÓNG RỔ' : 
                  'SÂN KHẤU'}
               </text>
               {/* Stage lights - only for theater/concert/outdoor layouts */}
-              {!['footballStadium', 'basketballArena'].includes(seatingMap.layoutType) && 
+              {!['footballStadium', 'basketballArena'].includes(normalizedSeatingMap.layoutType) && 
                 Array.from({ length: 7 }, (_, i) => (
                 <circle
                   key={i}
@@ -312,7 +358,7 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
               }
               
               {/* Football field markings */}
-              {seatingMap.layoutType === 'footballStadium' && (
+              {normalizedSeatingMap.layoutType === 'footballStadium' && (
                 <g>
                   {/* Pitch background */}
                   <rect
@@ -392,7 +438,7 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
               )}
               
               {/* Basketball court markings */}
-              {seatingMap.layoutType === 'basketballArena' && (
+              {normalizedSeatingMap.layoutType === 'basketballArena' && (
                 <g>
                   {/* Court background */}
                   <rect
@@ -516,10 +562,11 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
               {showLabels && (
               <text
                 x={section.x + (section.width || 180) / 2}
-                y={section.y + 20}
+                y={section.y + (section.height || 150) / 2}
                 textAnchor="middle"
                 fill="#555"
-                fontSize="12"
+                fontSize="14"
+                fontWeight="bold"
               >
                 {section.capacity || 
                  (section.rows ? section.rows.reduce((total, row) => 
@@ -527,8 +574,8 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
               </text>
               )}
 
-              {/* Rows */}
-              {section.rows && section.rows.map((row, rowIndex) => (
+              {/* Only render rows and seats visually if section is not simplified */}
+              {!section.simplified && section.rows && section.rows.map((row, rowIndex) => (
                 <g key={rowIndex} className="row">
                   {/* Row label - giảm kích cỡ chữ để tránh chồng lên */}
                   {showLabels && (
@@ -634,7 +681,9 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
           ))}
 
           {/* Render venue objects like entrances, exits, restrooms etc. */}
-          {venueObjects && venueObjects.map((object) => renderVenueObject(object))}
+          {safeVenueObjects && safeVenueObjects.length > 0 && safeVenueObjects.map((object, index) => {
+            return renderVenueObject({...object, id: object.id || `venue-${index}`});
+          })}
         </svg>
       </div>
       
@@ -656,33 +705,33 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
           </div>
           
           {/* Show venue objects in legend if they exist */}
-          {venueObjects && venueObjects.length > 0 && (
+          {safeVenueObjects && safeVenueObjects.length > 0 && (
             <>
-              {venueObjects.some(obj => obj.type === 'entrance') && (
+              {safeVenueObjects.some(obj => (obj.objectType || obj.type) === 'entrance') && (
                 <div className="legend-item">
                   <div className="color-box" style={{ backgroundColor: "#4CAF50" }}></div>
                   <span>Lối vào</span>
                 </div>
               )}
-              {venueObjects.some(obj => obj.type === 'exit') && (
+              {safeVenueObjects.some(obj => (obj.objectType || obj.type) === 'exit') && (
                 <div className="legend-item">
                   <div className="color-box" style={{ backgroundColor: "#F44336" }}></div>
                   <span>Lối ra</span>
                 </div>
               )}
-              {venueObjects.some(obj => obj.type === 'restroom') && (
+              {safeVenueObjects.some(obj => (obj.objectType || obj.type) === 'restroom') && (
                 <div className="legend-item">
                   <div className="color-box" style={{ backgroundColor: "#2196F3" }}></div>
                   <span>Nhà vệ sinh</span>
                 </div>
               )}
-              {venueObjects.some(obj => obj.type === 'food') && (
+              {safeVenueObjects.some(obj => (obj.objectType || obj.type) === 'food') && (
                 <div className="legend-item">
                   <div className="color-box" style={{ backgroundColor: "#FF9800" }}></div>
                   <span>Quầy thức ăn</span>
                 </div>
               )}
-              {venueObjects.some(obj => obj.type === 'drinks') && (
+              {safeVenueObjects.some(obj => (obj.objectType || obj.type) === 'drinks') && (
                 <div className="legend-item">
                   <div className="color-box" style={{ backgroundColor: "#9C27B0" }}></div>
                   <span>Quầy nước</span>

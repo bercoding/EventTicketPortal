@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { userProfileAPI } from '../services/api';
 import { FaUserCircle, FaEdit, FaCamera, FaSave, FaTimes, FaKey } from 'react-icons/fa';
+import { formatAvatarUrl } from '../utils/imageHelpers';
 
 const OwnerStatus = () => {
     const [request, setRequest] = useState(null);
@@ -97,6 +98,11 @@ const ProfilePage = () => {
                     userData = response;
                 }
                 
+                // Format the avatar URL if it exists
+                if (userData?.avatar) {
+                    userData.avatar = formatAvatarUrl(userData.avatar);
+                }
+                
                 setProfileData(userData);
                 if (userData && JSON.stringify(userData) !== JSON.stringify(user)) {
                      setUser(userData); 
@@ -149,7 +155,7 @@ const ProfilePage = () => {
         setSuccess('');
         try {
             const { fullName, bio, dateOfBirth, phoneNumber } = profileData;
-            const dataToUpdate = { fullName, bio, dateOfBirth, phoneNumber };
+            const dataToUpdate = { fullName, bio, dateOfBirth, phone: phoneNumber };
             
             console.log('Updating profile with data:', dataToUpdate);
             const response = await userProfileAPI.updateUserProfile(dataToUpdate);
@@ -207,11 +213,15 @@ const ProfilePage = () => {
 
         try {
             const response = await userProfileAPI.updateUserAvatar(formData);
-            setProfileData(prev => ({...prev, avatar: response.data.avatar }));
-            setUser(prev => ({...prev, avatar: response.data.avatar }));
-            setAvatarPreview(response.data.avatar);
+            const avatarUrl = formatAvatarUrl(response.data.avatar);
+            
+            setProfileData(prev => ({...prev, avatar: avatarUrl }));
+            setUser(prev => ({...prev, avatar: avatarUrl }));
+            setAvatarPreview(avatarUrl);
             setAvatarFile(null); 
             setSuccess(response.data.message || 'Cập nhật ảnh đại diện thành công!');
+            
+            console.log('Avatar updated successfully:', avatarUrl);
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Lỗi khi cập nhật ảnh đại diện.');
         }
@@ -244,7 +254,7 @@ const ProfilePage = () => {
                 <div className="md:w-1/3 bg-gradient-to-br from-green-500 to-blue-600 p-6 md:p-8 text-center flex flex-col items-center justify-center">
                     {avatarPreview ? (
                         <img 
-                            src={avatarPreview} 
+                            src={formatAvatarUrl(avatarPreview)} 
                             alt="Avatar" 
                             className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-md mx-auto mb-4"
                             onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=No+Image'; }}
@@ -374,15 +384,15 @@ const ProfilePage = () => {
                                 {editMode ? (
                                     <input 
                                         type="tel" 
-                                        name="phoneNumber"
+                                        name="phone"
                                         id="phoneNumber"
-                                        value={profileData.phoneNumber || ''}
+                                        value={profileData.phoneNumber || profileData.phone || ''}
                                         onChange={handleInputChange}
                                         className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
                                         placeholder="Nhập số điện thoại"
                                     />
                                 ) : (
-                                    <p className="text-gray-800 text-base bg-gray-50 p-2.5 rounded-lg">{profileData.phoneNumber || 'Chưa cập nhật'}</p>
+                                    <p className="text-gray-800 text-base bg-gray-50 p-2.5 rounded-lg">{profileData.phoneNumber || profileData.phone || 'Chưa cập nhật'}</p>
                                 )}
                             </div>
                              <div>

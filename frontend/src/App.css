@@ -140,3 +140,112 @@ p {
 .events-container p {
   color: #6b7280;
 }
+
+/* Đảm bảo chỉ hiển thị một navigation bar */
+nav.bg-gradient-to-r.from-blue-600.to-indigo-700.text-white.shadow-lg {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+/* Đảm bảo không có hai navigation bar hiển thị chồng lên nhau */
+nav.bg-gradient-to-r.from-blue-600.to-indigo-700.text-white.shadow-lg + 
+nav.bg-gradient-to-r.from-blue-600.to-indigo-700.text-white.shadow-lg {
+  display: none;
+}
+
+/* Fix cho Interactive Seating Designer */
+.interactive-seating-designer {
+  overflow: hidden;
+  position: relative;
+  border-radius: 8px;
+}
+
+.seating-designer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: #1f2937;
+  border-radius: 8px;
+  z-index: 100;
+}
+
+.seating-designer-canvas {
+  position: relative;
+  height: 600px;
+  border: 2px solid #4b5563;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.seating-designer-toolbar button {
+  padding: 8px 12px;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+
+.seating-designer-toolbar button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Ensure SVG elements are interactive */
+.seating-svg g {
+  pointer-events: all;
+}
+
+.seating-svg .section, .seating-svg .venue-object, .seating-svg .stage-element {
+  cursor: pointer;
+}
+
+/* Fix z-index issues that might prevent click events */
+.seating-svg {
+  z-index: 10;
+}
+
+.section.selected rect, .venue-object.selected rect, .stage.selected {
+  stroke: white;
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+}
+
+/* Fix for the seatingMap container to ensure it's tall enough */
+.seating-map-container {
+  min-height: 650px;
+}
+
+/* For debugging */
+.debug-outline {
+  border: 2px dashed red;
+}
+
+.debug-info {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  font-family: monospace;
+  max-width: 400px;
+  z-index: 9999;
+}
+
+/* Ensure form buttons don't interfere with the designer */
+.create-event-form button:not(.seating-designer-toolbar button) {
+  z-index: 5;
+}
+
+/* Fix any event propagation issues with the SVG container */
+.seating-designer-canvas svg {
+  pointer-events: all !important;
+}

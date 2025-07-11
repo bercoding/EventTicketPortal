@@ -304,58 +304,41 @@ const CreateEvent = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <label htmlFor="city" className="block text-sm font-medium text-gray-300 mb-2">Tỉnh/Thành</label>
-                          <select
+                          <input
+                            type="text"
                             id="city"
                             name="location.city"
-                            value={selectedProvinceCode}
+                            value={formData.location.city}
                             onChange={handleChange}
+                            placeholder="Ví dụ: Hà Nội"
                             className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                          >
-                            <option value="">Chọn Tỉnh/Thành</option>
-                            {provinces.map(province => (
-                              <option key={province.code} value={province.code}>
-                                {province.name}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                         <div>
                           <label htmlFor="district" className="block text-sm font-medium text-gray-300 mb-2">Quận/Huyện</label>
-                          <select
+                          <input
+                            type="text"
                             id="district"
                             name="location.district"
-                            value={selectedDistrictCode}
+                            value={formData.location.district}
                             onChange={handleChange}
-                            disabled={!selectedProvinceCode || districts.length === 0}
-                            className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <option value="">Chọn Quận/Huyện</option>
-                            {districts.map(district => (
-                              <option key={district.code} value={district.code}>
-                                {district.name}
-                              </option>
-                            ))}
-                          </select>
+                            placeholder="Ví dụ: Hoàn Kiếm"
+                            className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
+                          />
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <label htmlFor="ward" className="block text-sm font-medium text-gray-300 mb-2">Phường/Xã</label>
-                          <select
+                          <input
+                            type="text"
                             id="ward"
                             name="location.ward"
-                            value={selectedWardCode}
+                            value={formData.location.ward}
                             onChange={handleChange}
-                            disabled={!selectedDistrictCode || wards.length === 0}
-                            className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <option value="">Chọn Phường/Xã</option>
-                            {wards.map(ward => (
-                              <option key={ward.code} value={ward.code}>
-                                {ward.name}
-                              </option>
-                            ))}
-                          </select>
+                            placeholder="Ví dụ: Phường Hàng Bài"
+                            className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
+                          />
                         </div>
                         <div>
                           <label htmlFor="address" className="block text-sm font-medium text-gray-300 mb-2">Số nhà, đường <span className="text-red-500">*</span></label>

@@ -59,8 +59,34 @@ exports.authenticateToken = exports.protect;
 
 // Admin authorization middleware
 exports.requireAdmin = (req, res, next) => {
+    // Debug mode: Skip authentication for development/testing
+    if (process.env.NODE_ENV === 'development' && req.path.includes('/debug/')) {
+        console.log('🔧 DEBUG MODE: Skipping admin check for debug endpoint', req.path);
+        return next();
+    }
+
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Admin access required' });
     }
     next();
-}; 
+};
+
+// Admin or Event Owner authorization middleware
+exports.requireAdminOrEventOwner = (req, res, next) => {
+    // Debug mode: Skip authentication for development/testing
+    if (process.env.NODE_ENV === 'development' && req.path.includes('/debug/')) {
+        console.log('🔧 DEBUG MODE: Skipping owner check for debug endpoint', req.path);
+        return next();
+    }
+    
+    if (req.user.role !== 'admin' && req.user.role !== 'event_owner' && req.user.role !== 'owner') {
+        return res.status(403).json({ 
+            success: false,
+            message: 'Chỉ Admin hoặc Đối tác có quyền truy cập tính năng này' 
+        });
+    }
+    next();
+};
+
+// Middleware đơn giản để xác thực người dùng
+exports.auth = exports.protect;
