@@ -443,17 +443,6 @@ const SelectSeatPage = () => {
                         <h2 className="text-2xl font-bold text-center text-gray-800">CHỌN VÉ CỦA BẠN</h2>
                     </div>
                     <div className="flex-grow p-2 relative">
-                        {/* Instructions tooltip */}
-                        <div className="absolute top-2 right-2 z-10 bg-blue-700/90 text-white p-4 rounded-lg shadow-lg max-w-xs">
-                            <h3 className="font-bold mb-2">Hướng dẫn sử dụng:</h3>
-                            <ul className="list-disc list-inside text-sm space-y-1">
-                                <li>Nhấn vào ghế trống để chọn</li>
-                                <li>Nhấn lại để bỏ chọn</li>
-                                <li>Dùng +/- để phóng to/thu nhỏ</li>
-                                <li>Kéo để di chuyển sơ đồ</li>
-                            </ul>
-                        </div>
-
                         <AdvancedSeatingChart
                             eventData={eventData}
                             selectedSeats={selectedSeats}

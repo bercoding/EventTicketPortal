@@ -62,19 +62,8 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
   const sections = seatingMap.sections || [];
   const stage = seatingMap.stage || { x: 400, y: 80, width: 400, height: 100 };
   
-  // Create default venue objects if none exist
+  // Use venue objects from seating map
   let venueObjects = seatingMap.venueObjects || [];
-  if (venueObjects.length === 0) {
-    console.log('⚠️ No venue objects found, adding default ones');
-    venueObjects = [
-      { type: 'entrance', label: 'LỐI VÀO', x: 100, y: 550, width: 100, height: 40 },
-      { type: 'exit', label: 'LỐI RA', x: 800, y: 550, width: 100, height: 40 },
-      { type: 'wc', label: 'WC', x: 100, y: 620, width: 80, height: 40 },
-      { type: 'wc', label: 'WC', x: 820, y: 620, width: 80, height: 40 },
-      { type: 'food', label: 'ĐỒ ĂN', x: 250, y: 620, width: 80, height: 40 },
-      { type: 'drinks', label: 'NƯỚC', x: 650, y: 620, width: 80, height: 40 }
-    ];
-  }
   
   // Log detailed information for debugging
   console.log('🎭 RENDERING AdvancedSeatingChart with:', {
@@ -418,6 +407,7 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
         if (ticketType) {
           sectionColor = ticketType.color || getTicketTypeColor(ticketType, sectionIndex);
           ticketInfo = ` (${ticketType.name})`;
+          console.log(`🎫 Section "${section.name}" has ticket type: ${ticketType.name} with color ${sectionColor}`);
         }
       }
       
@@ -448,8 +438,25 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
             strokeWidth={0.5}
             paintOrder="stroke"
           >
-            {section.name}{ticketInfo}
+            {section.name}
           </text>
+          
+          {/* Ticket type name - displayed below section name */}
+          {ticketInfo && (
+            <text
+              x={sectionX + sectionWidth / 2}
+              y={sectionY - 30}
+              textAnchor="middle"
+              fill={sectionColor}
+              fontWeight="bold"
+              fontSize={16}
+              stroke="#000000"
+              strokeWidth={0.3}
+              paintOrder="stroke"
+            >
+              {ticketInfo}
+            </text>
+          )}
           
           {/* Render seats */}
           {Array.isArray(section.rows) && section.rows.map((row, rowIndex) => {

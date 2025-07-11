@@ -677,11 +677,19 @@ const createEventWithSeating = asyncHandler(async (req, res) => {
           console.log("🎭 Generating fixed seating layout");
           const fixedLayout = createFixedLayout();
           
-          // Assign the first ticket type to all sections
+          // Assign different ticket types to different sections
           if (ticketTypeIds.length > 0) {
-            for (const section of fixedLayout.sections) {
-              section.ticketTier = ticketTypeIds[0];
+            // First section gets first ticket type (Vé Thường)
+            fixedLayout.sections[0].ticketTier = ticketTypeIds[0];
+            
+            // Second section gets second ticket type (Vé VIP) if available, otherwise first ticket type
+            if (ticketTypeIds.length > 1) {
+              fixedLayout.sections[1].ticketTier = ticketTypeIds[1];
+            } else {
+              fixedLayout.sections[1].ticketTier = ticketTypeIds[0];
             }
+            
+            console.log(`🎫 Assigned ticket types to sections: Section 1 -> ${ticketTypeIds[0]}, Section 2 -> ${ticketTypeIds.length > 1 ? ticketTypeIds[1] : ticketTypeIds[0]}`);
           }
           
           // Update the event with the new seating map
@@ -707,11 +715,19 @@ const createEventWithSeating = asyncHandler(async (req, res) => {
         console.log("🎭 No seating map found, creating a fixed layout");
         const fixedLayout = createFixedLayout();
         
-        // Assign the first ticket type to all sections
+        // Assign different ticket types to different sections
         if (ticketTypeIds.length > 0) {
-          for (const section of fixedLayout.sections) {
-            section.ticketTier = ticketTypeIds[0];
+          // First section gets first ticket type (Vé Thường)
+          fixedLayout.sections[0].ticketTier = ticketTypeIds[0];
+          
+          // Second section gets second ticket type (Vé VIP) if available, otherwise first ticket type
+          if (ticketTypeIds.length > 1) {
+            fixedLayout.sections[1].ticketTier = ticketTypeIds[1];
+          } else {
+            fixedLayout.sections[1].ticketTier = ticketTypeIds[0];
           }
+          
+          console.log(`🎫 Assigned ticket types to sections: Section 1 -> ${ticketTypeIds[0]}, Section 2 -> ${ticketTypeIds.length > 1 ? ticketTypeIds[1] : ticketTypeIds[0]}`);
         }
         
         createdEvent.seatingMap = fixedLayout;
@@ -1591,7 +1607,7 @@ const createFixedLayout = () => {
       rows: []
     },
     {
-      name: "Khu 2 (Vé Thường)", 
+      name: "Khu 2 (Vé VIP)", 
       x: 650,  // Increased distance from first section
       y: 250,  // Aligned with first section
       width: 350,
