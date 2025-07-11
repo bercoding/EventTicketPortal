@@ -4,6 +4,7 @@ import { FaCalendarAlt, FaMapMarkerAlt, FaTicketAlt, FaClock, FaUsers, FaInfoCir
 import { eventAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { getEventPlaceholder, handleImageError } from '../utils/imageHelpers';
+import ReviewSection from './ReviewSection';
 
 // This is a "dumb" component, focused only on displaying event details.
 // All booking logic has been moved to the `SelectSeatPage`.
@@ -272,6 +273,8 @@ const EventDetailPage = () => {
                                     <span>Cập nhật lần cuối: {new Date().toLocaleDateString('vi-VN')}</span>
                                 </div>
                             </div>
+                             {/* Event Description */}
+                             <ReviewSection />
                         </div>
                     </div>
                 </div>

@@ -32,6 +32,7 @@ import CreateEvent from './pages/event/CreateEvent';
 import CreateEventWithSeating from './pages/event/CreateEventWithSeating';
 import ManageEvent from './pages/event/ManageEvent';
 import MyEvents from './pages/MyEvents';
+import ReviewSection from './pages/ReviewSection';
 import PaymentCallback from './pages/PaymentCallback';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailure from './pages/PaymentFailure';
@@ -142,7 +143,8 @@ const App = () => {
                                         <Route path="/profile" element={<ProfilePage />} />
                                         <Route path="/profile/change-password" element={<ChangePasswordPage />} />
                                         <Route path="/become-owner" element={<BecomeOwnerPage />} />
-
+                                        <Route path="/events/:eventId/reviews" element={<ReviewSection />} />
+                                        
                                         {/* Owner Routes */}
                                         <Route path="/owner" element={<PrivateRoute><OwnerLayout /></PrivateRoute>}>
                                             <Route index element={<OwnerDashboard />} /> 
