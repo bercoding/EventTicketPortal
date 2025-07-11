@@ -480,40 +480,57 @@ const createEventWithSeating = asyncHandler(async (req, res) => {
           };
         }
         
-        // Ensure rows is an array
-        if (!Array.isArray(section.rows)) {
-          section.rows = [];
-        }
-        
-        // Process each row to ensure proper structure
-        section.rows = section.rows.map(row => {
-          // Ensure seats is an array
-          if (!Array.isArray(row.seats)) {
-            row.seats = [];
-          }
-          
-          // Process each seat to remove _id and ensure proper structure
-          row.seats = row.seats.map(seat => {
-            // Create a new seat object without _id field
-            const { _id, ...seatWithoutId } = seat;
+        // If section already has rows array, preserve it and just clean up the data
+        if (Array.isArray(section.rows)) {
+          // Process each row to ensure proper structure but preserve original data
+          const processedRows = section.rows.map(row => {
+            // If row is not an object or doesn't have seats, create minimal structure
+            if (!row || typeof row !== 'object') {
+              return { name: 'A', seats: [] };
+            }
             
-            // Ensure required fields
-            return {
-              ...seatWithoutId,
-              number: seat.number || '1',
-              status: seat.status || 'available',
-              x: Number(seat.x) || 0,
-              y: Number(seat.y) || 0
-            };
+            // Preserve original row data
+            const processedRow = { ...row };
+            
+            // Ensure seats is an array
+            if (!Array.isArray(processedRow.seats)) {
+              processedRow.seats = [];
+            } else {
+              // Process seats to fix any issues but preserve original data
+              processedRow.seats = processedRow.seats.map(seat => {
+                // If seat is not an object, create minimal structure
+                if (!seat || typeof seat !== 'object') {
+                  return { number: '1', status: 'available', x: 0, y: 0 };
+                }
+                
+                // Create a new seat with all original properties except _id
+                const { _id, ...seatWithoutId } = seat;
+                
+                // Return seat with defaults for missing required fields
+                return {
+                  ...seatWithoutId,
+                  number: seat.number || '1',
+                  status: seat.status || 'available',
+                  x: typeof seat.x === 'number' ? seat.x : 0,
+                  y: typeof seat.y === 'number' ? seat.y : 0
+                };
+              });
+            }
+            
+            return processedRow;
           });
           
           return {
-            ...row,
-            name: row.name || 'A'
+            ...section,
+            rows: processedRows
           };
-        });
+        }
         
-        return section;
+        // If no valid rows structure, create empty rows array
+        return {
+          ...section,
+          rows: []
+        };
       });
     }
     
@@ -584,6 +601,9 @@ const createEventWithSeating = asyncHandler(async (req, res) => {
       // Remove ticketTypes from event creation as we'll create them separately
       ticketTypes: []
     };
+    
+    // Log the event data before creation
+    console.log(`🎭 Creating event with seatingMap: sections=${eventData.seatingMap.sections.length}, venueObjects=${eventData.seatingMap.venueObjects?.length || 0}`);
     
     // Create event first without ticket types
     const createdEvent = await Event.create(eventData);
@@ -707,6 +727,26 @@ const createEventWithSeating = asyncHandler(async (req, res) => {
       if (seatingMap && Array.isArray(seatingMap.venueObjects)) {
         createdEvent.seatingMap.venueObjects = JSON.parse(JSON.stringify(seatingMap.venueObjects));
       }
+      
+      // Ensure we preserve the stage and venue objects exactly as provided
+      if (seatingMap && seatingMap.stage) {
+        createdEvent.seatingMap.stage = JSON.parse(JSON.stringify(seatingMap.stage));
+      }
+      
+      if (seatingMap && Array.isArray(seatingMap.venueObjects)) {
+        createdEvent.seatingMap.venueObjects = JSON.parse(JSON.stringify(seatingMap.venueObjects));
+      }
+      
+      // Make sure layoutType is preserved
+      if (seatingMap && seatingMap.layoutType) {
+        createdEvent.seatingMap.layoutType = seatingMap.layoutType;
+      }
+      
+      // Log the seating map before saving
+      console.log(`🎭 Final seating map before save: layoutType=${createdEvent.seatingMap.layoutType}, sections=${createdEvent.seatingMap.sections.length}, venueObjects=${createdEvent.seatingMap.venueObjects?.length || 0}`);
+      
+      // Mark the seatingMap as modified to ensure it's saved
+      createdEvent.markModified('seatingMap');
       
       // Ensure we save the event with all the processed data
       await createdEvent.save();

@@ -1,7 +1,10 @@
 .seating-preview {
-  width: 100%;
-  height: 100%;
   position: relative;
+  width: 100%;
+  height: 700px;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -107,46 +110,93 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 300px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  color: #6c757d;
+  font-size: 18px;
+  color: #777;
 }
 
 /* Stage styling */
-.stage rect {
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+.stage {
+  position: absolute;
+  background: linear-gradient(to bottom, #4f46e5, #1e40af);
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
 }
 
-.stage text {
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+.stage-text {
+  font-size: 16px;
+  text-align: center;
+}
+
+/* Section styling */
+.section-name {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+  z-index: 5;
+}
+
+/* Row styling */
+.row-name {
+  position: absolute;
+  font-size: 12px;
+  font-weight: bold;
+  color: #555;
 }
 
 /* Seat styling */
-.seat.clickable {
+.seat {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 10px;
   cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: all 0.2s ease;
 }
 
-.seat.clickable:hover rect {
-  filter: brightness(1.2) drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+.seat.available {
+  background-color: #22c55e;
+  color: white;
+  border: 1px solid #16a34a;
 }
 
-.seat.selected rect {
-  stroke-width: 2px;
+.seat.sold {
+  background-color: #f87171;
+  color: white;
+  border: 1px solid #ef4444;
 }
 
-/* Venue objects styling */
-.venue-object {
-  transition: all 0.3s ease;
+.seat.reserved {
+  background-color: #facc15;
+  color: #333;
+  border: 1px solid #eab308;
 }
 
-.venue-object-label {
-  font-size: 12px;
-  font-weight: bold;
+.seat.selected {
+  background-color: #3b82f6;
+  color: white;
+  border: 2px solid #2563eb;
+  transform: translate(-50%, -50%) scale(1.1);
+  z-index: 15;
 }
 
-.venue-object-text {
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+.seat.hovered {
+  background-color: #93c5fd;
+  transform: translate(-50%, -50%) scale(1.1);
+  z-index: 15;
 }
 
 /* Legend */
@@ -291,4 +341,41 @@
 .section:hover text {
   font-size: 14px;
   font-weight: bold;
+} 
+
+/* Venue Objects */
+.venue-object {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.venue-object:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  z-index: 25;
+}
+
+.venue-object-icon {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.venue-object-label {
+  font-size: 10px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 } 

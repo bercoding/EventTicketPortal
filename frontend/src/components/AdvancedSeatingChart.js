@@ -61,7 +61,20 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
 
   const sections = seatingMap.sections || [];
   const stage = seatingMap.stage || { x: 400, y: 80, width: 400, height: 100 };
-  const venueObjects = seatingMap.venueObjects || [];
+  
+  // Create default venue objects if none exist
+  let venueObjects = seatingMap.venueObjects || [];
+  if (venueObjects.length === 0) {
+    console.log('⚠️ No venue objects found, adding default ones');
+    venueObjects = [
+      { type: 'entrance', label: 'LỐI VÀO', x: 100, y: 550, width: 100, height: 40 },
+      { type: 'exit', label: 'LỐI RA', x: 800, y: 550, width: 100, height: 40 },
+      { type: 'wc', label: 'WC', x: 100, y: 620, width: 80, height: 40 },
+      { type: 'wc', label: 'WC', x: 820, y: 620, width: 80, height: 40 },
+      { type: 'food', label: 'ĐỒ ĂN', x: 250, y: 620, width: 80, height: 40 },
+      { type: 'drinks', label: 'NƯỚC', x: 650, y: 620, width: 80, height: 40 }
+    ];
+  }
   
   // Log detailed information for debugging
   console.log('🎭 RENDERING AdvancedSeatingChart with:', {
@@ -179,23 +192,29 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
 
   // Render stage
   const renderStage = () => {
-    if (!stage) return null;
+    // Ensure stage has valid coordinates and dimensions
+    const stageX = typeof stage.x === 'number' ? stage.x : 400;
+    const stageY = typeof stage.y === 'number' ? stage.y : 80;
+    const stageWidth = typeof stage.width === 'number' ? stage.width : 400;
+    const stageHeight = typeof stage.height === 'number' ? stage.height : 100;
+    
+    console.log(`🎭 Rendering stage at (${stageX}, ${stageY}) with ${stageWidth}x${stageHeight}`);
     
     return (
       <g className="stage">
         <rect
-          x={stage.x}
-          y={stage.y}
-          width={stage.width}
-          height={stage.height}
+          x={stageX}
+          y={stageY}
+          width={stageWidth}
+          height={stageHeight}
           fill="#374151"
           stroke="#FFFFFF"
           strokeWidth={3}
           rx={8}
         />
         <text
-          x={stage.x + stage.width / 2}
-          y={stage.y + stage.height / 2}
+          x={stageX + stageWidth / 2}
+          y={stageY + stageHeight / 2}
           textAnchor="middle"
           dominantBaseline="middle"
           fill="#ffffff"
@@ -318,16 +337,56 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
     console.log(`🎭 Rendering ${sections.length} sections in AdvancedSeatingChart`);
     
     return sections.map((section, sectionIndex) => {
-      if (!section || typeof section.x !== 'number' || typeof section.y !== 'number') {
-        console.warn(`❌ Invalid section data at index ${sectionIndex}:`, section);
-        return null;
+      // Find section coordinates from seats if not explicitly defined
+      let sectionX = section.x;
+      let sectionY = section.y;
+      let sectionWidth = section.width || 300;
+      let sectionHeight = section.height || 150;
+      
+      // If section doesn't have coordinates, try to calculate from first row's first seat
+      if (typeof sectionX !== 'number' || typeof sectionY !== 'number') {
+        console.log(`🔍 Section ${section.name} missing coordinates, calculating from seats`);
+        
+        if (Array.isArray(section.rows) && section.rows.length > 0) {
+          const firstRow = section.rows[0];
+          if (Array.isArray(firstRow.seats) && firstRow.seats.length > 0) {
+            // Get first and last seat in first row
+            const firstSeat = firstRow.seats[0];
+            const lastSeat = firstRow.seats[firstRow.seats.length - 1];
+            
+            if (typeof firstSeat.x === 'number' && typeof firstSeat.y === 'number') {
+              // Calculate section position based on first seat
+              sectionX = firstSeat.x - 30; // Padding to the left
+              sectionY = firstSeat.y - 30; // Padding above
+              
+              // If we have last seat, calculate width
+              if (lastSeat && typeof lastSeat.x === 'number') {
+                sectionWidth = (lastSeat.x - firstSeat.x) + 60; // Add padding
+              }
+              
+              // Calculate height based on last row if available
+              if (section.rows.length > 1) {
+                const lastRow = section.rows[section.rows.length - 1];
+                if (Array.isArray(lastRow.seats) && lastRow.seats.length > 0) {
+                  const lastRowSeat = lastRow.seats[0];
+                  if (typeof lastRowSeat.y === 'number') {
+                    sectionHeight = (lastRowSeat.y - firstSeat.y) + 60; // Add padding
+                  }
+                }
+              }
+              
+              console.log(`✅ Calculated section position: (${sectionX}, ${sectionY}) with size ${sectionWidth}x${sectionHeight}`);
+            }
+          }
+        }
       }
       
-      // Ensure section has valid dimensions
-      const sectionX = section.x;
-      const sectionY = section.y;
-      const sectionWidth = section.width || 300;
-      const sectionHeight = section.height || 150;
+      // If we still don't have valid coordinates, use defaults based on section index
+      if (typeof sectionX !== 'number' || typeof sectionY !== 'number') {
+        console.warn(`⚠️ Could not calculate coordinates for section ${section.name}, using defaults`);
+        sectionX = 100 + (sectionIndex % 3) * 400;
+        sectionY = 200 + Math.floor(sectionIndex / 3) * 300;
+      }
       
       console.log(`🎭 Rendering section "${section.name}" at (${sectionX}, ${sectionY}) with ${sectionWidth}x${sectionHeight}`);
       

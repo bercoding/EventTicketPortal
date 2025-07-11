@@ -164,11 +164,8 @@ const SelectSeatPage = () => {
                 let shouldUseDemo = true;
                 
                 // Only use real seating map if it's fully valid
-                if (eventDataFromResponse.seatingMap && 
-                    eventDataFromResponse.seatingMap.sections && 
-                    eventDataFromResponse.seatingMap.sections.length > 0) {
-                    
-                    console.log('✅ Found seatingMap in database with sections:', eventDataFromResponse.seatingMap.sections.length);
+                if (eventDataFromResponse.seatingMap) {
+                    console.log('✅ Found seatingMap in database:', eventDataFromResponse.seatingMap);
                     
                     // IMPORTANT: Always try to use the original seating map first
                     // Only fall back to demo if absolutely necessary
@@ -179,10 +176,20 @@ const SelectSeatPage = () => {
                         eventDataFromResponse.seatingMap.layoutType = 'theater';
                     }
                     
+                    // Ensure sections exist
+                    if (!eventDataFromResponse.seatingMap.sections || !Array.isArray(eventDataFromResponse.seatingMap.sections) || eventDataFromResponse.seatingMap.sections.length === 0) {
+                        console.warn('⚠️ No sections found in seating map, may need to use demo');
+                        shouldUseDemo = true;
+                    } else {
+                        console.log(`✅ Found ${eventDataFromResponse.seatingMap.sections.length} sections in database seatingMap`);
+                    }
+                    
                     // Log the original seating map for debugging
-                    console.log('Original seatingMap:', JSON.stringify(eventDataFromResponse.seatingMap, null, 2).substring(0, 500) + '...');
+                    console.log('Original seatingMap sections:', eventDataFromResponse.seatingMap.sections);
+                    console.log('Original seatingMap venueObjects:', eventDataFromResponse.seatingMap.venueObjects);
                 } else {
                     console.warn('⚠️ No valid seating map found, using demo instead');
+                    shouldUseDemo = true;
                 }
                 
                 if (shouldUseDemo) {

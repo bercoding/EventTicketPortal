@@ -139,7 +139,16 @@ const eventSchema = new mongoose.Schema({
         y: Number,
         radius: Number
       }]
-    }
+    },
+    venueObjects: [{
+      type: { type: String },
+      objectType: { type: String },
+      label: { type: String },
+      x: { type: Number },
+      y: { type: Number },
+      width: { type: Number },
+      height: { type: Number }
+    }]
   },
   ticketTypes: [{
     type: mongoose.Schema.Types.ObjectId,
