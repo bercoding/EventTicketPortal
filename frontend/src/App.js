@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { ReviewProvider } from './context/ReviewContext';
 import { SocketProvider } from './context/SocketContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ToastContainer } from 'react-toastify';
@@ -32,6 +31,7 @@ import CreateEvent from './pages/event/CreateEvent';
 import CreateEventWithSeating from './pages/event/CreateEventWithSeating';
 import ManageEvent from './pages/event/ManageEvent';
 import MyEvents from './pages/MyEvents';
+import ReviewSection from './pages/ReviewSection';
 import PaymentCallback from './pages/PaymentCallback';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailure from './pages/PaymentFailure';
@@ -91,84 +91,83 @@ const App = () => {
     return (
         <GoogleOAuthProvider clientId={googleClientId}>
             <AuthProvider>
-                <ReviewProvider>
-                    <SocketProvider>
-                        <Router>
-                            <ToastContainer
-                                position="top-right"
-                                autoClose={5000}
-                                hideProgressBar={false}
-                                newestOnTop={false}
-                                closeOnClick
-                                rtl={false}
-                                pauseOnFocusLoss
-                                draggable
-                                pauseOnHover
-                                theme="colored"
-                            />
-                            <BannedUserGuard>
-                                <Routes>
-                                    <Route path="/login" element={<Login />} />
-                                    <Route path="/register" element={<Register />} />
-                                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                                    <Route path="/verify-otp" element={<VerifyOtp />} />
-                                    <Route path="/reset-password" element={<ResetPassword />} />
-                                    <Route path="/payment/callback" element={<PaymentCallback />} />
-                                    <Route path="/payment/success" element={<PaymentSuccess />} />
-                                    <Route path="/payment/failure" element={<PaymentFailure />} />
-                                    <Route path="/payment/pos-confirmation" element={<POSConfirmation />} />
+                <SocketProvider>
+                    <Router>
+                        <ToastContainer
+                            position="top-right"
+                            autoClose={5000}
+                            hideProgressBar={false}
+                            newestOnTop={false}
+                            closeOnClick
+                            rtl={false}
+                            pauseOnFocusLoss
+                            draggable
+                            pauseOnHover
+                            theme="colored"
+                        />
+                        <BannedUserGuard>
+                            <Routes>
+                                <Route path="/login" element={<Login />} />
+                                <Route path="/register" element={<Register />} />
+                                <Route path="/forgot-password" element={<ForgotPassword />} />
+                                <Route path="/verify-otp" element={<VerifyOtp />} />
+                                <Route path="/reset-password" element={<ResetPassword />} />
+                                <Route path="/payment/callback" element={<PaymentCallback />} />
+                                <Route path="/payment/success" element={<PaymentSuccess />} />
+                                <Route path="/payment/failure" element={<PaymentFailure />} />
+                                <Route path="/payment/pos-confirmation" element={<POSConfirmation />} />
 
-                                    <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
-                                        <Route path="/" element={<TicketboxHome />} />
-                                        <Route path="/home" element={<TicketboxHome />} />
-                                        <Route path="/old-home" element={<Home />} />
-                                        <Route path="/events" element={<AllEvents />} />
-                                        <Route path="/chat" element={<ChatPage />} />
-                                        <Route path="/forum" element={<Forum />} />
-                                        <Route path="/event-templates" element={<EventTemplateSelection />} />
-                                        <Route path="/create-event" element={<CreateEvent />} />
-                                        <Route path="/create-event-with-seating" element={<CreateEventWithSeating />} />
-                                        <Route path="/events/:id" element={<EventDetailPage />} />
-                                        <Route path="/events/:id/select-seats" element={<SelectSeatPage />} />
-                                        <Route path="/booking/:id" element={<BookingPage />} />
-                                        <Route path="/simple-booking/:id" element={<SimpleTicketBooking />} />
-                                        <Route path="/checkout" element={<PaymentCheckout />} />
-                                        <Route path="/my-tickets" element={<MyTicketsPage />} />
-                                        <Route path="/my-events" element={<MyEvents />} />
-                                        <Route path="/events/:id/manage" element={<ManageEvent />} />
-                                        <Route path="/manage-event/:eventId" element={<ManageEvent />} />
-                                        <Route path="/review" element={<Review />} />
-                                        <Route path="/user-profile" element={<ProfilePage />} />
-                                        <Route path="/profile" element={<ProfilePage />} />
-                                        <Route path="/profile/change-password" element={<ChangePasswordPage />} />
-                                        <Route path="/become-owner" element={<BecomeOwnerPage />} />
+                                <Route element={<PrivateRoute><MainLayout /></PrivateRoute>}>
+                                    <Route path="/" element={<TicketboxHome />} />
+                                    <Route path="/home" element={<TicketboxHome />} />
+                                    <Route path="/old-home" element={<Home />} />
+                                    <Route path="/events" element={<AllEvents />} />
+                                    <Route path="/chat" element={<ChatPage />} />
+                                    <Route path="/forum" element={<Forum />} />
+                                    <Route path="/event-templates" element={<EventTemplateSelection />} />
+                                    <Route path="/create-event" element={<CreateEvent />} />
+                                    <Route path="/create-event-with-seating" element={<CreateEventWithSeating />} />
+                                    <Route path="/events/:id" element={<EventDetailPage />} />
+                                    <Route path="/events/:id/select-seats" element={<SelectSeatPage />} />
+                                    <Route path="/booking/:id" element={<BookingPage />} />
+                                    <Route path="/simple-booking/:id" element={<SimpleTicketBooking />} />
+                                    <Route path="/checkout" element={<PaymentCheckout />} />
+                                    <Route path="/my-tickets" element={<MyTicketsPage />} />
+                                    <Route path="/my-events" element={<MyEvents />} />
+                                    <Route path="/events/:id/manage" element={<ManageEvent />} />
+                                    <Route path="/manage-event/:eventId" element={<ManageEvent />} />
+                                    <Route path="/review" element={<Review />} />
+                                    <Route path="/user-profile" element={<ProfilePage />} />
+                                    <Route path="/profile" element={<ProfilePage />} />
+                                    <Route path="/profile/change-password" element={<ChangePasswordPage />} />
+                                    <Route path="/become-owner" element={<BecomeOwnerPage />} />
+                                    <Route path="/events/:eventId/reviews" element={<ReviewSection />} />
 
-                                        {/* Owner Routes */}
-                                        <Route path="/owner" element={<PrivateRoute><OwnerLayout /></PrivateRoute>}>
-                                            <Route index element={<OwnerDashboard />} /> 
-                                        </Route>
+                                    {/* Owner Routes */}
+                                    <Route path="/owner" element={<PrivateRoute><OwnerLayout /></PrivateRoute>}>
+                                        <Route index element={<OwnerDashboard />} />
                                     </Route>
-                                    
-                                                        <Route path="/admin" element={<PrivateRoute roles={['admin']}><AdminLayout /></PrivateRoute>}>
-                        <Route index element={<AdminDashboard />} />
-                        <Route path="users" element={<UserManagement />} />
-                        <Route path="events" element={<EventManagement />} />
-                        <Route path="featured-events" element={<AdminEventManagement />} />
-                        <Route path="complaints" element={<ComplaintManagement />} />
-                        <Route path="posts" element={<PostManagement />} />
-                        <Route path="violations" element={<ViolationReports />} />
-                        <Route path="revenue" element={<RevenueReport />} />
-                        <Route path="owner-requests" element={<OwnerRequests />} />
-                        <Route path="pos-confirmation" element={<POSConfirmationAdmin />} />
-                    </Route>
+                                </Route>
 
-                                
-                                </Routes>
-                                <NavigationMonitor />
-                            </BannedUserGuard>
-                        </Router>
-                    </SocketProvider>
-                </ReviewProvider>
+                                <Route path="/admin" element={<PrivateRoute roles={['admin']}><AdminLayout /></PrivateRoute>}>
+                                    <Route index element={<AdminDashboard />} />
+                                    <Route path="users" element={<UserManagement />} />
+                                    <Route path="events" element={<EventManagement />} />
+                                    <Route path="featured-events" element={<AdminEventManagement />} />
+                                    <Route path="complaints" element={<ComplaintManagement />} />
+                                    <Route path="posts" element={<PostManagement />} />
+                                    <Route path="violations" element={<ViolationReports />} />
+                                    <Route path="revenue" element={<RevenueReport />} />
+                                    <Route path="owner-requests" element={<OwnerRequests />} />
+                                    <Route path="pos-confirmation" element={<POSConfirmationAdmin />} />
+                                </Route>
+
+
+                            </Routes>
+                            <NavigationMonitor />
+                        </BannedUserGuard>
+                    </Router>
+                </SocketProvider>
             </AuthProvider>
         </GoogleOAuthProvider>
     );

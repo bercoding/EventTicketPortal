@@ -645,6 +645,64 @@ export const orderAPI = {
   }
 };
 
+// Review API
+export const reviewAPI = {
+  // Get all reviews for an event
+  getReviews: async (eventId) => {
+    try {
+      const response = await api.get(`/events/${eventId}/reviews`);
+      return response.data;
+    } catch (error) {
+      console.error('Get reviews failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Get a single review by ID for an event
+  getReviewById: async (eventId, reviewId) => {
+    try {
+      const response = await api.get(`/events/${eventId}/reviews/${reviewId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Get review by ID failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Create a new review for an event
+  createReview: async (eventId, reviewData) => {
+    try {
+      const response = await api.post(`/events/${eventId}/reviews`, reviewData);
+      return response.data;
+    } catch (error) {
+      console.error('Create review failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Update a review by ID for an event
+  updateReview: async (eventId, reviewId, reviewData) => {
+    try {
+      const response = await api.put(`/events/${eventId}/reviews/${reviewId}`, reviewData);
+      return response.data;
+    } catch (error) {
+      console.error('Update review failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
+  // Delete a review by ID for an event
+  deleteReview: async (eventId, reviewId) => {
+    try {
+      const response = await api.delete(`/events/${eventId}/reviews/${reviewId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Delete review failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+};
+
 // Helper functions for common operations
 export const uploadImage = async (file, type) => {
   try {
