@@ -274,7 +274,7 @@ const EventDetailPage = () => {
                                 </div>
                             </div>
                              {/* Event Description */}
-                             <ReviewSection />
+                             <ReviewSection eventId={id} />
                         </div>
                     </div>
                 </div>

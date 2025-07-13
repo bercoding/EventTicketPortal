@@ -1,33 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
 import { FaInfoCircle, FaStar, FaTrash, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
-import { useAuth } from '../context/AuthContext'; // Giả sử bạn có context này
-import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
+import { reviewAPI } from '../services/api';
+import { toast } from 'react-toastify';
 
-const ReviewSection = () => {
-    const { eventId } = useParams();
+const ReviewSection = ({ eventId }) => {
     const { user } = useAuth();
-    const userId = user?._id || null; // chỉ lấy primitive, không phải object
+    const userId = user?._id || null;
 
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [newReview, setNewReview] = useState({ content: '', rating: 5 });
+    const [newReview, setNewReview] = useState({ comment: '', rating: 5 });
     const [submitting, setSubmitting] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [editingReview, setEditingReview] = useState({ content: '', rating: 5 });
+    const [editingReview, setEditingReview] = useState({ comment: '', rating: 5 });
 
     useEffect(() => {
         if (!eventId) {
-            setLoading(false); // hoặc return;
+            setLoading(false);
             return;
         }
         setLoading(true);
-        axios.get('/api/reviews')
-            .then(res => {
+        reviewAPI.getReviews(eventId)
+            .then(data => {
                 setReviews(
-                    res.data.filter(r =>
-                        (r.eventId?._id === eventId || r.eventId === eventId) &&
+                    data.filter(r =>
                         (r.status === 'approved' || (userId && r.userId?._id === userId))
                     )
                 );
@@ -42,15 +40,19 @@ const ReviewSection = () => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const res = await axios.post('/api/reviews', {
-                ...newReview,
-                eventId,
-                userId: user._id
+            const data = await reviewAPI.createReview(eventId, {
+                ...newReview
             });
-            setReviews([...reviews, res.data]);
-            setNewReview({ content: '', rating: 5 });
-        } catch {
-            setError('Không thể gửi đánh giá');
+            setReviews([...reviews, data]);
+            setNewReview({ comment: '', rating: 5 });
+            toast.success('Gửi đánh giá thành công!');
+        } catch (err) {
+            // Nếu có message từ backend
+            if (err && err.message === 'Bạn đã đánh giá sự kiện này rồi.') {
+                toast.warning('Bạn đã đánh giá sự kiện này rồi.');
+            } else {
+                toast.error('Không thể gửi đánh giá');
+            }
         } finally {
             setSubmitting(false);
         }
@@ -60,9 +62,11 @@ const ReviewSection = () => {
     const handleDelete = async id => {
         if (!window.confirm('Bạn chắc chắn muốn xoá?')) return;
         try {
-            await axios.delete(`/api/reviews/${id}`);
+            await reviewAPI.deleteReview(eventId, id);
             setReviews(reviews.filter(r => r._id !== id));
+            toast.success('Xóa đánh giá thành công!');
         } catch {
+            toast.error('Không thể xoá đánh giá');
             setError('Không thể xoá đánh giá');
         }
     };
@@ -70,15 +74,17 @@ const ReviewSection = () => {
     // Sửa review
     const handleEdit = (review) => {
         setEditingId(review._id);
-        setEditingReview({ content: review.content, rating: review.rating });
+        setEditingReview({ comment: review.comment, rating: review.rating });
     };
 
     const handleUpdate = async (id) => {
         try {
-            const res = await axios.put(`/api/reviews/${id}`, editingReview);
-            setReviews(reviews.map(r => (r._id === id ? res.data : r)));
+            const data = await reviewAPI.updateReview(eventId, id, editingReview);
+            setReviews(reviews.map(r => (r._id === id ? data : r)));
             setEditingId(null);
+            toast.success('Cập nhật đánh giá thành công!');
         } catch {
+            toast.error('Không thể cập nhật đánh giá');
             setError('Không thể cập nhật đánh giá');
         }
     };
@@ -120,8 +126,8 @@ const ReviewSection = () => {
                                     <textarea
                                         className="w-full border rounded p-2"
                                         placeholder="Nội dung đánh giá..."
-                                        value={newReview.content}
-                                        onChange={e => setNewReview({ ...newReview, content: e.target.value })}
+                                        value={newReview.comment}
+                                        onChange={e => setNewReview({ ...newReview, comment: e.target.value })}
                                         rows={2}
                                         required
                                     />
@@ -148,9 +154,9 @@ const ReviewSection = () => {
                                             <div className="mt-1">
                                                 <input
                                                     className="border rounded px-2 py-1 w-full mb-1"
-                                                    value={editingReview.content}
+                                                    value={editingReview.comment}
                                                     onChange={e =>
-                                                        setEditingReview({ ...editingReview, content: e.target.value })
+                                                        setEditingReview({ ...editingReview, comment: e.target.value })
                                                     }
                                                 />
                                                 <div className="flex items-center space-x-1 mb-1">
@@ -180,7 +186,7 @@ const ReviewSection = () => {
                                                 </button>
                                             </div>
                                         ) : (
-                                            <div className="text-gray-700">{myReview.content}</div>
+                                            <div className="text-gray-700">{myReview.comment}</div>
                                         )}
                                     </div>
                                     <div className="flex flex-col ml-2">
@@ -219,7 +225,7 @@ const ReviewSection = () => {
                                         ))}
                                     </span>
                                 </div>
-                                <div className="text-gray-700">{review.content}</div>
+                                <div className="text-gray-700">{review.comment}</div>
                             </div>
                         ))
                     )}
