@@ -38,6 +38,7 @@ import PaymentFailure from './pages/PaymentFailure';
 import SelectSeatPage from './pages/SelectSeatPage';
 import PaymentCheckout from './components/PaymentCheckout';
 import POSConfirmation from './pages/POSConfirmation';
+import FriendPage from './pages/friend/FriendPage';
 
 import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -123,6 +124,7 @@ const App = () => {
                                     <Route path="/old-home" element={<Home />} />
                                     <Route path="/events" element={<AllEvents />} />
                                     <Route path="/chat" element={<ChatPage />} />
+                                    <Route path="/friends" element={<FriendPage />} />
                                     <Route path="/forum" element={<Forum />} />
                                     <Route path="/event-templates" element={<EventTemplateSelection />} />
                                     <Route path="/create-event" element={<CreateEvent />} />

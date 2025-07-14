@@ -6,7 +6,6 @@ import { toast } from 'react-toastify';
 
 const ReviewSection = ({ eventId }) => {
     const { user } = useAuth();
-    const userId = user?._id || null;
 
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -26,14 +25,14 @@ const ReviewSection = ({ eventId }) => {
             .then(data => {
                 setReviews(
                     data.filter(r =>
-                        (r.status === 'approved' || (userId && r.userId?._id === userId))
+                        (r.status === 'approved' || (user?._id && r.userId?._id === user._id))
                     )
                 );
                 setError('');
             })
             .catch(() => setError('Không lấy được đánh giá'))
             .finally(() => setLoading(false));
-    }, [eventId, userId]);
+    }, [eventId, user?._id]);
 
     // Thêm review mới
     const handleAddReview = async e => {
@@ -90,8 +89,9 @@ const ReviewSection = ({ eventId }) => {
     };
 
     // Lọc review của user hiện tại
-    const myReview = userId ? reviews.find(r => r.userId?._id === userId) : null;
-    const otherReviews = reviews.filter(r => !userId || r.userId?._id !== userId);
+    const myReview = user?._id ? reviews.find(r => r.userId?._id === user._id) : null;
+    const otherReviews = reviews.filter(r => !user?._id || r.userId?._id !== user._id);
+
     return (
         <div className="bg-white mt-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
@@ -104,14 +104,12 @@ const ReviewSection = ({ eventId }) => {
                 <div className="p-4 bg-red-100 border border-red-200 text-red-800 rounded-lg text-center">{error}</div>
             ) : (
                 <>
-                    {/* Review của bạn */}
                     {user && (
                         <div className="mb-6">
                             <h3 className="text-lg font-semibold mb-2">Đánh giá của bạn</h3>
                             {!myReview ? (
                                 <form onSubmit={handleAddReview} className="bg-gray-50 p-4 rounded-lg space-y-2">
                                     <div className="flex items-center space-x-2">
-                                        <span>Chấm điểm:</span>
                                         {[1, 2, 3, 4, 5].map(star => (
                                             <button
                                                 key={star}
@@ -143,7 +141,7 @@ const ReviewSection = ({ eventId }) => {
                                 <div className="bg-gray-50 p-4 rounded-lg flex items-start justify-between">
                                     <div>
                                         <div className="flex items-center">
-                                            <span className="font-semibold mr-2">{user.name || 'Bạn'}</span>
+                                            <span className="font-semibold mr-2">{user?.fullName || user?.username || 'Bạn'}</span>
                                             <span className="flex text-yellow-500">
                                                 {[...Array(myReview.rating)].map((_, i) => (
                                                     <FaStar key={i} />
@@ -210,22 +208,85 @@ const ReviewSection = ({ eventId }) => {
                         </div>
                     )}
 
-                    {/* Review của người khác */}
-                    <h3 className="text-lg font-semibold mb-2">Đánh giá của người dùng khác</h3>
+                    <h3 className="text-lg font-semibold mb-2">Tất cả đánh giá </h3>
                     {otherReviews.length === 0 ? (
-                        <div className="p-4 text-gray-500">Chưa có đánh giá nào từ người khác.</div>
+                        <div className="p-4 text-gray-500">Chưa có đánh giá nào.</div>
                     ) : (
                         otherReviews.map(review => (
                             <div key={review._id} className="border-b pb-3 mb-2">
-                                <div className="flex items-center">
-                                    <span className="font-semibold mr-2">{review.userId?.name || 'Ẩn danh'}</span>
-                                    <span className="flex text-yellow-500">
-                                        {[...Array(review.rating)].map((_, i) => (
-                                            <FaStar key={i} />
-                                        ))}
-                                    </span>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        <span className="font-semibold mr-2">
+                                            {review.userId?.fullName || review.userId?.username || 'Người dùng'}
+                                        </span>
+                                        <span className="flex text-yellow-500">
+                                            {[...Array(review.rating)].map((_, i) => (
+                                                <FaStar key={i} />
+                                            ))}
+                                        </span>
+                                    </div>
+                                    {user && review.userId?._id === user._id && (
+                                        <div className="flex items-center space-x-2">
+                                            <button
+                                                title="Sửa"
+                                                onClick={() => handleEdit(review)}
+                                                className="text-blue-500 hover:text-blue-700"
+                                            >
+                                                <FaEdit />
+                                            </button>
+                                            <button
+                                                title="Xóa"
+                                                onClick={() => handleDelete(review._id)}
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                <FaTrash />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="text-gray-700">{review.comment}</div>
+                                {editingId === review._id ? (
+                                    <div className="mt-2">
+                                        <input
+                                            className="border rounded px-2 py-1 w-full mb-2"
+                                            value={editingReview.comment}
+                                            onChange={e =>
+                                                setEditingReview({ ...editingReview, comment: e.target.value })
+                                            }
+                                            placeholder="Nhập nội dung đánh giá..."
+                                        />
+                                        <div className="flex items-center space-x-2 mb-2">
+                                            <span>Chấm điểm:</span>
+                                            {[1, 2, 3, 4, 5].map(star => (
+                                                <button
+                                                    key={star}
+                                                    type="button"
+                                                    className={star <= editingReview.rating ? "text-yellow-500" : "text-gray-300"}
+                                                    onClick={() => setEditingReview({ ...editingReview, rating: star })}
+                                                >
+                                                    <FaStar />
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <button
+                                                className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 flex items-center"
+                                                onClick={() => handleUpdate(review._id)}
+                                            >
+                                                <FaCheck className="mr-1" />
+                                                Lưu
+                                            </button>
+                                            <button
+                                                className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 flex items-center"
+                                                onClick={() => setEditingId(null)}
+                                            >
+                                                <FaTimes className="mr-1" />
+                                                Hủy
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-gray-700 mt-1">{review.comment}</div>
+                                )}
                             </div>
                         ))
                     )}
