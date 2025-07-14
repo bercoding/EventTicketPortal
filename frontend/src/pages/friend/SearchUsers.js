@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import friendService from '../../services/friendService';
 import UserProfile from './UserProfile';
+import RecommendedFriends from './RecommendedFriends';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faSearch, 
@@ -23,12 +24,50 @@ const SearchUsers = ({ currentUserId, onRefresh }) => {
       return;
     }
 
+    console.log('🔍 Frontend search starting:');
+    console.log('- currentUserId:', currentUserId);
+    console.log('- currentUserId type:', typeof currentUserId);
+    console.log('- currentUserId valid?:', currentUserId && currentUserId.length === 24);
+    console.log('- searchQuery:', searchQuery.trim());
+    console.log('- localStorage token exists:', !!localStorage.getItem('token'));
+    console.log('- localStorage user:', localStorage.getItem('user'));
+
+    // Check if currentUserId is valid
+    if (!currentUserId) {
+      console.error('❌ currentUserId is null/undefined:', currentUserId);
+      alert('Lỗi: Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.');
+      return;
+    }
+    
+    if (typeof currentUserId !== 'string' || currentUserId.length !== 24) {
+      console.error('❌ Invalid currentUserId format:', currentUserId, 'length:', currentUserId?.length);
+      alert('Lỗi: User ID không hợp lệ. Vui lòng đăng nhập lại.');
+      return;
+    }
+
     setLoading(true);
     try {
+      console.log('📡 Making API call...');
       const response = await friendService.searchUsers(currentUserId, searchQuery.trim());
+      console.log('✅ Search response received:', response);
+      console.log('- Response users array:', response.users);
+      console.log('- Number of users found:', response.users?.length || 0);
       setSearchResults(response.users || []);
+      
+      if (!response.users || response.users.length === 0) {
+        console.log('📝 No users found in response');
+      }
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('❌ Search error details:', error);
+      console.error('- Error message:', error.message);
+      console.error('- Full error object:', error);
+      
+      // More detailed error information
+      if (error.response) {
+        console.error('- Error response status:', error.response.status);
+        console.error('- Error response data:', error.response.data);
+      }
+      
       alert(error.message || 'Có lỗi xảy ra khi tìm kiếm');
     } finally {
       setLoading(false);
@@ -194,16 +233,32 @@ const SearchUsers = ({ currentUserId, onRefresh }) => {
       {searchQuery && !loading && searchResults.length === 0 && (
         <div className="text-center py-8">
           <FontAwesomeIcon icon={faSearch} className="text-4xl text-gray-300 mb-3" />
-          <p className="text-gray-500">Không tìm thấy kết quả nào cho "{searchQuery}"</p>
+          <p className="text-gray-500 mb-2">Không tìm thấy kết quả nào cho "{searchQuery}"</p>
+          <p className="text-sm text-gray-400">
+            💡 Lưu ý: Bạn không thể tìm kiếm chính mình. Hãy thử tìm kiếm email, tên hoặc username của người khác.
+          </p>
         </div>
       )}
 
       {/* Initial State */}
       {!searchQuery && searchResults.length === 0 && (
-        <div className="text-center py-12">
-          <FontAwesomeIcon icon={faUserPlus} className="text-6xl text-gray-300 mb-4" />
-          <h3 className="text-xl font-semibold text-gray-600 mb-2">Tìm kiếm bạn bè</h3>
-          <p className="text-gray-500">Nhập tên, username hoặc email để tìm kiếm bạn bè mới</p>
+        <div>
+          <div className="text-center py-8 mb-8">
+            <FontAwesomeIcon icon={faUserPlus} className="text-6xl text-gray-300 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">Tìm kiếm bạn bè</h3>
+            <p className="text-gray-500 mb-2">Nhập tên, username hoặc email để tìm kiếm bạn bè mới</p>
+            <p className="text-sm text-gray-400">
+              Ví dụ: tên người dùng, @username, hoặc email@domain.com
+            </p>
+          </div>
+          
+          {/* Recommended Friends Section */}
+          <div className="border-t border-gray-200 pt-6">
+            <RecommendedFriends 
+              currentUserId={currentUserId}
+              onRefresh={onRefresh}
+            />
+          </div>
         </div>
       )}
 

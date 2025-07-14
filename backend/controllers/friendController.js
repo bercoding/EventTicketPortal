@@ -81,24 +81,37 @@ exports.getPendingRequests = async (req, res) => {
 
 // Search users to add as friends
 exports.searchUsers = async (req, res) => {
+  console.log('\n🔍 === SEARCH USERS DEBUG START ===');
+  
   try {
     const { userId } = req.params;
     const { query } = req.query;
+    
+    console.log('📥 Request details:');
+    console.log('- userId from params:', userId);
+    console.log('- query from query params:', query);
+    console.log('- req.params:', req.params);
+    console.log('- req.query:', req.query);
+    console.log('- full URL:', req.originalUrl);
 
     if (!query || query.trim().length < 2) {
+      console.log('❌ Query too short');
       return res.status(400).json({ error: 'Search query must be at least 2 characters' });
     }
 
     const currentUser = await User.findById(userId);
     if (!currentUser) {
+      console.log('❌ Current user not found');
       return res.status(404).json({ error: 'User not found' });
     }
+    
+    console.log('👤 Current user found:', currentUser.email);
 
     // Search users by username, fullName, or email
-    const users = await User.find({
+    const searchQuery = {
       $and: [
         { _id: { $ne: userId } }, // Exclude current user
-        { _id: { $nin: currentUser.blockList } }, // Exclude blocked users
+        { _id: { $nin: currentUser.blockList || [] } }, // Exclude blocked users
         { blockList: { $nin: [userId] } }, // Exclude users who blocked current user
         {
           $or: [
@@ -108,23 +121,35 @@ exports.searchUsers = async (req, res) => {
           ]
         }
       ]
-    })
-    .select('fullName username email avatar status')
-    .limit(20);
+    };
+    
+    console.log('🗃️ MongoDB search query:', JSON.stringify(searchQuery, null, 2));
+    
+    const users = await User.find(searchQuery)
+      .select('fullName username email avatar status')
+      .limit(20);
+      
+    console.log('📊 Raw search results:');
+    console.log('- Number of users found:', users.length);
+    users.forEach((user, index) => {
+      console.log(`  ${index + 1}. ID: ${user._id}, Email: ${user.email}, Username: ${user.username}`);
+    });
 
     // Add friendship status for each user
     const usersWithStatus = users.map(user => {
       let friendshipStatus = 'none';
       
-      if (currentUser.friends.includes(user._id)) {
+      if (currentUser.friends && currentUser.friends.includes(user._id)) {
         friendshipStatus = 'friends';
-      } else if (currentUser.pendingRequests.includes(user._id)) {
+      } else if (currentUser.pendingRequests && currentUser.pendingRequests.includes(user._id)) {
         friendshipStatus = 'pending_sent';
-      } else if (currentUser.friendRequests.includes(user._id)) {
+      } else if (currentUser.friendRequests && currentUser.friendRequests.includes(user._id)) {
         friendshipStatus = 'pending_received';
-      } else if (currentUser.blockList.includes(user._id)) {
+      } else if (currentUser.blockList && currentUser.blockList.includes(user._id)) {
         friendshipStatus = 'blocked';
       }
+
+      console.log(`👥 User ${user.email} status: ${friendshipStatus}`);
 
       return {
         ...user.toObject(),
@@ -132,11 +157,15 @@ exports.searchUsers = async (req, res) => {
       };
     });
 
+    console.log('✅ Final results:', usersWithStatus.length, 'users');
+    console.log('🔍 === SEARCH USERS DEBUG END ===\n');
+
     res.status(200).json({ 
       success: true,
       users: usersWithStatus 
     });
   } catch (error) {
+    console.error('❌ Search error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -433,6 +462,132 @@ exports.getUserProfile = async (req, res) => {
       }
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get recommended friends (all users excluding friends, blocked, and current user)
+exports.getRecommendedFriends = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const currentUser = await User.findById(userId);
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get all user IDs to exclude
+    const excludeIds = [
+      userId, // Current user
+      ...(currentUser.friends || []), // Current friends
+      ...(currentUser.pendingRequests || []), // Sent requests
+      ...(currentUser.friendRequests || []), // Received requests
+      ...(currentUser.blockList || []) // Blocked users
+    ];
+
+    // Find users that are not in the exclude list and not blocking current user
+    const recommendedUsers = await User.find({
+      $and: [
+        { _id: { $nin: excludeIds } },
+        { blockList: { $nin: [userId] } }, // Users who haven't blocked current user
+        { status: 'active' } // Only active users
+      ]
+    })
+    .select('fullName username email avatar status')
+    .limit(20)
+    .sort({ createdAt: -1 }); // Show newest users first
+
+    // Add friendship status for each user (should all be 'none')
+    const usersWithStatus = recommendedUsers.map(user => ({
+      ...user.toObject(),
+      friendshipStatus: 'none'
+    }));
+
+    res.status(200).json({ 
+      success: true,
+      users: usersWithStatus 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Debug endpoint to test search
+exports.debugSearch = async (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    console.log('🐛 Debug search for:', query);
+    
+    // Find all users matching the query
+    const allMatches = await User.find({
+      $or: [
+        { username: { $regex: query, $options: 'i' } },
+        { fullName: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } }
+      ]
+    }).select('fullName username email status');
+    
+    console.log('All matches:', allMatches);
+    
+    res.json({
+      success: true,
+      query: query,
+      allMatches: allMatches,
+      count: allMatches.length
+    });
+  } catch (error) {
+    console.error('Debug search error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Debug endpoint to list all users
+exports.listAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({}).select('_id email username fullName').limit(10);
+    
+    console.log('📋 All users in DB:');
+    users.forEach((user, index) => {
+      console.log(`${index + 1}. ID: ${user._id}, Email: ${user.email}, Username: ${user.username}`);
+    });
+    
+    res.json({
+      success: true,
+      users: users,
+      count: users.length
+    });
+  } catch (error) {
+    console.error('Error listing users:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Simple test endpoint 
+exports.testUserExists = async (req, res) => {
+  try {
+    const { email } = req.query;
+    console.log('🔍 Testing if user exists with email:', email);
+    
+    const user = await User.findOne({ email: email });
+    console.log('👤 User found:', !!user);
+    if (user) {
+      console.log('- User ID:', user._id);
+      console.log('- User email:', user.email);
+      console.log('- User username:', user.username);
+    }
+    
+    res.json({
+      exists: !!user,
+      user: user ? {
+        _id: user._id,
+        email: user.email,
+        username: user.username,
+        fullName: user.fullName
+      } : null
+    });
+  } catch (error) {
+    console.error('Error checking user:', error);
     res.status(500).json({ error: error.message });
   }
 };

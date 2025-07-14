@@ -150,6 +150,16 @@ const friendService = {
     } catch (error) {
       throw error.response?.data || error;
     }
+  },
+
+  // Get recommended friends
+  getRecommendedFriends: async (userId) => {
+    try {
+      const response = await api.get(`/friends/recommended/${userId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
   }
 };
 

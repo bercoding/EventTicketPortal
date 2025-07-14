@@ -28,7 +28,16 @@ const FriendPage = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    console.log('🔍 FriendPage - User Debug Info:');
+    console.log('- user object:', user);
+    console.log('- user._id:', user?._id);
+    console.log('- user.id:', user?.id);
+    console.log('- typeof user._id:', typeof user?._id);
+    console.log('- user._id length:', user?._id?.length);
+    console.log('- user._id valid?:', user?._id && user._id.length === 24);
+    
     if (!user) {
+      console.log('❌ No user found, redirecting to login');
       navigate('/login');
       return;
     }
@@ -36,15 +45,23 @@ const FriendPage = () => {
   }, [user, navigate]);
 
   const loadData = async () => {
-    if (!user?._id) return;
+    // Handle both _id and id field names
+    const userId = user?._id || user?.id;
+    
+    console.log('🔄 loadData called with userId:', userId);
+    
+    if (!userId) {
+      console.log('❌ No valid user ID found');
+      return;
+    }
     
     setLoading(true);
     try {
       const [friendsRes, requestsRes, pendingRes, blockedRes] = await Promise.all([
-        friendService.getFriendsList(user._id),
-        friendService.getFriendRequests(user._id),
-        friendService.getPendingRequests(user._id),
-        friendService.getBlockedUsers(user._id)
+        friendService.getFriendsList(userId),
+        friendService.getFriendRequests(userId),
+        friendService.getPendingRequests(userId),
+        friendService.getBlockedUsers(userId)
       ]);
 
       setFriends(friendsRes.friends || []);
@@ -165,34 +182,34 @@ const FriendPage = () => {
               {activeTab === 'friends' && (
                 <FriendsList 
                   friends={friends} 
-                  currentUserId={user._id}
+                  currentUserId={user?._id || user?.id}
                   onRefresh={loadData}
                 />
               )}
               {activeTab === 'search' && (
                 <SearchUsers 
-                  currentUserId={user._id}
+                  currentUserId={user?._id || user?.id}
                   onRefresh={loadData}
                 />
               )}
               {activeTab === 'requests' && (
                 <FriendRequests 
                   requests={friendRequests} 
-                  currentUserId={user._id}
+                  currentUserId={user?._id || user?.id}
                   onRefresh={loadData}
                 />
               )}
               {activeTab === 'pending' && (
                 <PendingRequests 
                   requests={pendingRequests} 
-                  currentUserId={user._id}
+                  currentUserId={user?._id || user?.id}
                   onRefresh={loadData}
                 />
               )}
               {activeTab === 'blocked' && (
                 <BlockedUsers 
                   blockedUsers={blockedUsers} 
-                  currentUserId={user._id}
+                  currentUserId={user?._id || user?.id}
                   onRefresh={loadData}
                 />
               )}
