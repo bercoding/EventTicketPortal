@@ -88,6 +88,7 @@ const SearchUsers = ({ currentUserId, onRefresh }) => {
         )
       );
       
+      // Refresh parent component data
       onRefresh();
     } catch (error) {
       alert(error.message || 'Có lỗi xảy ra');

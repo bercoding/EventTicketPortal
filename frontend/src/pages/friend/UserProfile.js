@@ -127,6 +127,7 @@ const UserProfile = ({ user, currentUserId, onClose, onRefresh }) => {
     setActionLoading(true);
     try {
       await friendService.blockUser(currentUserId, profileData._id);
+      setProfileData(prev => ({ ...prev, friendshipStatus: 'blocked' }));
       onRefresh();
       onClose(); // Close modal after blocking
     } catch (error) {

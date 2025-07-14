@@ -38,15 +38,12 @@ const RecommendedFriends = ({ currentUserId, onRefresh }) => {
     try {
       await friendService.sendFriendRequest(currentUserId, userId);
       
-      // Update the user's status in recommendations
+      // Remove the user from recommendations since they now have a pending request
       setRecommendedUsers(prev => 
-        prev.map(user => 
-          user._id === userId 
-            ? { ...user, friendshipStatus: 'pending_sent' }
-            : user
-        )
+        prev.filter(user => user._id !== userId)
       );
       
+      // Refresh parent data
       onRefresh();
     } catch (error) {
       alert(error.message || 'Có lỗi xảy ra');

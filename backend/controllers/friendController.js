@@ -106,6 +106,10 @@ exports.searchUsers = async (req, res) => {
     }
     
     console.log('👤 Current user found:', currentUser.email);
+    console.log('- friends:', (currentUser.friends || []).map(id => id.toString()));
+    console.log('- pendingRequests:', (currentUser.pendingRequests || []).map(id => id.toString()));
+    console.log('- friendRequests:', (currentUser.friendRequests || []).map(id => id.toString()));
+    console.log('- blockList:', (currentUser.blockList || []).map(id => id.toString()));
 
     // Search users by username, fullName, or email
     const searchQuery = {
@@ -135,21 +139,28 @@ exports.searchUsers = async (req, res) => {
       console.log(`  ${index + 1}. ID: ${user._id}, Email: ${user.email}, Username: ${user.username}`);
     });
 
-    // Add friendship status for each user
+    // Add friendship status for each user with proper string comparison
     const usersWithStatus = users.map(user => {
       let friendshipStatus = 'none';
+      const userIdStr = user._id.toString();
       
-      if (currentUser.friends && currentUser.friends.includes(user._id)) {
+      // Convert ObjectIds to strings for comparison
+      const friendsStr = (currentUser.friends || []).map(id => id.toString());
+      const pendingStr = (currentUser.pendingRequests || []).map(id => id.toString());
+      const requestsStr = (currentUser.friendRequests || []).map(id => id.toString());
+      const blockedStr = (currentUser.blockList || []).map(id => id.toString());
+      
+      if (friendsStr.includes(userIdStr)) {
         friendshipStatus = 'friends';
-      } else if (currentUser.pendingRequests && currentUser.pendingRequests.includes(user._id)) {
+      } else if (pendingStr.includes(userIdStr)) {
         friendshipStatus = 'pending_sent';
-      } else if (currentUser.friendRequests && currentUser.friendRequests.includes(user._id)) {
+      } else if (requestsStr.includes(userIdStr)) {
         friendshipStatus = 'pending_received';
-      } else if (currentUser.blockList && currentUser.blockList.includes(user._id)) {
+      } else if (blockedStr.includes(userIdStr)) {
         friendshipStatus = 'blocked';
       }
 
-      console.log(`👥 User ${user.email} status: ${friendshipStatus}`);
+      console.log(`👥 User ${user.email} (${userIdStr}) status: ${friendshipStatus}`);
 
       return {
         ...user.toObject(),
@@ -468,13 +479,23 @@ exports.getUserProfile = async (req, res) => {
 
 // Get recommended friends (all users excluding friends, blocked, and current user)
 exports.getRecommendedFriends = async (req, res) => {
+  console.log('\n🤝 === GET RECOMMENDED FRIENDS DEBUG START ===');
+  
   try {
     const { userId } = req.params;
+    console.log('📥 Request for user:', userId);
 
     const currentUser = await User.findById(userId);
     if (!currentUser) {
+      console.log('❌ Current user not found');
       return res.status(404).json({ error: 'User not found' });
     }
+
+    console.log('👤 Current user loaded:', currentUser.email);
+    console.log('- friends:', currentUser.friends?.length || 0);
+    console.log('- pendingRequests:', currentUser.pendingRequests?.length || 0); 
+    console.log('- friendRequests:', currentUser.friendRequests?.length || 0);
+    console.log('- blockList:', currentUser.blockList?.length || 0);
 
     // Get all user IDs to exclude
     const excludeIds = [
@@ -484,6 +505,8 @@ exports.getRecommendedFriends = async (req, res) => {
       ...(currentUser.friendRequests || []), // Received requests
       ...(currentUser.blockList || []) // Blocked users
     ];
+    
+    console.log('🚫 Excluding IDs:', excludeIds.length, 'users');
 
     // Find users that are not in the exclude list and not blocking current user
     const recommendedUsers = await User.find({
@@ -496,6 +519,11 @@ exports.getRecommendedFriends = async (req, res) => {
     .select('fullName username email avatar status')
     .limit(20)
     .sort({ createdAt: -1 }); // Show newest users first
+    
+    console.log('📊 Found recommended users:', recommendedUsers.length);
+    recommendedUsers.forEach((user, index) => {
+      console.log(`  ${index + 1}. ${user.email} (ID: ${user._id})`);
+    });
 
     // Add friendship status for each user (should all be 'none')
     const usersWithStatus = recommendedUsers.map(user => ({
@@ -503,11 +531,15 @@ exports.getRecommendedFriends = async (req, res) => {
       friendshipStatus: 'none'
     }));
 
+    console.log('✅ Returning recommended users:', usersWithStatus.length);
+    console.log('🤝 === GET RECOMMENDED FRIENDS DEBUG END ===\n');
+
     res.status(200).json({ 
       success: true,
       users: usersWithStatus 
     });
   } catch (error) {
+    console.error('❌ Recommended friends error:', error);
     res.status(500).json({ error: error.message });
   }
 };
