@@ -62,7 +62,7 @@ const eventSchema = new mongoose.Schema({
     },
     venueLayout: {
       type: String,
-      enum: ['hall', 'theater', 'stadium', 'outdoor'],
+      enum: ['hall', 'theater', 'stadium', 'outdoor', 'concert', 'cinema', 'custom', 'footballStadium', 'basketballArena'],
       default: 'hall'
     },
     // Fields for online events
@@ -119,7 +119,7 @@ const eventSchema = new mongoose.Schema({
   seatingMap: {
     layoutType: { 
       type: String, 
-      enum: ['cinema', 'stadium', 'theater', 'concert', 'outdoor', 'custom'], 
+      enum: ['cinema', 'stadium', 'theater', 'concert', 'outdoor', 'custom', 'conference', 'hall', 'footballStadium', 'basketballArena'], 
       required: function() { return this.templateType === 'seating'; }
     },
     sections: [sectionSchema],
@@ -139,7 +139,16 @@ const eventSchema = new mongoose.Schema({
         y: Number,
         radius: Number
       }]
-    }
+    },
+    venueObjects: [{
+      type: { type: String },
+      objectType: { type: String },
+      label: { type: String },
+      x: { type: Number },
+      y: { type: Number },
+      width: { type: Number },
+      height: { type: Number }
+    }]
   },
   ticketTypes: [{
     type: mongoose.Schema.Types.ObjectId,

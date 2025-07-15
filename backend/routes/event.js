@@ -149,21 +149,34 @@ router.route('/preview-seating').post(previewSeatingMap); // Route preview seati
 // My events route for event owners
 router.get('/my-events', protect, asyncHandler(async (req, res) => {
     try {
-        const events = await Event.find({ 
-            $or: [
-                { organizers: { $in: [req.user._id] } },
-                { 'organizer.organizerId': req.user._id }
-            ]
-        })
-        .populate('organizers', 'username email fullName avatar')
-        .populate('ticketTypes')
-        .sort({ createdAt: -1 });
+        console.log('🔍 Đang tìm sự kiện cho user:', req.user._id, req.user.username);
+        
+        let events;
+
+        // Nếu là admin, trả về tất cả sự kiện
+        if (req.user.role === 'admin') {
+            console.log('🔍 User là admin, trả về tất cả sự kiện');
+            events = await Event.find()
+                .populate('organizers', 'username email fullName avatar')
+                .populate('ticketTypes')
+                .sort({ createdAt: -1 });
+        } else {
+            // Nếu không phải admin, chỉ trả về sự kiện của người tổ chức
+            events = await Event.find({ 
+                organizers: { $in: [req.user._id] }
+            })
+            .populate('organizers', 'username email fullName avatar')
+            .populate('ticketTypes')
+            .sort({ createdAt: -1 });
+            
+            console.log(`🔍 Tìm thấy ${events.length} sự kiện cho user ${req.user.username}`);
+        }
         
         // Return direct array (không wrap trong object) để frontend nhận được
         res.json(events);
     } catch (error) {
         console.error('Error fetching my events:', error);
-        res.status(500).json({ message: 'Lỗi server khi lấy danh sách sự kiện' });
+        res.status(500).json({ message: 'Lỗi server khi lấy danh sách sự kiện', error: error.message });
     }
 }));
 

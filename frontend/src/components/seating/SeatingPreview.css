@@ -1,83 +1,202 @@
 .seating-preview {
+  position: relative;
   width: 100%;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  height: 700px;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 8px;
   overflow: hidden;
 }
 
-.seating-preview.empty {
-  padding: 40px;
-  text-align: center;
-  color: #666;
-  font-style: italic;
-}
-
 .seating-container {
-  padding: 20px;
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  position: relative;
+  background-color: #1a1e2e;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .seating-svg {
   width: 100%;
-  height: auto;
-  max-height: 500px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  height: 100%;
+  background-color: #1a1e2e;
 }
 
-/* Stage styling */
-.stage rect {
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+/* Fix for venue objects visibility */
+.venue-object rect {
+  opacity: 0.85;
+  stroke-width: 1.5px;
 }
 
-.stage text {
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+.venue-object text {
+  pointer-events: none;
 }
 
-/* Section styling */
+/* Fix for sections overlapping */
+.section {
+  opacity: 0.9;
+}
+
 .section rect {
-  transition: all 0.3s ease;
+  opacity: 0.3;
+  stroke-width: 1px;
 }
 
 .section:hover rect {
-  opacity: 0.2 !important;
-  stroke-width: 3;
+  opacity: 0.5;
+  stroke-width: 2px;
+}
+
+.section text {
+  font-weight: bold;
+  pointer-events: none;
+}
+
+.seat {
+  transition: transform 0.1s ease-in-out;
+}
+
+.seat.clickable:hover {
+  transform: scale(1.2);
+  z-index: 10;
+}
+
+.hovered-section rect {
+  opacity: 0.6;
+  stroke-width: 2px;
+}
+
+.selected-section rect {
+  opacity: 0.7;
+  stroke-width: 2.5px;
+}
+
+/* Legend styles */
+.seating-legend {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 5px;
+  background-color: #f8f9fa;
+}
+
+.legend-title {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-right: 15px;
+}
+
+.color-box {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  margin-right: 5px;
+}
+
+/* Empty state */
+.seating-preview.empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 18px;
+  color: #777;
+}
+
+/* Stage styling */
+.stage {
+  position: absolute;
+  background: linear-gradient(to bottom, #4f46e5, #1e40af);
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.stage-text {
+  font-size: 16px;
+  text-align: center;
+}
+
+/* Section styling */
+.section-name {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+  z-index: 5;
+}
+
+/* Row styling */
+.row-name {
+  position: absolute;
+  font-size: 12px;
+  font-weight: bold;
+  color: #555;
 }
 
 /* Seat styling */
 .seat {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 10px;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
   transition: all 0.2s ease;
 }
 
-.seat.clickable {
-  cursor: pointer;
+.seat.available {
+  background-color: #22c55e;
+  color: white;
+  border: 1px solid #16a34a;
 }
 
-.seat.clickable:hover rect {
-  filter: brightness(1.2) drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+.seat.sold {
+  background-color: #f87171;
+  color: white;
+  border: 1px solid #ef4444;
 }
 
-.seat.selected rect {
-  stroke-width: 2px;
+.seat.reserved {
+  background-color: #facc15;
+  color: #333;
+  border: 1px solid #eab308;
 }
 
-/* Venue objects styling */
-.venue-object {
-  transition: all 0.3s ease;
+.seat.selected {
+  background-color: #3b82f6;
+  color: white;
+  border: 2px solid #2563eb;
+  transform: translate(-50%, -50%) scale(1.1);
+  z-index: 15;
 }
 
-.venue-object rect {
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-}
-
-.venue-object-label {
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.venue-object-text {
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+.seat.hovered {
+  background-color: #93c5fd;
+  transform: translate(-50%, -50%) scale(1.1);
+  z-index: 15;
 }
 
 /* Legend */
@@ -222,4 +341,41 @@
 .section:hover text {
   font-size: 14px;
   font-weight: bold;
+} 
+
+/* Venue Objects */
+.venue-object {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.venue-object:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  z-index: 25;
+}
+
+.venue-object-icon {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.venue-object-label {
+  font-size: 10px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 } 

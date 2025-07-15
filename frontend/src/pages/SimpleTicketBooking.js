@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { eventAPI } from '../services/api';
-import { FaPlus, FaMinus, FaTicketAlt, FaMapMarkerAlt, FaCalendarAlt, FaClock, FaUsers } from 'react-icons/fa';
+import { FaPlus, FaMinus, FaTicketAlt, FaMapMarkerAlt, FaCalendarAlt, FaClock, FaUsers, FaInfoCircle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const SimpleTicketBooking = () => {
@@ -201,6 +201,22 @@ const SimpleTicketBooking = () => {
                   <span>Sự kiện {event.location?.type === 'online' ? 'trực tuyến' : 'ngoài trời'}</span>
                 </div>
               </div>
+              
+              {/* Display seating map information if available */}
+              {event.seatingMap && event.seatingMap.sections && event.seatingMap.sections.length > 0 && (
+                <div className="mt-4 bg-blue-900/40 p-4 rounded-lg border border-blue-400/30">
+                  <div className="flex items-start gap-3">
+                    <FaInfoCircle className="text-blue-400 text-xl mt-1 flex-shrink-0" />
+                    <div>
+                      <h3 className="font-bold text-blue-300">Thông báo về ghế ngồi</h3>
+                      <p className="text-blue-200 text-sm mt-1">
+                        Sự kiện này có sơ đồ chỗ ngồi, tuy nhiên bạn không cần chọn chỗ ngồi cụ thể. 
+                        Vị trí ngồi sẽ được bố trí khi bạn đến sự kiện.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -209,10 +225,21 @@ const SimpleTicketBooking = () => {
       {/* Ticket Selection */}
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold mb-8 text-center">
+          <h2 className="text-3xl font-bold mb-6 text-center">
             <FaTicketAlt className="inline mr-3 text-green-400" />
             Chọn vé
           </h2>
+          
+          {event.seatingMap && event.seatingMap.sections && event.seatingMap.sections.length > 0 && (
+            <div className="mb-8 bg-blue-900/40 p-6 rounded-lg border border-blue-400/30 text-center">
+              <h3 className="font-bold text-xl text-blue-300 mb-2">Sự kiện có sơ đồ chỗ ngồi</h3>
+              <p className="text-blue-100">
+                Bạn đang mua vé cho sự kiện có sơ đồ chỗ ngồi. Tuy nhiên, hệ thống hiện đang áp dụng 
+                phương thức mua vé không cần chọn chỗ ngồi cụ thể. Vị trí sẽ được phân bổ theo thứ tự 
+                đến trước, ngồi trước khi bạn đến tham dự sự kiện.
+              </p>
+            </div>
+          )}
 
           <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
             {selectedTickets.map((ticket, index) => (
