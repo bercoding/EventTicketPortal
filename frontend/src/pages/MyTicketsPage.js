@@ -20,7 +20,14 @@ const MyTicketsPage = () => {
     const fetchTickets = async () => {
         try {
             setLoading(true);
+            setError('');
             const response = await ticketService.getUserTickets();
+            
+            if (!response.data) {
+                setTickets([]);
+                return;
+            }
+            
             setTickets(response.data);
             
             // Nếu có payment ID, tìm các vé mới mua
@@ -37,7 +44,7 @@ const MyTicketsPage = () => {
             // Generate QR codes for all tickets
             const qrCodePromises = response.data.map(async (ticket) => {
                 try {
-                    const qrData = JSON.stringify({
+                    const qrData = ticket.qrCode || JSON.stringify({
                         ticketId: ticket._id,
                         eventId: ticket.event?._id,
                         userId: ticket.userId,
@@ -58,8 +65,9 @@ const MyTicketsPage = () => {
             });
             setQrCodes(qrCodeMap);
         } catch (err) {
+            console.error('Error fetching tickets:', err);
             setError('Không thể tải vé của bạn. Vui lòng thử lại sau.');
-            toast.error('Không thể tải vé của bạn.');
+            toast.error('Không thể tải vé của bạn. Vui lòng kiểm tra kết nối mạng hoặc đăng nhập lại.');
         } finally {
             setLoading(false);
         }

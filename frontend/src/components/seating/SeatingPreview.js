@@ -6,7 +6,8 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
   const [selectedSeat, setSelectedSeat] = useState(null);
   const [hoveredSeat, setHoveredSeat] = useState(null);
 
-  if (!seatingMap || !seatingMap.sections) {
+  // Handle completely missing seatingMap
+  if (!seatingMap) {
     return (
       <div className="seating-preview empty">
         <p>Chưa có sơ đồ ghế</p>
@@ -14,17 +15,55 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
     );
   }
 
-  const { sections, stage, venueObjects = [] } = seatingMap;
+  // Ensure sections exist with fallbacks
+  const normalizedSeatingMap = {
+    ...seatingMap, // Keep all original properties
+    layoutType: seatingMap.layoutType || 'theater',
+    sections: Array.isArray(seatingMap.sections) ? seatingMap.sections : [],
+    stage: seatingMap.stage || { x: 400, y: 50, width: 300, height: 60 },
+    venueObjects: Array.isArray(seatingMap.venueObjects) 
+      ? seatingMap.venueObjects.map(obj => ({
+          ...obj, // Keep all original properties
+          // Ensure objectType is consistent (some objects might use 'type' instead of 'objectType')
+          objectType: obj.objectType || obj.type || 'other',
+          // Ensure dimensions are numbers but preserve original values
+          width: Number(obj.width) || 30,
+          height: Number(obj.height) || 30,
+          x: Number(obj.x) || 0,
+          y: Number(obj.y) || 0,
+          rotation: Number(obj.rotation) || 0
+        })) 
+      : []
+  };
+  
+  // Log the normalized seating map for debugging
+  console.log('Normalized seatingMap:', 
+    `layoutType=${normalizedSeatingMap.layoutType}, ` +
+    `sections=${normalizedSeatingMap.sections.length}, ` +
+    `venueObjects=${normalizedSeatingMap.venueObjects.length}`
+  );
 
-  // Định nghĩa các loại venue object
+  // If no sections at all, show empty message
+  if (normalizedSeatingMap.sections.length === 0) {
+    return (
+      <div className="seating-preview empty">
+        <p>Chưa có khu vực ghế nào</p>
+      </div>
+    );
+  }
+
+  const { sections, stage, venueObjects = [] } = normalizedSeatingMap;
+
+  // Define venue object types
   const venueObjectTypes = {
     'entrance': { name: 'Lối vào', icon: <FaDoorOpen />, color: '#4CAF50' },
     'exit': { name: 'Lối ra', icon: <FaDoorClosed />, color: '#F44336' },
-    'restroom': { name: 'Nhà vệ sinh', icon: <FaToilet />, color: '#2196F3' },
-    'food': { name: 'Quầy thức ăn', icon: <FaHamburger />, color: '#FF9800' },
-    'drinks': { name: 'Quầy nước', icon: <FaGlassMartiniAlt />, color: '#9C27B0' },
-    'accessible': { name: 'Lối đi cho người khuyết tật', icon: <FaWheelchair />, color: '#03A9F4' },
-    'info': { name: 'Quầy thông tin', icon: <FaInfoCircle />, color: '#607D8B' },
+    'wc': { name: 'Nhà vệ sinh', icon: <FaToilet />, color: '#2196F3' },
+    'food': { name: 'Đồ ăn', icon: <FaHamburger />, color: '#FF9800' },
+    'drinks': { name: 'Đồ uống', icon: <FaGlassMartiniAlt />, color: '#9C27B0' },
+    'accessibility': { name: 'Lối đi cho người khuyết tật', icon: <FaWheelchair />, color: '#607D8B' },
+    'info': { name: 'Thông tin', icon: <FaInfoCircle />, color: '#00BCD4' },
+    'other': { name: 'Khác', icon: <FaInfoCircle />, color: '#9E9E9E' }
   };
 
   // Color mapping cho các loại vé - cập nhật với màu sắc mới
@@ -165,7 +204,7 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
     const height = maxY - minY;
 
     // Xác định viewport dựa trên loại layout
-    const layoutType = seatingMap.layoutType || 'custom';
+    const layoutType = normalizedSeatingMap.layoutType || 'custom';
     let viewportWidth = width;
     let viewportHeight = height;
     
@@ -201,497 +240,141 @@ const SeatingPreview = ({ seatingMap, showLabels = true, interactive = false, on
   };
 
   // Xử lý khi người dùng click vào một ghế
-  const handleSeatClick = (sectionName, rowName, seatNumber) => {
-    const seatInfo = { sectionName, rowName, seatNumber };
+  const handleSeatClick = (seat, section, row) => {
+    const seatInfo = { sectionName: section.name, rowName: row.name, seatNumber: seat.number };
     setSelectedSeat(seatInfo);
     if (onSeatSelect) {
       onSeatSelect(seatInfo);
     }
   };
 
-  // Render venue objects như lối vào, nhà vệ sinh, ...
-  const renderVenueObject = (object) => {
-    const typeInfo = venueObjectTypes[object.type];
-    
-    // Không render nếu không tìm thấy thông tin loại object
-    if (!typeInfo) return null;
-
-    return (
-      <g 
-        key={object.id}
-        className="venue-object"
-        transform={`rotate(${object.rotation || 0}, ${object.x + (object.width/2)}, ${object.y + (object.height/2)})`}
-      >
-        {/* Object background */}
-        <rect
-          x={object.x}
-          y={object.y}
-          width={object.width}
-          height={object.height}
-          fill={object.color || typeInfo.color}
-          fillOpacity="0.7"
-          stroke={object.color || typeInfo.color}
-          strokeWidth="1.5"
-          rx="3"
-        />
-        
-        {/* Object label */}
-        {showLabels && (
-          <text
-            x={object.x + object.width / 2}
-            y={object.y - 8}
-            textAnchor="middle"
-            fill={object.color || typeInfo.color}
-            fontSize="12"
-            fontWeight="bold"
-            className="venue-object-label"
-          >
-            {object.name}
-          </text>
-        )}
-        
-        {/* Object icon/text */}
-        <text
-          x={object.x + object.width / 2}
-          y={object.y + object.height / 2 + 5}
-          textAnchor="middle"
-          fill="white"
-          fontSize="14"
-          fontWeight="bold"
-          className="venue-object-text"
-        >
-          {object.type.charAt(0).toUpperCase()}
-        </text>
-      </g>
-    );
+  // Xử lý khi người dùng hover vào một ghế
+  const handleSeatHover = (seat, section, row) => {
+    if (interactive) {
+      setHoveredSeat({
+        sectionName: section.name,
+        rowName: row.name,
+        seatNumber: seat.number
+      });
+    }
   };
+
+  // Render venue objects (lối vào, lối ra, wc, etc.)
+  const renderVenueObjects = () => {
+    if (!normalizedSeatingMap.venueObjects || !Array.isArray(normalizedSeatingMap.venueObjects)) {
+      return null;
+    }
+
+    return normalizedSeatingMap.venueObjects.map((obj, index) => {
+      // Get object type - support both 'type' and 'objectType' properties
+      const objectType = obj.objectType || obj.type || 'other';
+      const typeInfo = venueObjectTypes[objectType.toLowerCase()] || venueObjectTypes.other;
+      
+      // Log for debugging
+      console.log(`Rendering venue object: ${objectType}`, obj);
+
+      return (
+        <div
+          key={`venue-object-${index}`}
+          className="venue-object"
+          style={{
+            left: `${obj.x}px`,
+            top: `${obj.y}px`,
+            width: `${obj.width || 40}px`,
+            height: `${obj.height || 40}px`,
+            backgroundColor: typeInfo.color
+          }}
+          title={obj.label || typeInfo.name}
+        >
+          <div className="venue-object-icon">
+            {typeInfo.icon}
+          </div>
+          {showLabels && (
+            <div className="venue-object-label">
+              {obj.label || typeInfo.name}
+            </div>
+          )}
+        </div>
+      );
+    });
+  };
+
+  // Filter out any potentially problematic venue objects
+  const safeVenueObjects = venueObjects.filter(obj => 
+    obj && typeof obj === 'object' && (obj.objectType || obj.type)
+  );
 
   return (
     <div className="seating-preview">
-      <div className="seating-container">
-        <svg viewBox={calculateViewBox()} className="seating-svg">
-          {/* Stage */}
-          {stage && (
-            <g className="stage">
-              <rect
-                x={stage.x}
-                y={stage.y}
-                width={stage.width}
-                height={stage.height}
-                fill={seatingMap.layoutType === 'footballStadium' ? '#3a6e2a' : 
-                      seatingMap.layoutType === 'basketballArena' ? '#b75b1a' : 
-                      "#1a1a1a"}
-                stroke="#333"
-                strokeWidth="2"
-                rx="5"
-              />
-              <text
-                x={stage.x + stage.width / 2}
-                y={stage.y + stage.height / 2 + 5}
-                textAnchor="middle"
-                fill="white"
-                fontSize="14"
-                fontWeight="bold"
-              >
-                {seatingMap.layoutType === 'footballStadium' ? 'SÂN BÓNG ĐÁ' : 
-                 seatingMap.layoutType === 'basketballArena' ? 'SÂN BÓNG RỔ' : 
-                 'SÂN KHẤU'}
-              </text>
-              {/* Stage lights - only for theater/concert/outdoor layouts */}
-              {!['footballStadium', 'basketballArena'].includes(seatingMap.layoutType) && 
-                Array.from({ length: 7 }, (_, i) => (
-                <circle
-                  key={i}
-                  cx={stage.x + 50 + i * 50}
-                  cy={stage.y - 10}
-                  r="3"
-                  fill="#FFF700"
-                  opacity="0.8"
-                />
-                ))
-              }
-              
-              {/* Football field markings */}
-              {seatingMap.layoutType === 'footballStadium' && (
-                <g>
-                  {/* Pitch background */}
-                  <rect
-                    x={stage.x + 10}
-                    y={stage.y + 10}
-                    width={stage.width - 20}
-                    height={stage.height - 20}
-                    fill="#4a8c3a"
-                    stroke="white"
-                    strokeWidth="2"
-                  />
-                  
-                  {/* Center circle */}
-                  <circle
-                    cx={stage.x + stage.width / 2}
-                    cy={stage.y + stage.height / 2}
-                    r="20"
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="2"
-                  />
-                  
-                  {/* Center spot */}
-                  <circle
-                    cx={stage.x + stage.width / 2}
-                    cy={stage.y + stage.height / 2}
-                    r="2"
-                    fill="white"
-                  />
-                  
-                  {/* Center line */}
-                  <line
-                    x1={stage.x + stage.width / 2}
-                    y1={stage.y + 10}
-                    x2={stage.x + stage.width / 2}
-                    y2={stage.y + stage.height - 10}
-                    stroke="white"
-                    strokeWidth="2"
-                  />
-                  
-                  {/* Penalty areas */}
-                  <rect
-                    x={stage.x + stage.width/2 - 40}
-                    y={stage.y + 10}
-                    width="80"
-                    height="25"
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="1.5"
-                  />
-                  <rect
-                    x={stage.x + stage.width/2 - 40}
-                    y={stage.y + stage.height - 35}
-                    width="80"
-                    height="25"
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="1.5"
-                  />
-                  
-                  {/* Goals */}
-                  <rect
-                    x={stage.x + stage.width / 2 - 20}
-                    y={stage.y + 8}
-                    width="40"
-                    height="4"
-                    fill="white"
-                  />
-                  <rect
-                    x={stage.x + stage.width / 2 - 20}
-                    y={stage.y + stage.height - 12}
-                    width="40"
-                    height="4"
-                    fill="white"
-                  />
-                </g>
-              )}
-              
-              {/* Basketball court markings */}
-              {seatingMap.layoutType === 'basketballArena' && (
-                <g>
-                  {/* Court background */}
-                  <rect
-                    x={stage.x + 10}
-                    y={stage.y + 10}
-                    width={stage.width - 20}
-                    height={stage.height - 20}
-                    fill="#c67941"
-                    stroke="white"
-                    strokeWidth="2"
-                  />
-                  
-                  {/* Center circle */}
-                  <circle
-                    cx={stage.x + stage.width / 2}
-                    cy={stage.y + stage.height / 2}
-                    r="15"
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="1.5"
-                  />
-                  
-                  {/* Center line */}
-                  <line
-                    x1={stage.x + stage.width / 2}
-                    y1={stage.y + 10}
-                    x2={stage.x + stage.width / 2}
-                    y2={stage.y + stage.height - 10}
-                    stroke="white"
-                    strokeWidth="1.5"
-                  />
-                  
-                  {/* Three-point lines */}
-                  <path
-                    d={`M${stage.x + 30} ${stage.y + 30} 
-                        A 40 40 0 0 1 ${stage.x + stage.width - 30} ${stage.y + 30}`}
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="1"
-                  />
-                  <path
-                    d={`M${stage.x + 30} ${stage.y + stage.height - 30} 
-                        A 40 40 0 0 0 ${stage.x + stage.width - 30} ${stage.y + stage.height - 30}`}
-                    fill="none"
-                    stroke="white"
-                    strokeWidth="1"
-                  />
-                  
-                  {/* Free throw lines */}
-                  <line 
-                    x1={stage.x + 50}
-                    y1={stage.y + 35}
-                    x2={stage.x + stage.width - 50}
-                    y2={stage.y + 35}
-                    stroke="white"
-                    strokeWidth="1"
-                  />
-                  <line 
-                    x1={stage.x + 50}
-                    y1={stage.y + stage.height - 35}
-                    x2={stage.x + stage.width - 50}
-                    y2={stage.y + stage.height - 35}
-                    stroke="white"
-                    strokeWidth="1"
-                  />
-                  
-                  {/* Baskets */}
-                  <circle
-                    cx={stage.x + stage.width / 2}
-                    cy={stage.y + 15}
-                    r="3"
-                    fill="orange"
-                    stroke="white"
-                    strokeWidth="0.5"
-                  />
-                  <circle
-                    cx={stage.x + stage.width / 2}
-                    cy={stage.y + stage.height - 15}
-                    r="3"
-                    fill="orange"
-                    stroke="white"
-                    strokeWidth="0.5"
-                  />
-                </g>
-              )}
-            </g>
-          )}
-
-          {/* Sections */}
-          {sections && sections.map((section, index) => (
-            <g key={index} className={`section ${selectedSeat?.sectionName === section.name ? 'selected-section' : ''}`}>
-              {/* Section background */}
-              <rect
-                x={section.x}
-                y={section.y}
-                width={section.width || 180}
-                height={section.height || 150}
-                rx="5"
-                fill={getTicketTypeColor(section.name)}
-                fillOpacity="0.3"
-                stroke={getTicketTypeColor(section.name)}
-                strokeWidth="1.5"
-                className={hoveredSeat?.sectionName === section.name ? 'hovered-section' : ''}
-              />
-              
-              {/* Section label - sử dụng vị trí từ section hoặc tính toán nếu không có */}
-              {showLabels && (
-              <text
-                x={section.labelX || section.x + (section.width || 180) / 2}
-                y={section.labelY || section.y - 15}
-                textAnchor="middle"
-                fill={getTicketTypeColor(section.name)}
-                fontSize="14"
-                fontWeight="bold"
-              >
-                {section.name}
-              </text>
-              )}
-
-              {/* Section capacity label */}
-              {showLabels && (
-              <text
-                x={section.x + (section.width || 180) / 2}
-                y={section.y + 20}
-                textAnchor="middle"
-                fill="#555"
-                fontSize="12"
-              >
-                {section.capacity || 
-                 (section.rows ? section.rows.reduce((total, row) => 
-                   total + (row.seats ? row.seats.length : 0), 0) : 0)} ghế
-              </text>
-              )}
-
-              {/* Rows */}
-              {section.rows && section.rows.map((row, rowIndex) => (
-                <g key={rowIndex} className="row">
-                  {/* Row label - giảm kích cỡ chữ để tránh chồng lên */}
-                  {showLabels && (
-                  <text
-                    x={section.x - 15}
-                    y={row.seats && row.seats[0] ? row.seats[0].y + 4 : section.y + rowIndex * 20 + 15}
-                    textAnchor="end"
-                    fill="#555"
-                    fontSize="10"
-                    fontWeight="500"
-                  >
-                    {row.name}
-                  </text>
-                  )}
-                  
-                  {/* Seats */}
-                  {row.seats && row.seats.map((seat, seatIndex) => {
-                    // Xác định màu của ghế dựa trên trạng thái
-                    let seatColor = "#ccc";
-                    let seatStrokeColor = "#999";
-                    let clickable = false;
-                    
-                    if (seat.status === 'sold' || seat.status === 'reserved') {
-                      seatColor = "#f87171"; // Màu đỏ cho ghế đã bán
-                      seatStrokeColor = "#ef4444";
-                    } else if (seat.status === 'available') {
-                      seatColor = "#22c55e"; // Màu xanh cho ghế có sẵn
-                      seatStrokeColor = "#16a34a";
-                      clickable = interactive;
-                    } else if (seat.status === 'selected') {
-                      seatColor = "#60a5fa"; // Màu xanh dương cho ghế đã chọn
-                      seatStrokeColor = "#3b82f6";
-                    }
-                    
-                    // Kiểm tra xem ghế này có phải là ghế được chọn không
-                    const isSelected = 
-                      selectedSeat && 
-                      selectedSeat.sectionName === section.name &&
-                      selectedSeat.rowName === row.name &&
-                      selectedSeat.seatNumber === seat.number;
-                    
-                    // Kiểm tra xem ghế này có phải là ghế đang hover không
-                    const isHovered =
-                      hoveredSeat && 
-                      hoveredSeat.sectionName === section.name &&
-                      hoveredSeat.rowName === row.name &&
-                      hoveredSeat.seatNumber === seat.number;
-                      
-                    // Đặt kích thước ghế nhỏ hơn một chút để tránh chồng lấn
-                    const seatWidth = 8;
-                    const seatHeight = 8;
-                      
-                    return (
-                      <g 
-                        key={seatIndex} 
-                        className={`seat ${isSelected ? 'selected' : ''} ${isHovered ? 'hovered' : ''} ${clickable ? 'clickable' : ''}`}
-                        onClick={() => interactive && clickable ? handleSeatClick(section.name, row.name, seat.number) : null}
-                        onMouseOver={() => {
-                          if (interactive && clickable) {
-                            setHoveredSeat({
-                              sectionName: section.name,
-                              rowName: row.name,
-                              seatNumber: seat.number
-                            });
-                          }
-                        }}
-                        onMouseOut={() => {
-                          if (interactive) {
-                            setHoveredSeat(null);
-                          }
-                        }}
-                      >
-                        <rect
-                          x={seat.x - seatWidth/2}
-                          y={seat.y - seatHeight/2}
-                          width={seatWidth}
-                          height={seatHeight}
-                          rx={2}
-                          fill={isSelected ? "#3b82f6" : isHovered ? "#93c5fd" : seatColor}
-                          stroke={isSelected || isHovered ? "#2563eb" : seatStrokeColor}
-                          strokeWidth={isSelected || isHovered ? 2 : 1}
-                          style={{ cursor: clickable ? 'pointer' : 'default' }}
-                        />
-                        {/* Seat number - only shown when hovered if interactive */}
-                        {((interactive && isHovered) || (showLabels && !interactive)) && (
-                          <text
-                            x={seat.x}
-                            y={seat.y + seatHeight + 10}
-                            textAnchor="middle"
-                            fill="#111"
-                            fontSize="8"
-                            style={{ pointerEvents: 'none' }}
-                          >
-                            {seat.number}
-                          </text>
-                        )}
-                      </g>
-                    );
-                  })}
-                </g>
-              ))}
-            </g>
-          ))}
-
-          {/* Render venue objects like entrances, exits, restrooms etc. */}
-          {venueObjects && venueObjects.map((object) => renderVenueObject(object))}
-        </svg>
-      </div>
+      {/* Stage */}
+      {stage && (
+        <div 
+          className="stage"
+          style={{
+            left: `${stage.x}px`,
+            top: `${stage.y}px`,
+            width: `${stage.width}px`,
+            height: `${stage.height}px`,
+            background: stage.gradient ? 
+              `linear-gradient(to bottom, ${stage.gradient.start || '#4f46e5'}, ${stage.gradient.end || '#1e40af'})` :
+              '#4f46e5'
+          }}
+        >
+          <div className="stage-text">SÂN KHẤU</div>
+        </div>
+      )}
       
-      {/* Legend */}
-      <div className="seating-legend">
-        <div className="legend-title">Chú thích:</div>
-        <div className="legend-items">
-          <div className="legend-item">
-            <div className="color-box" style={{ backgroundColor: "#22c55e" }}></div>
-            <span>Ghế trống</span>
-          </div>
-          <div className="legend-item">
-            <div className="color-box" style={{ backgroundColor: "#f87171" }}></div>
-            <span>Ghế đã bán</span>
-          </div>
-          <div className="legend-item">
-            <div className="color-box" style={{ backgroundColor: "#60a5fa" }}></div>
-            <span>Ghế đang chọn</span>
+      {/* Sections */}
+      {sections.map((section, sectionIndex) => (
+        <div key={`section-${sectionIndex}`} className="section">
+          {/* Section name */}
+          <div 
+            className="section-name"
+            style={{
+              left: `${section.x + section.width / 2}px`,
+              top: `${section.y - 25}px`
+            }}
+          >
+            {section.name}
           </div>
           
-          {/* Show venue objects in legend if they exist */}
-          {venueObjects && venueObjects.length > 0 && (
-            <>
-              {venueObjects.some(obj => obj.type === 'entrance') && (
-                <div className="legend-item">
-                  <div className="color-box" style={{ backgroundColor: "#4CAF50" }}></div>
-                  <span>Lối vào</span>
+          {/* Rows */}
+          {section.rows && section.rows.map((row, rowIndex) => (
+            <div key={`row-${sectionIndex}-${rowIndex}`} className="row">
+              {/* Row name */}
+              <div 
+                className="row-name"
+                style={{
+                  left: `${section.x - 25}px`,
+                  top: `${section.y + 20 + rowIndex * 35}px`
+                }}
+              >
+                {row.name}
+              </div>
+              
+              {/* Seats */}
+              {row.seats && row.seats.map((seat, seatIndex) => (
+                <div
+                  key={`seat-${sectionIndex}-${rowIndex}-${seatIndex}`}
+                  className={`seat ${seat.status} ${selectedSeat && selectedSeat.id === seat.id ? 'selected' : ''} ${hoveredSeat && hoveredSeat.id === seat.id ? 'hovered' : ''}`}
+                  style={{
+                    left: `${seat.x}px`,
+                    top: `${seat.y}px`
+                  }}
+                  onClick={() => handleSeatClick(seat, section, row)}
+                  onMouseEnter={() => handleSeatHover(seat, section, row)}
+                  onMouseLeave={() => setHoveredSeat(null)}
+                >
+                  {seat.number}
                 </div>
-              )}
-              {venueObjects.some(obj => obj.type === 'exit') && (
-                <div className="legend-item">
-                  <div className="color-box" style={{ backgroundColor: "#F44336" }}></div>
-                  <span>Lối ra</span>
-                </div>
-              )}
-              {venueObjects.some(obj => obj.type === 'restroom') && (
-                <div className="legend-item">
-                  <div className="color-box" style={{ backgroundColor: "#2196F3" }}></div>
-                  <span>Nhà vệ sinh</span>
-                </div>
-              )}
-              {venueObjects.some(obj => obj.type === 'food') && (
-                <div className="legend-item">
-                  <div className="color-box" style={{ backgroundColor: "#FF9800" }}></div>
-                  <span>Quầy thức ăn</span>
-                </div>
-              )}
-              {venueObjects.some(obj => obj.type === 'drinks') && (
-                <div className="legend-item">
-                  <div className="color-box" style={{ backgroundColor: "#9C27B0" }}></div>
-                  <span>Quầy nước</span>
-                </div>
-              )}
-            </>
-          )}
+              ))}
+            </div>
+          ))}
         </div>
-      </div>
+      ))}
+      
+      {/* Venue Objects */}
+      {renderVenueObjects()}
     </div>
   );
 };

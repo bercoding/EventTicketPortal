@@ -1,295 +1,598 @@
-import React from 'react';
-import {
-  TransformWrapper,
-  TransformComponent,
-  useControls,
-} from 'react-zoom-pan-pinch';
-import { FaPlus, FaMinus, FaSyncAlt } from 'react-icons/fa';
-
-// Component Controls để zoom in, zoom out, reset
-const Controls = () => {
-  const { zoomIn, zoomOut, resetTransform } = useControls();
-  return (
-    <div className="absolute top-2 left-2 z-10 bg-white bg-opacity-70 p-1 rounded-lg shadow-md">
-      <button onClick={() => zoomIn()} className="p-2 text-gray-700 hover:bg-gray-200 rounded-md">
-        <FaPlus />
-      </button>
-      <button onClick={() => zoomOut()} className="p-2 text-gray-700 hover:bg-gray-200 rounded-md">
-        <FaMinus />
-      </button>
-      <button onClick={() => resetTransform()} className="p-2 text-gray-700 hover:bg-gray-200 rounded-md">
-        <FaSyncAlt />
-      </button>
-    </div>
-  );
-};
-
+import React, { useEffect } from 'react';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import { FaPlus, FaMinus, FaSync, FaDoorOpen, FaDoorClosed, FaRestroom, FaHamburger, FaWineBottle } from 'react-icons/fa';
 
 const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
+  useEffect(() => {
+    // Debug log when component mounts or eventData changes
+    console.log('🔍 AdvancedSeatingChart: Component mounted/updated with data:', {
+      hasEventData: !!eventData,
+      hasSeatingMap: !!(eventData && eventData.seatingMap),
+      sections: eventData?.seatingMap?.sections?.length || 0,
+      firstSectionPosition: eventData?.seatingMap?.sections?.[0] 
+        ? `(${eventData.seatingMap.sections[0].x}, ${eventData.seatingMap.sections[0].y})` 
+        : 'N/A',
+      selectedSeats: selectedSeats?.length || 0
+    });
+    
+    // Log detailed section information for debugging
+    if (eventData?.seatingMap?.sections) {
+      eventData.seatingMap.sections.forEach((section, idx) => {
+        console.log(`🪑 Section ${idx}: ${section.name} at (${section.x}, ${section.y})`);
+        
+        if (section.rows) {
+          console.log(`  - Has ${section.rows.length} rows`);
+          section.rows.forEach((row, rIdx) => {
+            if (row.seats && row.seats.length > 0) {
+              console.log(`    - Row ${row.name}: ${row.seats.length} seats, first seat at (${row.seats[0].x}, ${row.seats[0].y})`);
+            }
+          });
+        }
+      });
+    }
+    
+    // Log venue objects
+    if (eventData?.seatingMap?.venueObjects) {
+      console.log(`🏢 Venue objects: ${eventData.seatingMap.venueObjects.length}`);
+      eventData.seatingMap.venueObjects.forEach((obj, idx) => {
+        console.log(`  - ${obj.type}: ${obj.label} at (${obj.x}, ${obj.y})`);
+      });
+    }
+  }, [eventData, selectedSeats]);
+
   if (!eventData || !eventData.seatingMap || !eventData.ticketTypes) {
+    console.error('❌ Missing required data for AdvancedSeatingChart:', {
+      hasEventData: !!eventData,
+      hasSeatingMap: !!(eventData && eventData.seatingMap),
+      hasTicketTypes: !!(eventData && eventData.ticketTypes),
+      seatingMapSections: eventData?.seatingMap?.sections?.length || 0
+    });
     return <div className="text-center p-8">Đang tải sơ đồ ghế...</div>;
   }
 
+  // Extract seating map data
   const { seatingMap, ticketTypes } = eventData;
-  const { sections, stage } = seatingMap;
-
-  // Kiểm tra dữ liệu sections
-  if (!sections || !Array.isArray(sections) || sections.length === 0) {
-    return <div className="text-center p-8">Không có dữ liệu ghế.</div>;
-  }
-
-  // Tạo một map từ ticketTypeId sang thông tin chi tiết (màu sắc, giá)
-  const ticketTypeMap = ticketTypes.reduce((acc, tt) => {
-    acc[tt._id] = tt;
-    return acc;
-  }, {});
-
-  // Hàm tạo màu sắc cho từng loại vé
-  const getTicketTypeColor = (ticketType, index) => {
-    // Nếu ticketType đã có màu sắc, sử dụng nó
-    if (ticketType?.color) {
-      return ticketType.color;
-    }
-    
-    // Màu sắc dựa trên tên loại vé
-    const name = ticketType?.name?.toLowerCase() || '';
-    
-    if (name.includes('vvip') || name.includes('golden')) return '#FFD700'; // Vàng cho VVIP/Golden
-    if (name.includes('vip')) return '#8B5CF6'; // Tím cho VIP  
-    if (name.includes('thường') || name.includes('standard')) return '#3B82F6'; // Xanh dương cho thường
-    if (name.includes('lầu') || name.includes('balcony')) return '#F59E0B'; // Cam cho lầu
-    
-    // Màu sắc mặc định dựa trên index
-    const defaultColors = [
-      '#3B82F6', // Blue
-      '#8B5CF6', // Purple  
-      '#10B981', // Green
-      '#F59E0B', // Orange
-      '#EF4444', // Red
-      '#06B6D4', // Cyan
-      '#84CC16', // Lime
-      '#F472B6', // Pink
-    ];
-    
-    return defaultColors[index % defaultColors.length];
-  };
-
-  // Cập nhật ticketTypeMap với màu sắc
-  const ticketTypesWithColors = ticketTypes.map((tt, index) => ({
-    ...tt,
-    color: getTicketTypeColor(tt, index)
-  }));
-
-  const ticketTypeMapWithColors = ticketTypesWithColors.reduce((acc, tt) => {
-    acc[tt._id] = tt;
-    return acc;
-  }, {});
-
-  const getSeatClassName = (seat) => {
-    const isSelected = selectedSeats.some(s => s._id === seat._id);
-    if (isSelected) {
-      return 'cursor-pointer animate-pulse';
-    }
-    if (seat.status === 'booked') {
-      return 'opacity-40 cursor-not-allowed';
-    }
-     if (seat.status === 'unavailable') {
-      return 'opacity-20 cursor-not-allowed';
-    }
-    return 'cursor-pointer hover:stroke-2 hover:stroke-yellow-400';
-  };
-
-  const getSeatFillColor = (seat, section) => {
-     const isSelected = selectedSeats.some(s => s._id === seat._id);
-    if (isSelected) {
-      return '#10b981'; // Green for selected seats
-    }
-     if (seat.status === 'booked' || seat.status === 'sold') {
-      return '#ef4444'; // Red for booked/sold seats
-    }
-    if (seat.status === 'unavailable') {
-      return '#9ca3af'; // Gray for unavailable seats
-    }
-    
-    // Tìm màu sắc dựa trên section's ticketTier
-    const ticketType = ticketTypeMapWithColors[section.ticketTier];
-    return ticketType?.color || '#60a5fa'; // Default to blue if no color found
-  }
-
-  // --- START ADVANCED BOUNDING BOX CALCULATION ---
-
-  // 1. Find the precise bounding box of all elements
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-  const allElements = [...sections];
-  if (stage) {
-    allElements.push({
-      // Treat stage as a section for bounding box calculation
-      rows: [{
-        seats: [
-          { x: stage.x, y: stage.y },
-          { x: stage.x + stage.width, y: stage.y + stage.height }
-        ]
-      }]
-    });
-  }
   
-  allElements.forEach(sec => {
-    if (!sec || !sec.rows || !Array.isArray(sec.rows)) return;
-    sec.rows.forEach(row => {
-      if (!row || !row.seats || !Array.isArray(row.seats)) return;
-      row.seats.forEach(seat => {
-        if (!seat || typeof seat.x !== 'number' || typeof seat.y !== 'number') return;
-        minX = Math.min(minX, seat.x);
-        maxX = Math.max(maxX, seat.x);
-        minY = Math.min(minY, seat.y);
-        maxY = Math.max(maxY, seat.y);
-      });
-    });
+  // Enhanced validation and default values
+  if (!seatingMap) {
+    console.error('❌ Seating map is undefined or null');
+    return <div className="text-center p-8">Không thể tải sơ đồ ghế</div>;
+  }
+
+  const sections = seatingMap.sections || [];
+  const stage = seatingMap.stage || { x: 400, y: 80, width: 400, height: 100 };
+  
+  // Use venue objects from seating map
+  let venueObjects = seatingMap.venueObjects || [];
+  
+  // Log detailed information for debugging
+  console.log('🎭 RENDERING AdvancedSeatingChart with:', {
+    eventId: eventData._id,
+    eventTitle: eventData.title,
+    sectionsCount: sections.length,
+    venueObjectsCount: venueObjects.length,
+    sections: sections.map(s => ({
+      name: s.name,
+      position: `(${s.x}, ${s.y})`,
+      size: `${s.width}x${s.height}`,
+      rowCount: Array.isArray(s.rows) ? s.rows.length : 0,
+      seatCount: Array.isArray(s.rows) 
+        ? s.rows.reduce((acc, row) => acc + (Array.isArray(row.seats) ? row.seats.length : 0), 0) 
+        : 0
+    }))
   });
 
-  // 2. Calculate dimensions and add padding
-  const PADDING = 50;
-  let contentWidth, contentHeight;
+  // Prepare SVG viewport dimensions - INCREASED for better visibility
+  const SVG_WIDTH = 1400;
+  const SVG_HEIGHT = 1000;
+  
+  // Utility function to get colors based on seat status
+  const getSeatFillColor = (seat, section) => {
+    // If seat is selected, use the selected color
+    const isSelected = selectedSeats && selectedSeats.some(s => 
+      s._id === seat._id || 
+      (s.section === section.name && s.row === seat.rowName && s.number === seat.number)
+    );
+    
+    if (isSelected) return '#4CAF50'; // Bright green for selected
+    
+    // For available seats, use the ticket type color
+    if (seat.status === 'available' || !seat.status) {
+      if (section && section.ticketTier) {
+        const ticketType = ticketTypes.find(tt => 
+          tt._id === section.ticketTier || 
+          tt._id.toString() === section.ticketTier.toString()
+        );
+        
+        if (ticketType && ticketType.color) {
+          return ticketType.color;
+        }
+      }
+      return '#2196F3'; // Bright blue for available
+    }
+    
+    // For unavailable seats, use the appropriate color
+    switch (seat.status) {
+      case 'reserved':
+        return '#FFC107'; // Amber
+      case 'sold':
+        return '#F44336'; // Bright red
+      case 'locked':
+        return '#9E9E9E'; // Gray
+      case 'maintenance':
+        return '#9C27B0'; // Purple
+      default:
+        return '#E0E0E0'; // Light gray
+    }
+  };
+  
+  // Get a color for ticket type display
+  const getTicketTypeColor = (ticketType, index) => {
+    if (ticketType && ticketType.color) return ticketType.color;
+    
+    // Default color palette - Brighter, more distinct colors
+    const colors = [
+      '#2196F3', // Blue
+      '#4CAF50', // Green
+      '#9C27B0', // Purple
+      '#FFC107', // Amber
+      '#E91E63', // Pink
+      '#00BCD4', // Cyan
+    ];
+    
+    return colors[index % colors.length];
+  };
+  
+  // Controls component for TransformWrapper
+  const Controls = ({ zoomIn, zoomOut, resetTransform }) => (
+    <div className="absolute left-2 top-2 z-10 bg-gray-800/60 text-white p-2 flex space-x-1 rounded">
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          zoomIn();
+        }}
+        className="w-8 h-8 flex items-center justify-center bg-blue-600 hover:bg-blue-700 rounded"
+      >
+        <FaPlus size={14} />
+      </button>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          zoomOut();
+        }}
+        className="w-8 h-8 flex items-center justify-center bg-blue-600 hover:bg-blue-700 rounded"
+      >
+        <FaMinus size={14} />
+      </button>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          resetTransform();
+        }}
+        className="w-8 h-8 flex items-center justify-center bg-blue-600 hover:bg-blue-700 rounded"
+      >
+        <FaSync size={14} />
+      </button>
+    </div>
+  );
 
-  if (minX === Infinity) {
-    // Fallback if no elements are found
-    contentWidth = 800;
-    contentHeight = 600;
-    minX = 0;
-    minY = 0;
-  } else {
-    contentWidth = (maxX - minX) + (PADDING * 2);
-    contentHeight = (maxY - minY) + (PADDING * 2);
-  }
+  // Render stage
+  const renderStage = () => {
+    // Ensure stage has valid coordinates and dimensions
+    const stageX = typeof stage.x === 'number' ? stage.x : 400;
+    const stageY = typeof stage.y === 'number' ? stage.y : 80;
+    const stageWidth = typeof stage.width === 'number' ? stage.width : 400;
+    const stageHeight = typeof stage.height === 'number' ? stage.height : 100;
+    
+    console.log(`🎭 Rendering stage at (${stageX}, ${stageY}) with ${stageWidth}x${stageHeight}`);
+    
+    return (
+      <g className="stage">
+        <rect
+          x={stageX}
+          y={stageY}
+          width={stageWidth}
+          height={stageHeight}
+          fill="#374151"
+          stroke="#FFFFFF"
+          strokeWidth={3}
+          rx={8}
+        />
+        <text
+          x={stageX + stageWidth / 2}
+          y={stageY + stageHeight / 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="#ffffff"
+          fontSize={20}
+          fontWeight="bold"
+        >
+          SÂN KHẤU
+        </text>
+      </g>
+    );
+  };
 
-  // --- END ADVANCED BOUNDING BOX CALCULATION ---
+  // Render venue objects like entrances, exits, and facilities
+  const renderVenueObjects = () => {
+    if (!venueObjects || venueObjects.length === 0) return null;
+    
+    // Default colors for each type
+    const defaultColors = {
+      entrance: '#4CAF50', // Green
+      exit: '#F44336',     // Red
+      wc: '#2196F3',       // Blue
+      food: '#FF9800',     // Orange
+      drinks: '#FF9800',   // Orange
+      default: '#6B7280'   // Gray
+    };
+    
+    return (
+      <g className="venue-objects">
+        {venueObjects.map((object, index) => {
+          // Get color based on type if not specified
+          const color = object.color || defaultColors[object.type] || defaultColors.default;
+          
+          // Simple object rendering with SVG shapes instead of icons
+          return (
+            <g 
+              key={`venue-object-${index}`} 
+              className={`venue-object ${object.type}`}
+            >
+              {/* Background for facility */}
+              <rect
+                x={object.x}
+                y={object.y}
+                width={object.width || 60}
+                height={object.height || 40}
+                fill={color}
+                stroke="#FFFFFF"
+                strokeWidth={2}
+                rx={8}
+              />
+              
+              {/* Icon symbol based on type */}
+              {object.type === 'entrance' && (
+                <path
+                  d={`M${object.x + 15},${object.y + 20} L${object.x + 30},${object.y + 10} L${object.x + 45},${object.y + 20} L${object.x + 45},${object.y + 30} L${object.x + 15},${object.y + 30} Z`}
+                  fill="#FFFFFF"
+                  stroke="#FFFFFF"
+                  strokeWidth={1}
+                />
+              )}
+              
+              {object.type === 'exit' && (
+                <path
+                  d={`M${object.x + 15},${object.y + 10} L${object.x + 45},${object.y + 10} L${object.x + 45},${object.y + 30} L${object.x + 15},${object.y + 30} Z`}
+                  fill="none"
+                  stroke="#FFFFFF"
+                  strokeWidth={2}
+                />
+              )}
+              
+              {object.type === 'wc' && (
+                <circle
+                  cx={object.x + 30}
+                  cy={object.y + 20}
+                  r={10}
+                  fill="none"
+                  stroke="#FFFFFF"
+                  strokeWidth={2}
+                />
+              )}
+              
+              {(object.type === 'food' || object.type === 'drinks') && (
+                <rect
+                  x={object.x + 20}
+                  y={object.y + 15}
+                  width={20}
+                  height={15}
+                  fill="none"
+                  stroke="#FFFFFF"
+                  strokeWidth={2}
+                  rx={2}
+                />
+              )}
+              
+              {/* Label for facility */}
+              <text
+                x={object.x + (object.width || 60) / 2}
+                y={object.y + (object.height || 40) / 2 + 5}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill="#FFFFFF"
+                fontSize={12}
+                fontWeight="bold"
+              >
+                {object.label || object.type.toUpperCase()}
+              </text>
+            </g>
+          );
+        })}
+      </g>
+    );
+  };
+
+  // Render sections with rows and seats
+  const renderSections = () => {
+    if (!sections || sections.length === 0) {
+      console.warn("❌ No sections to render in seatingMap");
+      return null;
+    }
+    
+    console.log(`🎭 Rendering ${sections.length} sections in AdvancedSeatingChart`);
+    
+    return sections.map((section, sectionIndex) => {
+      // Find section coordinates from seats if not explicitly defined
+      let sectionX = section.x;
+      let sectionY = section.y;
+      let sectionWidth = section.width || 300;
+      let sectionHeight = section.height || 150;
+      
+      // If section doesn't have coordinates, try to calculate from first row's first seat
+      if (typeof sectionX !== 'number' || typeof sectionY !== 'number') {
+        console.log(`🔍 Section ${section.name} missing coordinates, calculating from seats`);
+        
+        if (Array.isArray(section.rows) && section.rows.length > 0) {
+          const firstRow = section.rows[0];
+          if (Array.isArray(firstRow.seats) && firstRow.seats.length > 0) {
+            // Get first and last seat in first row
+            const firstSeat = firstRow.seats[0];
+            const lastSeat = firstRow.seats[firstRow.seats.length - 1];
+            
+            if (typeof firstSeat.x === 'number' && typeof firstSeat.y === 'number') {
+              // Calculate section position based on first seat
+              sectionX = firstSeat.x - 30; // Padding to the left
+              sectionY = firstSeat.y - 30; // Padding above
+              
+              // If we have last seat, calculate width
+              if (lastSeat && typeof lastSeat.x === 'number') {
+                sectionWidth = (lastSeat.x - firstSeat.x) + 60; // Add padding
+              }
+              
+              // Calculate height based on last row if available
+              if (section.rows.length > 1) {
+                const lastRow = section.rows[section.rows.length - 1];
+                if (Array.isArray(lastRow.seats) && lastRow.seats.length > 0) {
+                  const lastRowSeat = lastRow.seats[0];
+                  if (typeof lastRowSeat.y === 'number') {
+                    sectionHeight = (lastRowSeat.y - firstSeat.y) + 60; // Add padding
+                  }
+                }
+              }
+              
+              console.log(`✅ Calculated section position: (${sectionX}, ${sectionY}) with size ${sectionWidth}x${sectionHeight}`);
+            }
+          }
+        }
+      }
+      
+      // If we still don't have valid coordinates, use defaults based on section index
+      if (typeof sectionX !== 'number' || typeof sectionY !== 'number') {
+        console.warn(`⚠️ Could not calculate coordinates for section ${section.name}, using defaults`);
+        sectionX = 100 + (sectionIndex % 3) * 400;
+        sectionY = 200 + Math.floor(sectionIndex / 3) * 300;
+      }
+      
+      console.log(`🎭 Rendering section "${section.name}" at (${sectionX}, ${sectionY}) with ${sectionWidth}x${sectionHeight}`);
+      
+      // Check for rows and seats
+      let hasSeats = false;
+      if (Array.isArray(section.rows)) {
+        section.rows.forEach((row, rowIdx) => {
+          if (Array.isArray(row.seats) && row.seats.length > 0) {
+            hasSeats = true;
+            console.log(`   🎭 Row ${row.name}: ${row.seats.length} seats`);
+          }
+        });
+      }
+      
+      if (!hasSeats) {
+        console.warn(`❌ Section "${section.name}" has no valid seats`);
+      }
+      
+      // Determine section color based on ticket type
+      let sectionColor = '#e5e7eb'; // Default light gray
+      let ticketInfo = '';
+      
+      if (section.ticketTier) {
+        const ticketType = ticketTypes.find(tt => 
+          tt._id === section.ticketTier || 
+          tt._id.toString() === section.ticketTier.toString()
+        );
+        
+        if (ticketType) {
+          sectionColor = ticketType.color || getTicketTypeColor(ticketType, sectionIndex);
+          ticketInfo = ` (${ticketType.name})`;
+          console.log(`🎫 Section "${section.name}" has ticket type: ${ticketType.name} with color ${sectionColor}`);
+        }
+      }
+      
+      return (
+        <g key={`section-${sectionIndex}`} className="section">
+          {/* Section background */}
+          <rect
+            x={sectionX}
+            y={sectionY}
+            width={sectionWidth}
+            height={sectionHeight}
+            fill={`${sectionColor}20`} 
+            stroke={sectionColor}
+            strokeWidth={3}
+            strokeDasharray="5,3"
+            rx={8}
+          />
+          
+          {/* Section name */}
+          <text
+            x={sectionX + sectionWidth / 2}
+            y={sectionY - 10}
+            textAnchor="middle"
+            fill="#ffffff"
+            fontWeight="bold"
+            fontSize={18}
+            stroke="#000000"
+            strokeWidth={0.5}
+            paintOrder="stroke"
+          >
+            {section.name}
+          </text>
+          
+          {/* Ticket type name - displayed below section name */}
+          {ticketInfo && (
+            <text
+              x={sectionX + sectionWidth / 2}
+              y={sectionY - 30}
+              textAnchor="middle"
+              fill={sectionColor}
+              fontWeight="bold"
+              fontSize={16}
+              stroke="#000000"
+              strokeWidth={0.3}
+              paintOrder="stroke"
+            >
+              {ticketInfo}
+            </text>
+          )}
+          
+          {/* Render seats */}
+          {Array.isArray(section.rows) && section.rows.map((row, rowIndex) => {
+            if (!row || !Array.isArray(row.seats) || row.seats.length === 0) {
+              return null;
+            }
+            
+            return (
+              <g key={`row-${sectionIndex}-${rowIndex}`} className="row">
+                {/* Row label */}
+                {row.name && row.seats[0] && typeof row.seats[0].x === 'number' && (
+                  <text
+                    x={row.seats[0].x - 20}
+                    y={row.seats[0].y}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                    fill="#ffffff"
+                    fontSize={14}
+                    fontWeight="bold"
+                    stroke="#000000"
+                    strokeWidth={0.3}
+                  >
+                    {row.name}
+                  </text>
+                )}
+                
+                {/* Seats */}
+                {row.seats.map((seat, seatIndex) => {
+                  if (!seat || typeof seat.x !== 'number' || typeof seat.y !== 'number') {
+                    return null;
+                  }
+                  
+                  // Determine if this seat is selected
+                  const isSelected = selectedSeats && selectedSeats.some(s => 
+                    s._id === seat._id || 
+                    (s.section === section.name && s.row === row.name && s.number === seat.number)
+                  );
+                  
+                  // Determine seat status
+                  const isAvailable = seat.status !== 'sold' && seat.status !== 'reserved';
+                  const seatColor = getSeatFillColor(seat, section);
+                  
+                  return (
+                    <g
+                      key={`seat-${sectionIndex}-${rowIndex}-${seatIndex}`}
+                      className={`seat ${isSelected ? 'selected' : ''} ${seat.status || 'available'}`}
+                    >
+                      {/* Seat circle */}
+                      <circle
+                        cx={seat.x}
+                        cy={seat.y}
+                        r={12} // Increased size
+                        fill={seatColor}
+                        stroke={isSelected ? '#ffffff' : '#000000'}
+                        strokeWidth={isSelected ? 2 : 1}
+                        opacity={isAvailable ? 1 : 0.5}
+                        onClick={() => {
+                          if (isAvailable && onSeatSelect) {
+                            console.log(`🪑 Seat clicked: section=${section.name}, row=${row.name}, seat=${seat.number}`);
+                            onSeatSelect({
+                              ...seat,
+                              _id: seat._id || `${section.name}-${row.name}-${seat.number}`,
+                              section: section.name,
+                              sectionName: section.name,
+                              row: row.name,
+                              rowName: row.name,
+                              ticketTier: section.ticketTier,
+                              ticketType: ticketTypes.find(tt => 
+                                tt._id === section.ticketTier || 
+                                tt._id.toString() === section.ticketTier.toString()
+                              )
+                            });
+                          }
+                        }}
+                        style={{
+                          cursor: isAvailable ? 'pointer' : 'not-allowed',
+                          transition: 'all 0.2s ease'
+                        }}
+                      />
+                      
+                      {/* Seat number */}
+                      <text
+                        x={seat.x}
+                        y={seat.y}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill={isSelected ? '#ffffff' : '#000000'}
+                        fontSize={10}
+                        fontWeight="bold"
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        {seat.number}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })}
+        </g>
+      );
+    });
+  };
 
   return (
-    <div className="w-full h-full bg-gray-800 rounded-lg overflow-hidden relative">
+    <div className="w-full h-full bg-gray-900 rounded-lg overflow-hidden relative">
+      <div className="absolute top-16 right-2 z-10 bg-blue-700/80 text-white p-4 rounded-lg shadow-lg max-w-xs">
+        <h3 className="font-bold mb-2">Hướng dẫn sử dụng:</h3>
+        <ul className="list-disc list-inside text-sm space-y-1">
+          <li>Nhấn vào ghế trống để chọn</li>
+          <li>Nhấn lại để bỏ chọn</li>
+          <li>Dùng +/- để phóng to/thu nhỏ</li>
+          <li>Kéo để di chuyển sơ đồ</li>
+        </ul>
+      </div>
+      
       <TransformWrapper
-        initialScale={1}
-        minScale={0.2}
-        maxScale={5}
-        limitToBounds={true}
+        initialScale={0.7}
+        minScale={0.3}
+        maxScale={3}
+        defaultPositionX={0}
+        defaultPositionY={0}
         centerOnInit={true}
       >
-        <Controls />
-        <TransformComponent
-            wrapperStyle={{ width: '100%', height: '100%' }}
-            contentStyle={{ width: contentWidth, height: contentHeight }}
-        >
-          {/* Use a group with a transform to normalize coordinates */}
-          <svg width={contentWidth} height={contentHeight} style={{ background: 'transparent' }}>
-            <g transform={`translate(${-minX + PADDING}, ${-minY + PADDING})`}>
-              {/* Render Stage */}
-              {stage && stage.x !== undefined && stage.y !== undefined && (
-                   <g>
-                    <rect 
-                        x={stage.x} 
-                        y={stage.y} 
-                        width={stage.width} 
-                        height={stage.height} 
-                        fill="#1f2937" 
-                        stroke="#4b5563"
-                        strokeWidth="2"
-                        rx="10"
-                    />
-                    <text x={stage.centerX || stage.x + (stage.width / 2)} y={stage.centerY + 5 || stage.y + (stage.height / 2)} textAnchor="middle" fill="white" fontSize="20" fontWeight="bold">SÂN KHẤU</text>
-                </g>
-              )}
-
-              {/* Render Sections and Seats */}
-              {sections.map((section, sectionIndex) => {
-                if (!section || !section.rows || !Array.isArray(section.rows)) return null;
-                
-                // Tính toán boundaries của section để vẽ background
-                const sectionSeats = section.rows.flatMap(r => r.seats || []);
-                const validSeats = sectionSeats.filter(s => s && typeof s.x === 'number' && typeof s.y === 'number');
-                
-                let sectionBounds = null;
-                if (validSeats.length > 0) {
-                    const minX = Math.min(...validSeats.map(s => s.x));
-                    const maxX = Math.max(...validSeats.map(s => s.x));
-                    const minY = Math.min(...validSeats.map(s => s.y));
-                    const maxY = Math.max(...validSeats.map(s => s.y));
-                    sectionBounds = {
-                        x: minX - 15,
-                        y: minY - 15,
-                        width: maxX - minX + 30,
-                        height: maxY - minY + 30
-                    };
-                }
-                
-                // Lấy màu sắc của section
-                const ticketType = ticketTypeMapWithColors[section.ticketTier];
-                const sectionColor = ticketType?.color || '#9ca3af';
-                
-                return (
-                  <g key={section.name || `section-${sectionIndex}`}>
-                    {/* Section Background */}
-                    {sectionBounds && (
-                        <rect
-                            x={sectionBounds.x}
-                            y={sectionBounds.y}
-                            width={sectionBounds.width}
-                            height={sectionBounds.height}
-                            fill={sectionColor}
-                            opacity="0.2"
-                            stroke={sectionColor}
-                            strokeWidth="2"
-                            strokeDasharray="5,5"
-                            rx="8"
-                        />
-                    )}
-                    
-                    {/* Section Name Label - tính toán vị trí dựa trên ghế đầu tiên */}
-                    {section.rows.length > 0 && section.rows[0].seats && section.rows[0].seats.length > 0 && (
-                      <text 
-                        x={section.rows[0].seats[0].x || 0} 
-                        y={(section.rows[0].seats[0].y || 0) - 10} 
-                        textAnchor="start" 
-                        fill={sectionColor}
-                        fontSize="16" 
-                        fontWeight="bold"
-                      >
-                        {section.name} ({ticketType?.name || 'N/A'})
-                      </text>
-                    )}
-                    
-                    {section.rows.map((row, rowIndex) => {
-                      if (!row || !row.seats || !Array.isArray(row.seats)) return null;
-                      
-                      return (
-                        <g key={row.name || `${section.name || 'section'}-row-${rowIndex}`}>
-                          {row.seats.map((seat, seatIndex) => {
-                            if (!seat || typeof seat.x !== 'number' || typeof seat.y !== 'number') return null;
-                            
-                            return (
-                              <circle
-                                key={seat._id || `seat-${sectionIndex}-${rowIndex}-${seatIndex}`}
-                                cx={seat.x}
-                                cy={seat.y}
-                                r={8} // Bán kính ghế
-                                fill={getSeatFillColor(seat, section)}
-                                className={getSeatClassName(seat)}
-                                onClick={() => {
-                                    if (seat.status === 'available') {
-                                        onSeatSelect(seat);
-                                    }
-                                }}
-                              />
-                            );
-                          })}
-                        </g>
-                      );
-                    })}
-                  </g>
-                );
-              })}
-            </g>
-          </svg>
-        </TransformComponent>
+        {({ zoomIn, zoomOut, resetTransform }) => (
+          <React.Fragment>
+            <Controls zoomIn={zoomIn} zoomOut={zoomOut} resetTransform={resetTransform} />
+            <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
+              <svg width={SVG_WIDTH} height={SVG_HEIGHT} style={{ background: '#1a202c' }}>
+                {renderStage()}
+                {renderVenueObjects()}
+                {renderSections()}
+              </svg>
+            </TransformComponent>
+          </React.Fragment>
+        )}
       </TransformWrapper>
     </div>
   );

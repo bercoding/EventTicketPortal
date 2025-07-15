@@ -60,8 +60,12 @@ const Login = () => {
             <div className="max-w-md w-full space-y-8 relative z-10">
                 {/* Logo and Header */}
                 <div className="text-center">
-                    <div className="mx-auto w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg transform hover:scale-105 transition-transform duration-300">
-                        <FaTicketAlt className="text-white text-3xl" />
+                    <div className="mx-auto flex items-center justify-center mb-6 transform hover:scale-105 transition-transform duration-300">
+                        <img 
+                            src="http://localhost:5001/logo/lgoo-03.png" 
+                            alt="VENTURE Logo" 
+                            className="w-81 h-auto"
+                        />
                     </div>
                     <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                         Chào mừng trở lại

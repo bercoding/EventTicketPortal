@@ -37,6 +37,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: null
     },
+    bio: {
+        type: String,
+        default: ''
+    },
     dateOfBirth: {
         type: Date
     },
@@ -95,7 +99,23 @@ const userSchema = new mongoose.Schema({
     },
     resetPasswordOTPExpires: {
         type: Date
-    }
+    },
+    friends: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User' 
+    }],
+    friendRequests: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User' 
+    }],
+    pendingRequests: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User' 
+    }],
+    blockList: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User' 
+    }]
 }, { timestamps: true });
 
 // Encrypt password before saving

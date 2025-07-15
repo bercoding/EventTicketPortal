@@ -4,6 +4,7 @@ import { FaCalendarAlt, FaMapMarkerAlt, FaTicketAlt, FaClock, FaUsers, FaInfoCir
 import { eventAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { getEventPlaceholder, handleImageError } from '../utils/imageHelpers';
+import ReviewSection from './ReviewSection';
 
 // This is a "dumb" component, focused only on displaying event details.
 // All booking logic has been moved to the `SelectSeatPage`.
@@ -59,11 +60,15 @@ const EventDetailPage = () => {
         const isOutdoorEvent = event.location?.venueLayout === 'outdoor' || 
                                event.location?.venueName?.toLowerCase().includes('ngoài trời');
         
+        // Restore original logic to choose appropriate booking flow
         if (hasSeatingMap) {
+            console.log('🎭 Redirecting to seat selection for event with seating map');
             navigate(`/events/${id}/select-seats`);
         } else if (isOnlineEvent || isOutdoorEvent) {
+            console.log('🎫 Redirecting to simple booking for online/outdoor event');
             navigate(`/simple-booking/${id}`);
         } else {
+            console.log('🎫 Redirecting to standard booking');
             navigate(`/booking/${id}`);
         }
     };
@@ -272,6 +277,8 @@ const EventDetailPage = () => {
                                     <span>Cập nhật lần cuối: {new Date().toLocaleDateString('vi-VN')}</span>
                                 </div>
                             </div>
+                             {/* Event Description */}
+                             <ReviewSection eventId={id} />
                         </div>
                     </div>
                 </div>

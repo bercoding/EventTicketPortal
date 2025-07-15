@@ -141,17 +141,76 @@ const SelectSeatPage = () => {
                 const response = await eventAPI.getEventById(id);
                 console.log('📦 SelectSeatPage: API Response:', response);
                 
+                let eventDataFromResponse = null;
+                
                 if (response.success && response.data) {
-                    console.log('✅ SelectSeatPage: Event loaded successfully:', response.data.title);
-                    setEventData(response.data);
+                    eventDataFromResponse = response.data;
                 } else if (response.data?.success) {
-                    console.log('✅ SelectSeatPage: Event loaded successfully (nested structure):', response.data.data.title);
-                    setEventData(response.data.data);
+                    eventDataFromResponse = response.data.data;
                 } else {
                     console.log('❌ SelectSeatPage: API returned unsuccessful response:', response);
                     toast.error('Không thể tải thông tin sự kiện.');
                     navigate('/');
+                    return;
                 }
+                
+                // Log thông tin sự kiện đã tải
+                console.log('✅ SelectSeatPage: Event loaded successfully:', eventDataFromResponse.title);
+                
+                // Kiểm tra và log thông tin seatingMap
+                console.log('🪑 SeatingMap data:', eventDataFromResponse.seatingMap);
+                
+                // Always generate a reliable demo seating map
+                let shouldUseDemo = true;
+                
+                // Only use real seating map if it's fully valid
+                if (eventDataFromResponse.seatingMap) {
+                    console.log('✅ Found seatingMap in database:', eventDataFromResponse.seatingMap);
+                    
+                    // IMPORTANT: Always try to use the original seating map first
+                    // Only fall back to demo if absolutely necessary
+                    shouldUseDemo = false;
+                    
+                    // Ensure layoutType is set
+                    if (!eventDataFromResponse.seatingMap.layoutType) {
+                        eventDataFromResponse.seatingMap.layoutType = 'theater';
+                    }
+                    
+                    // Ensure sections exist
+                    if (!eventDataFromResponse.seatingMap.sections || !Array.isArray(eventDataFromResponse.seatingMap.sections) || eventDataFromResponse.seatingMap.sections.length === 0) {
+                        console.warn('⚠️ No sections found in seating map, may need to use demo');
+                        shouldUseDemo = true;
+                    } else {
+                        console.log(`✅ Found ${eventDataFromResponse.seatingMap.sections.length} sections in database seatingMap`);
+                    }
+                    
+                    // Log the original seating map for debugging
+                    console.log('Original seatingMap sections:', eventDataFromResponse.seatingMap.sections);
+                    console.log('Original seatingMap venueObjects:', eventDataFromResponse.seatingMap.venueObjects);
+                } else {
+                    console.warn('⚠️ No valid seating map found, using demo instead');
+                    shouldUseDemo = true;
+                }
+                
+                if (shouldUseDemo) {
+                    console.warn('⚠️ Generating demo seating map for event');
+                    eventDataFromResponse.seatingMap = createDemoSeatingMap(eventDataFromResponse.ticketTypes || []);
+                    
+                    console.log('🎭 Generated demo seatingMap:', 
+                        `${eventDataFromResponse.seatingMap.sections.length} sections, ` +
+                        `${eventDataFromResponse.seatingMap.sections.reduce((total, sec) => 
+                            total + (sec.rows?.length || 0), 0)} rows, ` +
+                        `${eventDataFromResponse.seatingMap.sections.reduce((total, sec) => 
+                            total + sec.rows?.reduce((r, row) => r + (row.seats?.length || 0), 0) || 0, 0)} seats`
+                    );
+                } else {
+                    console.log(`🪑 Using ${eventDataFromResponse.seatingMap.sections.length} sections from database seatingMap`);
+                    eventDataFromResponse.seatingMap.sections.forEach((section, idx) => {
+                        console.log(`🪑 Section ${idx}: ${section.name} with ${section.rows?.length || 0} rows`);
+                    });
+                }
+                
+                setEventData(eventDataFromResponse);
             } catch (error) {
                 console.error('❌ SelectSeatPage: Fetch event error:', error);
                 toast.error('Lỗi khi tải sự kiện.');
@@ -163,35 +222,206 @@ const SelectSeatPage = () => {
         fetchEvent();
     }, [id, navigate]);
 
-     const handleSeatSelect = (seatToSelect) => {
-        if (seatToSelect.status !== 'available' && !selectedSeats.some(s => s._id === seatToSelect._id)) {
-            toast.info("Ghế này không còn trống hoặc không có sẵn.");
-            return;
+    // Function to create a demo seating map
+    const createDemoSeatingMap = (ticketTypes) => {
+      console.log('🎭 Creating demo seating map with ticket types:', ticketTypes);
+      
+      // Default ticket tier if no ticket types available
+      let defaultTicketTierId = null;
+      if (ticketTypes && ticketTypes.length > 0) {
+        defaultTicketTierId = ticketTypes[0]._id;
+      }
+      
+      // Create three sections with better spacing
+      const sections = [
+        {
+          name: "Khu A (Premium)",
+          x: 100,
+          y: 200,
+          width: 350,
+          height: 200,
+          ticketTier: defaultTicketTierId,
+          rows: []
+        },
+        {
+          name: "Khu B (VIP)", 
+          x: 650,
+          y: 200,
+          width: 350,
+          height: 200,
+          ticketTier: ticketTypes.length > 1 ? ticketTypes[1]._id : defaultTicketTierId,
+          rows: []
+        },
+        {
+          name: "Khu C (Standard)",
+          x: 375,
+          y: 450,
+          width: 350, 
+          height: 150,
+          ticketTier: ticketTypes.length > 2 ? ticketTypes[2]._id : defaultTicketTierId,
+          rows: []
         }
+      ];
 
-        let newSelectedSeats = [];
-        const isAlreadySelected = selectedSeats.some(seat => seat._id === seatToSelect._id);
-
-        if (isAlreadySelected) {
-            newSelectedSeats = selectedSeats.filter(seat => seat._id !== seatToSelect._id);
-        } else {
-            const section = eventData.seatingMap.sections.find(sec => 
-                sec.rows.some(row => row.seats.some(s => s._id === seatToSelect._id))
-            );
-            const ticketType = eventData.ticketTypes.find(tt => tt._id === section.ticketTier);
-
-            const seatWithDetails = {
-                ...seatToSelect,
-                price: ticketType?.price || 0,
-                sectionName: section?.name || 'N/A'
-            };
-            newSelectedSeats = [...selectedSeats, seatWithDetails];
+      // Generate rows per section with good spacing
+      sections.forEach((section, sectionIndex) => {
+        const rowCount = sectionIndex === 2 ? 4 : 5; // Fewer rows for last section
+        
+        for (let r = 0; r < rowCount; r++) {
+          const rowName = String.fromCharCode(65 + r); // A, B, C, etc.
+          const rowY = section.y + 40 + (r * 35); // Good spacing between rows
+          
+          const seats = [];
+          const seatCount = sectionIndex === 2 ? 8 : 10; // Fewer seats for last section
+          
+          for (let s = 0; s < seatCount; s++) {
+            seats.push({
+              // Remove _id field to let MongoDB generate ObjectIds
+              number: s + 1,
+              status: 'available',
+              x: section.x + 30 + (s * 30), // Good spacing between seats
+              y: rowY
+            });
+          }
+          
+          section.rows.push({
+            name: rowName,
+            seats: seats
+          });
         }
+      });
 
-        setSelectedSeats(newSelectedSeats);
-        const newTotal = newSelectedSeats.reduce((sum, seat) => sum + (seat.price || 0), 0);
-        setTotalAmount(newTotal);
+      // Define venue objects (lối ra, lối vào, wc, etc.)
+      const venueObjects = [
+        { 
+          type: 'entrance',
+          label: 'LỐI VÀO',
+          x: 100,
+          y: 550,
+          width: 100,
+          height: 40
+        },
+        { 
+          type: 'exit',
+          label: 'LỐI RA',
+          x: 800,
+          y: 550,
+          width: 100,
+          height: 40
+        },
+        { 
+          type: 'wc',
+          label: 'WC',
+          x: 100, 
+          y: 620,
+          width: 80,
+          height: 40
+        },
+        { 
+          type: 'wc',
+          label: 'WC',
+          x: 820,
+          y: 620,
+          width: 80,
+          height: 40
+        },
+        { 
+          type: 'food',
+          label: 'ĐỒ ĂN',
+          x: 250,
+          y: 620,
+          width: 80,
+          height: 40
+        },
+        { 
+          type: 'drinks',
+          label: 'NƯỚC',
+          x: 650,
+          y: 620,
+          width: 80,
+          height: 40
+        }
+      ];
+
+      return {
+        layoutType: 'theater', // Ensure layoutType is always set
+        sections,
+        stage: {
+          x: 400,
+          y: 80,
+          width: 400,
+          height: 100
+        },
+        venueObjects
+      };
     };
+
+     const handleSeatSelect = (seatToSelect) => {
+    if (seatToSelect.status !== 'available' && !selectedSeats.some(s => s._id === seatToSelect._id)) {
+      toast.info("Ghế này không còn trống hoặc không có sẵn.");
+      return;
+    }
+
+    let newSelectedSeats = [];
+    const isAlreadySelected = selectedSeats.some(seat => 
+      seat._id === seatToSelect._id || 
+      (seat.section === seatToSelect.section && seat.row === seatToSelect.row && seat.number === seatToSelect.number)
+    );
+
+    if (isAlreadySelected) {
+      newSelectedSeats = selectedSeats.filter(seat => seat._id !== seatToSelect._id);
+    } else {
+      // Find the section containing this seat to get ticket type info
+      const section = eventData.seatingMap.sections.find(sec => 
+        sec.name === seatToSelect.section || sec.name === seatToSelect.sectionName
+      );
+      
+      if (!section) {
+        console.error('❌ Could not find section for seat:', seatToSelect);
+        toast.error("Lỗi: Không thể xác định khu vực của ghế");
+        return;
+      }
+      
+      // Find the matching ticket type
+      let ticketType = null;
+      if (section.ticketTier && eventData.ticketTypes) {
+        ticketType = eventData.ticketTypes.find(tt => 
+          tt._id === section.ticketTier || 
+          tt._id.toString() === section.ticketTier.toString()
+        );
+      }
+      
+      if (!ticketType && eventData.ticketTypes && eventData.ticketTypes.length > 0) {
+        // Default to first ticket type if no match
+        ticketType = eventData.ticketTypes[0];
+        console.warn('⚠️ Using default ticket type for seat:', seatToSelect);
+      }
+      
+      const price = ticketType ? ticketType.price : 0;
+      console.log('💲 Ticket price for selected seat:', price);
+      
+      const enrichedSeat = {
+        ...seatToSelect,
+        price,
+        ticketTypeName: ticketType?.name || 'Vé Thường',
+        ticketTypeId: ticketType?._id || null,
+        sectionName: seatToSelect.section || seatToSelect.sectionName,
+        rowName: seatToSelect.row || seatToSelect.rowName,
+        seatNumber: seatToSelect.number
+      };
+      
+      newSelectedSeats = [...selectedSeats, enrichedSeat];
+    }
+
+    setSelectedSeats(newSelectedSeats);
+    
+    // Calculate new total
+    const newTotal = newSelectedSeats.reduce((sum, seat) => sum + (seat.price || 0), 0);
+    setTotalAmount(newTotal);
+    
+    // Debug log
+    console.log('🎫 Selected seats updated:', newSelectedSeats.map(s => `${s.section || s.sectionName} - ${s.row || s.rowName} - ${s.number}`));
+  };
 
     if (loading) {
         return <div className="flex justify-center items-center h-screen"><div className="loader"></div></div>;
@@ -207,12 +437,12 @@ const SelectSeatPage = () => {
             <div className="flex-grow w-2/3 p-4">
                 <div className="w-full h-full bg-white rounded-xl shadow-lg flex flex-col">
                     <div className="p-4 border-b">
-                         <button onClick={() => navigate(`/events/${id}`)} className="text-blue-600 hover:underline">
+                        <button onClick={() => navigate(`/events/${id}`)} className="text-blue-600 hover:underline">
                             &larr; Trở về chi tiết sự kiện
                         </button>
                         <h2 className="text-2xl font-bold text-center text-gray-800">CHỌN VÉ CỦA BẠN</h2>
                     </div>
-                    <div className="flex-grow p-2">
+                    <div className="flex-grow p-2 relative">
                         <AdvancedSeatingChart
                             eventData={eventData}
                             selectedSeats={selectedSeats}
@@ -224,9 +454,9 @@ const SelectSeatPage = () => {
 
             {/* Right Column: Information & Summary */}
             <div className="w-1/3 min-w-[380px] bg-gray-50 p-4 flex flex-col space-y-4">
-                 <div className="bg-white p-4 rounded-lg shadow-lg">
+                <div className="bg-white p-4 rounded-lg shadow-lg">
                     <img 
-                        src={eventData.images.banner} 
+                        src={eventData.images?.banner || '/default-event.jpg'} 
                         onError={handleImageError} 
                         alt={eventData.title}
                         className="w-full h-40 object-cover rounded-md mb-3"
@@ -234,7 +464,7 @@ const SelectSeatPage = () => {
                     <h3 className="text-xl font-bold text-gray-800">{eventData.title}</h3>
                     <div className="text-gray-600 mt-2 space-y-1">
                         <p className="flex items-center"><FaCalendarAlt className="mr-2 text-gray-500" /> {new Date(eventData.startDate).toLocaleString('vi-VN')}</p>
-                        <p className="flex items-center"><FaMapMarkerAlt className="mr-2 text-gray-500" /> {eventData.location.venueName}</p>
+                        <p className="flex items-center"><FaMapMarkerAlt className="mr-2 text-gray-500" /> {eventData.location?.venueName || 'Địa điểm chưa xác định'}</p>
                     </div>
                 </div>
 
@@ -279,7 +509,7 @@ const SelectSeatPage = () => {
                                 _id: seat._id,
                                 sectionName: seat.sectionName,
                                 rowName: seat.rowName,
-                                seatNumber: seat.seatNumber,
+                                seatNumber: seat.number || seat.seatNumber,
                                 price: seat.price,
                                 ticketType: seat.ticketType
                             })),
@@ -303,11 +533,9 @@ const SelectSeatPage = () => {
                     disabled={selectedSeats.length === 0}
                     className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg"
                 >
-                    TIẾN HÀNH THANH TOÁN
+                    {selectedSeats.length === 0 ? 'CHỌN GHẾ ĐỂ TIẾP TỤC' : `TIẾN HÀNH THANH TOÁN (${selectedSeats.length} ghế)`}
                 </button>
             </div>
-
-
         </div>
     );
 };

@@ -1,151 +1,203 @@
 .interactive-seating-designer {
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-height: 500px;
+  background-color: #111827;
+  border-radius: 8px;
   overflow: hidden;
-}
-
-/* Toolbar */
-.designer-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.toolbar-section {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.toolbar-section h4 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.toolbar-buttons {
-  display: flex;
-  gap: 8px;
-}
-
-.tool-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-  background-color: white;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-
-.tool-btn:hover {
-  background-color: #f5f5f5;
-}
-
-.tool-btn.active {
-  background-color: #e6f7ff;
-  border-color: #91d5ff;
-  color: #1890ff;
-}
-
-.tool-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.tool-btn.danger {
-  background: rgba(239, 68, 68, 0.2);
-}
-
-.tool-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.3);
-}
-
-/* Main designer area */
-.designer-main {
-  display: flex;
-  height: 70vh;
-  min-height: 600px;
-}
-
-.designer-canvas {
-  flex: 1;
   position: relative;
-  background: #f8fafc;
-  border-right: 1px solid #e2e8f0;
-  overflow: hidden;
+  z-index: 1;
+  isolation: isolate;
+  pointer-events: auto;
 }
 
-.seating-canvas {
+.seating-designer-toolbar {
+  background-color: #1f2937;
+  padding: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  position: relative;
+  z-index: 50 !important;
+  pointer-events: auto !important;
+}
+
+.seating-designer-toolbar button {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 100 !important;
+  cursor: pointer !important;
+}
+
+.seating-designer-container {
+  position: relative;
+  isolation: isolate;
+  z-index: 5;
+  pointer-events: auto;
+}
+
+.seating-designer-canvas {
+  flex-grow: 1;
+  background-color: #111827;
+  position: relative;
+  overflow: auto;
+  z-index: 10;
+}
+
+.seating-svg {
   width: 100%;
   height: 100%;
-  cursor: crosshair;
-  display: block;
-}
-
-.seating-canvas.select-mode {
   cursor: default;
+  pointer-events: all !important; /* Đảm bảo SVG nhận được sự kiện chuột */
 }
 
-/* SVG elements */
-.draggable-element {
-  cursor: grab;
-  transition: all 0.2s ease;
-  user-select: none;
+/* Make sure all SVG elements can receive pointer events */
+.seating-svg * {
+  pointer-events: auto;
+}
+
+/* Stage element should be draggable */
+.stage {
+  cursor: move !important;
   pointer-events: all !important;
 }
 
-.draggable-element:hover {
-  filter: brightness(1.1);
-  stroke-width: 3;
+/* Sections should be draggable and selectable */
+.section {
+  cursor: pointer !important;
+  pointer-events: all !important;
 }
 
-.draggable-element:active {
-  cursor: grabbing;
+/* Venue objects should be draggable */
+.venue-object {
+  cursor: move !important;
+  pointer-events: all !important;
 }
 
-.stage-element {
-  cursor: grab;
-  pointer-events: all;
+.toolbar-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #374151;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer !important;
+  transition: background-color 0.2s;
+  pointer-events: auto !important;
+  z-index: 100 !important;
+  position: relative;
 }
 
-.stage-element:hover {
-  opacity: 0.9;
+.toolbar-button:hover {
+  background-color: #4b5563;
 }
 
-.section-element {
-  cursor: grab;
-  pointer-events: all;
+.toolbar-button.active {
+  background-color: #3b82f6;
 }
 
-.section-element:hover {
-  opacity: 0.9;
+.toolbar-button:disabled {
+  background-color: #6b7280;
+  cursor: not-allowed;
 }
 
-.stage-element.selected rect,
-.section-element.selected rect {
-  stroke-width: 3;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+/* Styles for elements */
+.stage.selected {
+  stroke: white;
+  stroke-width: 3px;
 }
 
-.selection-indicator {
-  pointer-events: none;
-  animation: dash 1s infinite linear;
+.section.selected rect {
+  stroke: white;
+  stroke-width: 2px;
 }
 
-@keyframes dash {
-  to {
-    stroke-dashoffset: -10;
-  }
+.venue-object.selected {
+  stroke: white;
+  stroke-width: 2px;
+}
+
+/* Control panel */
+.control-panel {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  background-color: rgba(17, 24, 39, 0.9);
+  border-radius: 8px;
+  padding: 10px;
+  width: 280px;
+  max-height: 80%;
+  overflow-y: auto;
+}
+
+.control-panel-tabs {
+  display: flex;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #4b5563;
+}
+
+.control-panel-tab {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.control-panel-tab.active {
+  border-bottom-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.control-panel-content {
+  padding: 5px 0;
+}
+
+.form-group {
+  margin-bottom: 10px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  background-color: #1f2937;
+  border: 1px solid #4b5563;
+  color: white;
+}
+
+.form-group input[type="color"] {
+  height: 36px;
+  padding: 2px;
+}
+
+/* Seat styling */
+.seat {
+  cursor: pointer;
+}
+
+.seat:hover {
+  stroke: white;
+  stroke-width: 1px;
+}
+
+.seat.selected {
+  stroke: white;
+  stroke-width: 2px;
+}
+
+.seat.unavailable {
+  fill-opacity: 0.3;
+  cursor: not-allowed;
 }
 
 /* Instructions */
@@ -191,7 +243,7 @@
 }
 
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .form-group label {
@@ -343,10 +395,6 @@
   filter: brightness(1.1);
 }
 
-.venue-object.selected rect {
-  stroke-width: 3px;
-}
-
 .venue-object-label {
   font-size: 12px;
   font-weight: bold;
@@ -409,4 +457,137 @@
   width: 16px;
   height: 16px;
   border-radius: 3px;
+}
+
+/* Thêm CSS mới cho phần hiển thị số ghế */
+.capacity-control {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.capacity-info {
+  font-size: 0.85em;
+  color: #4a5568;
+  background-color: #edf2f7;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.capacity-info span {
+  margin-right: auto;
+}
+
+/* Isolation container styles */
+.seating-designer-isolator {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  isolation: isolate;
+}
+
+/* Disable submit within seating designer */
+.seating-designer-isolator form {
+  pointer-events: none;
+}
+
+.seating-designer-isolator button {
+  pointer-events: auto !important;
+}
+
+.seating-designer-isolator * {
+  pointer-events: auto;
+}
+
+/* Make sure buttons don't submit forms */
+.interactive-seating-designer button {
+  z-index: 100 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  position: relative;
+}
+
+/* Đảm bảo các button có thể nhận được sự kiện click */
+button.toolbar-button {
+  z-index: 100 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  position: relative;
+} 
+
+/* Custom styling for seating designer inputs */
+.interactive-seating-designer .seating-designer-input,
+input.seating-designer-input {
+  background-color: #374151 !important; /* Dark gray background */
+  color: white !important;
+  border: 1px solid #4B5563 !important;
+  padding: 6px 10px !important;
+  border-radius: 4px !important;
+  width: 100% !important;
+}
+
+.interactive-seating-designer .seating-designer-input::placeholder {
+  color: #9CA3AF !important;
+}
+
+.interactive-seating-designer .seating-designer-input:focus {
+  outline: none !important;
+  border-color: #60A5FA !important;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2) !important;
+}
+
+/* For select dropdown */
+.interactive-seating-designer .seating-designer-select,
+select.seating-designer-select {
+  background-color: #374151 !important;
+  color: white !important;
+  border: 1px solid #4B5563 !important;
+  padding: 6px 10px !important;
+  border-radius: 4px !important;
+  width: 100% !important;
+}
+
+.interactive-seating-designer .seating-designer-select:focus {
+  outline: none !important;
+  border-color: #60A5FA !important;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2) !important;
+}
+
+/* Option styling */
+.interactive-seating-designer .seating-designer-select option {
+  background-color: #1F2937 !important;
+  color: white !important;
+} 
+
+/* Basic layout */
+.interactive-seating-designer {
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background-color: #1F2937;
+  color: white;
+}
+
+/* Global style for all inputs in the designer */
+.interactive-seating-designer input,
+.interactive-seating-designer select,
+.interactive-seating-designer textarea {
+  background-color: #374151 !important;
+  color: white !important;
+  border: 1px solid #4b5563 !important;
+  padding: 6px 10px !important;
+  border-radius: 4px !important;
+}
+
+/* Force white text for all text inputs */
+.interactive-seating-designer input[type="text"],
+.interactive-seating-designer input[type="number"],
+.interactive-seating-designer input[type="email"],
+.interactive-seating-designer input[type="password"],
+.interactive-seating-designer select {
+  color: white !important;
 } 
