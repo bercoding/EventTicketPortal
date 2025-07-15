@@ -57,6 +57,7 @@ import OwnerCustomers from './components/owner/OwnerCustomers';
 import OwnerFeedback from './components/owner/OwnerFeedback';
 import OwnerRules from './components/owner/OwnerRules';
 import SimpleTicketBooking from './pages/SimpleTicketBooking';
+import { FriendPage } from './pages/friend';
 
 // Global Navigation Monitor Component
 const NavigationMonitor = () => {
@@ -126,6 +127,7 @@ const App = () => {
                                 <Route path="/old-home" element={<PrivateRoute><MainLayout><Home /></MainLayout></PrivateRoute>} />
                                 <Route path="/events" element={<PrivateRoute><MainLayout><AllEvents /></MainLayout></PrivateRoute>} />
                                 <Route path="/chat" element={<PrivateRoute><MainLayout><ChatPage /></MainLayout></PrivateRoute>} />
+                                <Route path="/friends" element={<PrivateRoute><MainLayout><FriendPage /></MainLayout></PrivateRoute>} />
                                 <Route path="/forum" element={<PrivateRoute><MainLayout><Forum /></MainLayout></PrivateRoute>} />
                                 <Route path="/event-templates" element={<PrivateRoute><MainLayout><EventTemplateSelection /></MainLayout></PrivateRoute>} />
                                 <Route path="/create-event" element={<PrivateRoute><MainLayout><CreateEvent /></MainLayout></PrivateRoute>} />
