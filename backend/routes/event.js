@@ -253,4 +253,7 @@ router.put('/:id/admin-update', protect, admin, asyncHandler(async (req, res) =>
     }
 }));
 
+// Mount nested review routes for events
+router.use('/:eventId/reviews', require('../routes/review'));
+
 module.exports = router; 

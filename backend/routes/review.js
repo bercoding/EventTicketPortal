@@ -1,20 +1,29 @@
 const express = require('express');
-const router = express.Router();
-const reviewController = require('../controllers/reviewController');
+const router = express.Router({ mergeParams: true });
+const {
+  createReview,
+  getAllReviews,
+  getReviewById,
+  updateReview,
+  deleteReview
+} = require('../controllers/reviewController');
+const { protect } = require('../middleware/auth');
 
-// CREATE a review
-router.post('/', reviewController.createReview);
+// Middleware: Inject eventId from params to query (for getAllReviews)
+router.use((req, res, next) => {
+  if (req.params.eventId) {
+    req.query.eventId = req.params.eventId;
+  }
+  next();
+});
 
-// READ all reviews
-router.get('/', reviewController.getAllReviews);
+router.route('/')
+  .post(protect, createReview)
+  .get(getAllReviews);
 
-// READ a single review by ID
-router.get('/:id', reviewController.getReviewById);
-
-// UPDATE a review by ID
-router.put('/:id', reviewController.updateReview);
-
-// DELETE a review by ID
-router.delete('/:id', reviewController.deleteReview);
+router.route('/:id')
+  .get(getReviewById)
+  .put(protect, updateReview)
+  .delete(protect, deleteReview);
 
 module.exports = router;

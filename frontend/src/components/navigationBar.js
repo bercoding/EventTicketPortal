@@ -9,7 +9,8 @@ import {
   faPlus,
   faChevronDown,
   faCalendarAlt,
-  faCog
+  faCog,
+  faUsers
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/AuthContext';
 import { formatAvatarUrl } from '../utils/imageHelpers';
@@ -75,6 +76,10 @@ const NavigationBar = forwardRef(({ className = '' }, ref) => {
                 <Link to="/chat" className="flex items-center hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105">
                   <FontAwesomeIcon icon={faComments} className="mr-1.5" />
                   Tin nhắn
+                </Link>
+                <Link to="/friends" className="flex items-center hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105">
+                  <FontAwesomeIcon icon={faUsers} className="mr-1.5" />
+                  Bạn bè
                 </Link>
                 {/* Nút tạo sự kiện cho event_owner */}
                 {user.role === 'event_owner' && (
