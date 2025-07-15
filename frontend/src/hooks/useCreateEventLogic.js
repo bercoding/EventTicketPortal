@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import api from '../services/api';
+import { uploadImage } from '../services/api';
 
 const useCreateEventLogic = (templateInfo = null) => {
   const navigate = useNavigate();
@@ -199,20 +200,23 @@ const useCreateEventLogic = (templateInfo = null) => {
     }
   };
 
-  const handleImageUpload = (e, imageType) => {
+  const handleImageUpload = async (e, imageType) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      // Upload file lên server và lấy URL
+      const result = await uploadImage(file, imageType);
+      if (result.success) {
         setFormData(prev => ({
           ...prev,
           images: {
             ...prev.images,
-            [imageType]: reader.result
+            [imageType]: result.url
           }
         }));
-      };
-      reader.readAsDataURL(file);
+      } else {
+        // Có thể hiển thị thông báo lỗi ở đây nếu muốn
+        alert(result.message || 'Upload ảnh thất bại');
+      }
     }
   };
 
@@ -523,7 +527,7 @@ const useCreateEventLogic = (templateInfo = null) => {
 
       // Tính toán capacity và seatOptions dựa trên template
       let payload;
-      let apiEndpoint = '/events/create';
+      let apiEndpoint = '/events';
       
       if (isSeatingEvent) {
         // Sự kiện có ghế ngồi
@@ -618,7 +622,8 @@ const useCreateEventLogic = (templateInfo = null) => {
           organizers: [user._id],
           location: locationData,
           organizer: formData.organizer,
-          ticketTypes: formData.ticketTypes,
+          ticketTypes: [], // Gửi mảng rỗng cho ticketTypes
+          ticketTypesData: formData.ticketTypes, // Gửi loại vé thực tế ở field này
           templateType: templateInfo?.templateType || 'general'
         };
       }
@@ -654,7 +659,7 @@ const useCreateEventLogic = (templateInfo = null) => {
           
           // Navigate after a short delay to ensure toast is shown
           setTimeout(() => {
-            window.location.href = '/my-events';
+            navigate('/my-events');
           }, 2000);
         } else {
           console.error('❌ Invalid response structure:', response.data);

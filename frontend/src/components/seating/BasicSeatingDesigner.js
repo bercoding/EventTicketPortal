@@ -718,7 +718,14 @@ Last Action: ${debugInfo.lastAction}`);
             <div>Objects: {localMap.venueObjects?.length || 0}</div>
             <div>Layout: {localMap.layoutType}</div>
             <div>Mode: {isDragging ? 'dragging' : 'select'}</div>
-            {selectedElement && <div>Selected: {selectedElement.type} ({selectedElement.id.substring(0, 6)}...)</div>}
+            {selectedElement && (
+              <div>
+                Selected: {selectedElement.type}
+                {selectedElement.id && typeof selectedElement.id === 'string'
+                  ? ` (${selectedElement.id.substring(0, 6)}...)`
+                  : ''}
+              </div>
+            )}
             <div>Last: {debugInfo.lastAction}</div>
           </div>
         </div>
