@@ -1,6 +1,6 @@
 import React from 'react';
 
-const NavigationButtons = ({ currentStep, totalSteps, handlePrev, handleNext, finalButtonText, loading }) => {
+const NavigationButtons = ({ currentStep, totalSteps = 4, onPrevStep, onNextStep, onSubmit, finalButtonText, loading }) => {
   // Handler để đảm bảo rằng sự kiện không lan truyền
   const handleButtonClick = (e, handler) => {
     if (e) {
@@ -30,7 +30,7 @@ const NavigationButtons = ({ currentStep, totalSteps, handlePrev, handleNext, fi
       {currentStep > 1 && (
         <button
           type="button"
-          onClick={(e) => handleButtonClick(e, handlePrev)}
+          onClick={(e) => handleButtonClick(e, onPrevStep)}
           className="prev-button"
         >
           ← Quay lại
@@ -39,7 +39,7 @@ const NavigationButtons = ({ currentStep, totalSteps, handlePrev, handleNext, fi
       
       <button
         type="button"
-        onClick={(e) => handleButtonClick(e, handleNext)}
+        onClick={(e) => handleButtonClick(e, currentStep === totalSteps ? onSubmit : onNextStep)}
         disabled={loading}
         className="next-button"
       >

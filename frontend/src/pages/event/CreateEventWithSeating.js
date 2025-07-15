@@ -671,53 +671,49 @@ const CreateEventWithSeating = () => {
   }
 
   return (
-    <MainLayout>
-      <div className="create-event-container">
-        <div className="create-event-header">
-          <h1>Tạo sự kiện mới - {templateInfo?.templateName}</h1>
-          <p className="event-type-tag">{templateInfo?.templateDescription || 'Sự kiện có sơ đồ chỗ ngồi'}</p>
-        </div>
-        
-        <div className="step-indicator">
-          <div className={`step-item ${currentStep >= 1 ? 'active' : ''}`}>
-            <div className="step-number">1</div>
-            <div className="step-label">Thông tin cơ bản</div>
-          </div>
-          <div className={`step-item ${currentStep >= 2 ? 'active' : ''}`}>
-            <div className="step-number">2</div>
-            <div className="step-label">Thời gian & Địa điểm</div>
-          </div>
-          <div className={`step-item ${currentStep >= 3 ? 'active' : ''}`}>
-            <div className="step-number">3</div>
-            <div className="step-label">Vé & Sơ đồ chỗ ngồi</div>
-          </div>
-          <div className={`step-item ${currentStep >= 4 ? 'active' : ''}`}>
-            <div className="step-number">4</div>
-            <div className="step-label">Chi tiết & Điều khoản</div>
-          </div>
-        </div>
-        
-        <form 
-          className="create-event-form" 
-          onSubmit={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            currentStep === 4 ? handleFinalSubmit(e) : handleNextStep(e);
-          }}
-        >
-          {renderStepContent()}
-          
-          <NavigationButtons
-            currentStep={currentStep}
-            totalSteps={4}
-            handlePrev={handlePrevStep}
-            handleNext={currentStep === 4 ? handleFinalSubmit : handleNextStep}
-            finalButtonText="Tạo sự kiện"
-            loading={loading}
-          />
-        </form>
+    <div className="create-event-container">
+      <div className="create-event-header">
+        <h1>Tạo sự kiện mới - {templateInfo?.templateName}</h1>
+        <p className="event-type-tag">{templateInfo?.templateDescription || 'Sự kiện có sơ đồ chỗ ngồi'}</p>
       </div>
-    </MainLayout>
+      <div className="step-indicator">
+        <div className={`step-item ${currentStep >= 1 ? 'active' : ''}`}>
+          <div className="step-number">1</div>
+          <div className="step-label">Thông tin cơ bản</div>
+        </div>
+        <div className={`step-item ${currentStep >= 2 ? 'active' : ''}`}>
+          <div className="step-number">2</div>
+          <div className="step-label">Thời gian & Địa điểm</div>
+        </div>
+        <div className={`step-item ${currentStep >= 3 ? 'active' : ''}`}>
+          <div className="step-number">3</div>
+          <div className="step-label">Vé & Sơ đồ chỗ ngồi</div>
+        </div>
+        <div className={`step-item ${currentStep >= 4 ? 'active' : ''}`}>
+          <div className="step-number">4</div>
+          <div className="step-label">Chi tiết & Điều khoản</div>
+        </div>
+      </div>
+      <form 
+        className="create-event-form" 
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          currentStep === 4 ? handleFinalSubmit(e) : handleNextStep(e);
+        }}
+      >
+        {renderStepContent()}
+        <NavigationButtons
+          currentStep={currentStep}
+          totalSteps={4}
+          onPrevStep={handlePrevStep}
+          onNextStep={handleNextStep}
+          onSubmit={handleFinalSubmit}
+          finalButtonText="Tạo sự kiện"
+          loading={loading}
+        />
+      </form>
+    </div>
   );
 };
 

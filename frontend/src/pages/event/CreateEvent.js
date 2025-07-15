@@ -135,18 +135,14 @@ const CreateEvent = () => {
               <FormSection title="Upload hình ảnh" icon={faImages}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <ImageUpload
-                    image={formData.images.logo}
-                    handleImageUpload={handleImageUpload}
-                    type="logo"
-                    title="Thêm logo sự kiện"
-                    description="(Tỷ lệ 720x950, tối đa 5MB)"
+                    label="Logo sự kiện"
+                    imageUrl={formData.images.logo}
+                    onChange={e => handleImageUpload(e, 'logo')}
                   />
                   <ImageUpload
-                    image={formData.images.banner}
-                    handleImageUpload={handleImageUpload}
-                    type="banner"
-                    title="Thêm ảnh nền sự kiện"
-                    description="(Tỷ lệ 1200x720, tối đa 10MB)"
+                    label="Banner sự kiện"
+                    imageUrl={formData.images.banner}
+                    onChange={e => handleImageUpload(e, 'banner')}
                   />
                 </div>
               </FormSection>
