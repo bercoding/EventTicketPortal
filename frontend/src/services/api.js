@@ -489,7 +489,7 @@ export const bookingAPI = {
 };
 
 // Search Users API
-export const searchUsersAPI = (searchTerm) => api.get(`/users/search?q=${encodeURIComponent(searchTerm)}`);
+export const searchUsersAPI = (userId, searchTerm) => api.get(`/friends/search/${userId}?query=${encodeURIComponent(searchTerm)}`);
 
 // POS Payment APIs
 export const confirmPOSPayment = (paymentId) => api.put(`/payments/pos/${paymentId}/confirm`);

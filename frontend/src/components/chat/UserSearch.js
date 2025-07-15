@@ -10,14 +10,13 @@ const UserSearch = ({ onSelectUser, currentUser }) => {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const debouncedSearch = useCallback(debounce(async (term) => {
-        if (term.trim().length > 1) {
+        if (term.trim().length > 1 && currentUser?._id) {
             setIsLoading(true);
             setError(null);
             try {
-                const response = await searchUsersAPI(term);
-                const users = response.data || []; // Lấy data từ response
-                const finalResults = users.filter(u => u._id !== currentUser?._id); // Lọc bỏ user hiện tại
-                setResults(finalResults);
+                const response = await searchUsersAPI(currentUser._id, term);
+                const users = response.data.users || []; // Lấy users từ response
+                setResults(users);
             } catch (err) {
                 console.error("UserSearch: Error searching users:", err);
                 setError(err.message || 'Lỗi khi tìm kiếm người dùng.');
