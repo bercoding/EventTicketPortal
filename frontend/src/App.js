@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { ReviewProvider } from './context/ReviewContext';
 import { SocketProvider } from './context/SocketContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ToastContainer } from 'react-toastify';
@@ -62,12 +61,12 @@ import SimpleTicketBooking from './pages/SimpleTicketBooking';
 // Global Navigation Monitor Component
 const NavigationMonitor = () => {
     const location = useLocation();
-    
+
     React.useEffect(() => {
         console.log('🧭 Navigation changed:', location.pathname + location.search);
-        
+
         // Check for null/undefined in URL
-        if (location.pathname.includes('/null') || location.pathname.includes('/undefined') || 
+        if (location.pathname.includes('/null') || location.pathname.includes('/undefined') ||
             location.search.includes('null') || location.search.includes('undefined')) {
             console.error('🚨 NAVIGATION: Invalid URL detected!');
             console.error('Pathname:', location.pathname);
@@ -76,7 +75,7 @@ const NavigationMonitor = () => {
             console.trace('Navigation stack trace:');
         }
     }, [location]);
-    
+
     return null; // This component doesn't render anything
 };
 
@@ -95,83 +94,81 @@ const App = () => {
     return (
         <GoogleOAuthProvider clientId={googleClientId}>
             <AuthProvider>
-                <ReviewProvider>
-                    <SocketProvider>
-                        <Router>
-                            <ToastContainer
-                                position="top-right"
-                                autoClose={5000}
-                                hideProgressBar={false}
-                                newestOnTop={false}
-                                closeOnClick
-                                rtl={false}
-                                pauseOnFocusLoss
-                                draggable
-                                pauseOnHover
-                                theme="colored"
-                            />
-                            <BannedUserGuard>
-                                <Routes>
-                                    <Route path="/login" element={<Login />} />
-                                    <Route path="/register" element={<Register />} />
-                                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                                    <Route path="/verify-otp" element={<VerifyOtp />} />
-                                    <Route path="/reset-password" element={<ResetPassword />} />
-                                    <Route path="/payment/callback" element={<PaymentCallback />} />
-                                    <Route path="/payment/success" element={<PaymentSuccess />} />
-                                    <Route path="/payment/failure" element={<PaymentFailure />} />
-                                    <Route path="/payment/pos-confirmation" element={<POSConfirmation />} />
+                <SocketProvider>
+                    <Router>
+                        <ToastContainer
+                            position="top-right"
+                            autoClose={5000}
+                            hideProgressBar={false}
+                            newestOnTop={false}
+                            closeOnClick
+                            rtl={false}
+                            pauseOnFocusLoss
+                            draggable
+                            pauseOnHover
+                            theme="colored"
+                        />
+                        <BannedUserGuard>
+                            <Routes>
+                                <Route path="/login" element={<Login />} />
+                                <Route path="/register" element={<Register />} />
+                                <Route path="/forgot-password" element={<ForgotPassword />} />
+                                <Route path="/verify-otp" element={<VerifyOtp />} />
+                                <Route path="/reset-password" element={<ResetPassword />} />
+                                <Route path="/payment/callback" element={<PaymentCallback />} />
+                                <Route path="/payment/success" element={<PaymentSuccess />} />
+                                <Route path="/payment/failure" element={<PaymentFailure />} />
+                                <Route path="/payment/pos-confirmation" element={<POSConfirmation />} />
 
-                                    {/* Main Routes with Layout */}
-                                    <Route path="/" element={<PrivateRoute><MainLayout><TicketboxHome /></MainLayout></PrivateRoute>} />
-                                    <Route path="/home" element={<PrivateRoute><MainLayout><TicketboxHome /></MainLayout></PrivateRoute>} />
-                                    <Route path="/old-home" element={<PrivateRoute><MainLayout><Home /></MainLayout></PrivateRoute>} />
-                                    <Route path="/events" element={<PrivateRoute><MainLayout><AllEvents /></MainLayout></PrivateRoute>} />
-                                    <Route path="/chat" element={<PrivateRoute><MainLayout><ChatPage /></MainLayout></PrivateRoute>} />
-                                    <Route path="/forum" element={<PrivateRoute><MainLayout><Forum /></MainLayout></PrivateRoute>} />
-                                    <Route path="/event-templates" element={<PrivateRoute><MainLayout><EventTemplateSelection /></MainLayout></PrivateRoute>} />
-                                    <Route path="/create-event" element={<PrivateRoute><MainLayout><CreateEvent /></MainLayout></PrivateRoute>} />
-                                    <Route path="/create-event-with-seating" element={<PrivateRoute><MainLayout><CreateEventWithSeating /></MainLayout></PrivateRoute>} />
-                                    <Route path="/events/:id" element={<PrivateRoute><MainLayout><EventDetailPage /></MainLayout></PrivateRoute>} />
-                                    <Route path="/events/:id/select-seats" element={<PrivateRoute><MainLayout><SelectSeatPage /></MainLayout></PrivateRoute>} />
-                                    <Route path="/booking/:id" element={<PrivateRoute><MainLayout><BookingPage /></MainLayout></PrivateRoute>} />
-                                    <Route path="/simple-booking/:id" element={<PrivateRoute><MainLayout><SimpleTicketBooking /></MainLayout></PrivateRoute>} />
-                                    <Route path="/checkout" element={<PrivateRoute><MainLayout><PaymentCheckout /></MainLayout></PrivateRoute>} />
-                                    <Route path="/my-tickets" element={<PrivateRoute><MainLayout><MyTicketsPage /></MainLayout></PrivateRoute>} />
-                                    <Route path="/my-events" element={<PrivateRoute><MainLayout><MyEvents /></MainLayout></PrivateRoute>} />
-                                    <Route path="/events/:id/manage" element={<PrivateRoute><MainLayout><ManageEvent /></MainLayout></PrivateRoute>} />
-                                    <Route path="/manage-event/:eventId" element={<PrivateRoute><MainLayout><ManageEvent /></MainLayout></PrivateRoute>} />
-                                    <Route path="/review" element={<PrivateRoute><MainLayout><Review /></MainLayout></PrivateRoute>} />
-                                    <Route path="/user-profile" element={<PrivateRoute><MainLayout><ProfilePage /></MainLayout></PrivateRoute>} />
-                                    <Route path="/profile" element={<PrivateRoute><MainLayout><ProfilePage /></MainLayout></PrivateRoute>} />
-                                    <Route path="/profile/change-password" element={<PrivateRoute><MainLayout><ChangePasswordPage /></MainLayout></PrivateRoute>} />
-                                    <Route path="/become-owner" element={<PrivateRoute><MainLayout><BecomeOwnerPage /></MainLayout></PrivateRoute>} />
+                                {/* Main Routes with Layout */}
+                                <Route path="/" element={<PrivateRoute><MainLayout><TicketboxHome /></MainLayout></PrivateRoute>} />
+                                <Route path="/home" element={<PrivateRoute><MainLayout><TicketboxHome /></MainLayout></PrivateRoute>} />
+                                <Route path="/old-home" element={<PrivateRoute><MainLayout><Home /></MainLayout></PrivateRoute>} />
+                                <Route path="/events" element={<PrivateRoute><MainLayout><AllEvents /></MainLayout></PrivateRoute>} />
+                                <Route path="/chat" element={<PrivateRoute><MainLayout><ChatPage /></MainLayout></PrivateRoute>} />
+                                <Route path="/forum" element={<PrivateRoute><MainLayout><Forum /></MainLayout></PrivateRoute>} />
+                                <Route path="/event-templates" element={<PrivateRoute><MainLayout><EventTemplateSelection /></MainLayout></PrivateRoute>} />
+                                <Route path="/create-event" element={<PrivateRoute><MainLayout><CreateEvent /></MainLayout></PrivateRoute>} />
+                                <Route path="/create-event-with-seating" element={<PrivateRoute><MainLayout><CreateEventWithSeating /></MainLayout></PrivateRoute>} />
+                                <Route path="/events/:id" element={<PrivateRoute><MainLayout><EventDetailPage /></MainLayout></PrivateRoute>} />
+                                <Route path="/events/:id/select-seats" element={<PrivateRoute><MainLayout><SelectSeatPage /></MainLayout></PrivateRoute>} />
+                                <Route path="/booking/:id" element={<PrivateRoute><MainLayout><BookingPage /></MainLayout></PrivateRoute>} />
+                                <Route path="/simple-booking/:id" element={<PrivateRoute><MainLayout><SimpleTicketBooking /></MainLayout></PrivateRoute>} />
+                                <Route path="/checkout" element={<PrivateRoute><MainLayout><PaymentCheckout /></MainLayout></PrivateRoute>} />
+                                <Route path="/my-tickets" element={<PrivateRoute><MainLayout><MyTicketsPage /></MainLayout></PrivateRoute>} />
+                                <Route path="/my-events" element={<PrivateRoute><MainLayout><MyEvents /></MainLayout></PrivateRoute>} />
+                                <Route path="/events/:id/manage" element={<PrivateRoute><MainLayout><ManageEvent /></MainLayout></PrivateRoute>} />
+                                <Route path="/manage-event/:eventId" element={<PrivateRoute><MainLayout><ManageEvent /></MainLayout></PrivateRoute>} />
+                                <Route path="/review" element={<PrivateRoute><MainLayout><Review /></MainLayout></PrivateRoute>} />
+                                <Route path="/user-profile" element={<PrivateRoute><MainLayout><ProfilePage /></MainLayout></PrivateRoute>} />
+                                <Route path="/profile" element={<PrivateRoute><MainLayout><ProfilePage /></MainLayout></PrivateRoute>} />
+                                <Route path="/profile/change-password" element={<PrivateRoute><MainLayout><ChangePasswordPage /></MainLayout></PrivateRoute>} />
+                                <Route path="/become-owner" element={<PrivateRoute><MainLayout><BecomeOwnerPage /></MainLayout></PrivateRoute>} />
 
-                                    {/* Owner Routes */}
-                                    <Route path="/owner" element={<PrivateRoute><OwnerLayout /></PrivateRoute>}>
-                                        <Route index element={<OwnerDashboard />} /> 
-                                    </Route>
-                                    
-                                    <Route path="/admin" element={<PrivateRoute roles={['admin']}><AdminLayout /></PrivateRoute>}>
-                                        <Route index element={<AdminDashboard />} />
-                                        <Route path="users" element={<UserManagement />} />
-                                        <Route path="events" element={<EventManagement />} />
-                                        <Route path="featured-events" element={<AdminEventManagement />} />
-                                        <Route path="complaints" element={<ComplaintManagement />} />
-                                        <Route path="posts" element={<PostManagement />} />
-                                        <Route path="violations" element={<ViolationReports />} />
-                                        <Route path="revenue" element={<RevenueReport />} />
-                                        <Route path="owner-requests" element={<OwnerRequests />} />
-                                        <Route path="pos-confirmation" element={<POSConfirmationAdmin />} />
-                                        <Route path="ticket-management" element={<TicketManagement />} />
-                                    </Route>
-                                
-                                </Routes>
-                                <NavigationMonitor />
-                            </BannedUserGuard>
-                        </Router>
-                    </SocketProvider>
-                </ReviewProvider>
+                                {/* Owner Routes */}
+                                <Route path="/owner" element={<PrivateRoute><OwnerLayout /></PrivateRoute>}>
+                                    <Route index element={<OwnerDashboard />} />
+                                </Route>
+
+                                <Route path="/admin" element={<PrivateRoute roles={['admin']}><AdminLayout /></PrivateRoute>}>
+                                    <Route index element={<AdminDashboard />} />
+                                    <Route path="users" element={<UserManagement />} />
+                                    <Route path="events" element={<EventManagement />} />
+                                    <Route path="featured-events" element={<AdminEventManagement />} />
+                                    <Route path="complaints" element={<ComplaintManagement />} />
+                                    <Route path="posts" element={<PostManagement />} />
+                                    <Route path="violations" element={<ViolationReports />} />
+                                    <Route path="revenue" element={<RevenueReport />} />
+                                    <Route path="owner-requests" element={<OwnerRequests />} />
+                                    <Route path="pos-confirmation" element={<POSConfirmationAdmin />} />
+                                    <Route path="ticket-management" element={<TicketManagement />} />
+                                </Route>
+
+                            </Routes>
+                            <NavigationMonitor />
+                        </BannedUserGuard>
+                    </Router>
+                </SocketProvider>
             </AuthProvider>
         </GoogleOAuthProvider>
     );
