@@ -9,8 +9,6 @@ router.use(protect);
 router.use(authorize('admin'));
 
 // Debug route để kiểm tra kết nối và Events collection
-router.get('/debug/events', adminController.getDebugEvents);
-
 // Thêm public debug API không cần auth
 router.get('/public/debug/events', async (req, res) => {
   try {
@@ -77,7 +75,7 @@ router.post('/users/:id/ban', adminController.banUser);
 router.post('/users/:id/unban', adminController.unbanUser);
 
 // Event management
-router.get('/events', adminController.getAllEvents);
+router.get('/events', adminController.getEvents);
 router.post('/events/:id/approve', adminController.approveEvent);
 router.post('/events/:id/reject', adminController.rejectEvent);
 

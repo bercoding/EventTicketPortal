@@ -188,7 +188,10 @@ const updateEvent = asyncHandler(async (req, res) => {
     }
     
     // Kiểm tra quyền - chỉ cho phép người tạo hoặc admin cập nhật
-    if (req.user.role !== 'admin' && !event.organizers.includes(req.user._id)) {
+    if (
+      req.user.role !== 'admin' &&
+      !event.organizers.map(id => id.toString()).includes(req.user._id.toString())
+    ) {
       return res.status(401).json({
         success: false,
         message: 'Không có quyền cập nhật sự kiện này'
@@ -229,11 +232,11 @@ const deleteEvent = asyncHandler(async (req, res) => {
       });
     }
     
-    // Chỉ cho phép admin xóa sự kiện
-    if (req.user.role !== 'admin') {
+    // Cho phép admin hoặc organizer xoá sự kiện
+    if (req.user.role !== 'admin' && !event.organizers.includes(req.user._id)) {
       return res.status(401).json({
         success: false,
-        message: 'Chỉ admin mới có quyền xóa sự kiện'
+        message: 'Không có quyền xoá sự kiện này'
       });
     }
     

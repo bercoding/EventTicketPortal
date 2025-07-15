@@ -212,7 +212,7 @@ router.post('/upload-images', protect, uploadEventImages.fields([
 }));
 
 // Parametric routes LAST
-router.route('/:id').get(getEventById).put(protect, admin, updateEvent).delete(protect, admin, deleteEvent);
+router.route('/:id').get(getEventById).put(protect, updateEvent).delete(protect, deleteEvent);
 router.route('/:id/update-seating-map').post(protect, admin, updateSeatingMapTemp); // Sử dụng hàm tạm thời
 router.route('/:eventId/ticket-stats').get(protect, getEventTicketStats); // Route để xem thống kê vé
 
