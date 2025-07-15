@@ -35,15 +35,23 @@ const PostHeader = ({ post, user, showOptions, onToggleOptions, onEdit, onDelete
     }
   };
 
+  // Hàm chuẩn hóa đường dẫn avatar (dán lại nếu đã có ở nơi khác)
+  const getAvatarUrl = (avatar) => {
+    if (!avatar) return 'https://via.placeholder.com/48';
+    if (avatar.startsWith('http')) return avatar;
+    return `http://localhost:5001${avatar}`;
+  };
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-4">
         <div className="relative group">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 p-0.5">
           <img
-              src={post.userId?.avatar || "https://via.placeholder.com/48"}
-            alt="User Avatar"
+              src={getAvatarUrl(post.userId?.avatar)}
+              alt="User Avatar"
               className="w-full h-full rounded-full object-cover bg-white"
+              onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/48'; }}
           />
           </div>
           {/* Online status indicator */}

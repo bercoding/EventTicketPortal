@@ -107,7 +107,7 @@ exports.approveEvent = async (req, res) => {
         approvedBy: req.user.id
       },
       { new: true }
-    ).populate('organizer', 'username email fullName');
+    ).populate('organizers', 'username email fullName');
     
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
@@ -134,7 +134,7 @@ exports.rejectEvent = async (req, res) => {
         rejectionReason: reason
       },
       { new: true }
-    ).populate('organizer', 'username email fullName');
+    ).populate('organizers', 'username email fullName');
     
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
@@ -161,7 +161,7 @@ exports.getEvents = async (req, res) => {
     }
     
     const events = await Event.find(filter)
-      .populate('organizer', 'username email fullName')
+      .populate('organizers', 'username email fullName')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);

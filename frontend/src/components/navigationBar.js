@@ -14,7 +14,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 const NavigationBar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -31,6 +31,12 @@ const NavigationBar = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  if (loading) return null;
+
+  // Log user context for debugging
+  console.log('USER NAV:', user);
+  const ownerRequestStatus = user?.ownerRequestStatus ?? 'none';
 
   const handleLogout = () => {
     logout();
@@ -94,7 +100,7 @@ const NavigationBar = () => {
             {user ? (
               <div className="flex items-center space-x-4">
                 {/* Owner request status */}
-                {user.role === 'user' && user.ownerRequestStatus === 'none' && (
+                {user.role === 'user' && ownerRequestStatus === 'none' && (
                   <Link
                     to="/become-owner"
                     className="bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 shadow-md"
@@ -103,7 +109,7 @@ const NavigationBar = () => {
                   </Link>
                 )}
 
-                {user.role === 'user' && user.ownerRequestStatus === 'pending' && (
+                {user.role === 'user' && ownerRequestStatus === 'pending' && (
                   <span className="bg-gray-500 text-white px-3 py-2 rounded-lg text-sm font-medium">
                     Đang chờ duyệt
                   </span>

@@ -11,13 +11,17 @@ const EventManagement = () => {
 
     useEffect(() => {
         fetchEvents();
-    }, []);
+    }, [filterStatus]);
 
     const fetchEvents = async () => {
         try {
             setLoading(true);
-            const response = await adminAPI.getEvents();
-            setEvents(response.data.events || []);
+            let params = {};
+            if (filterStatus !== 'all') {
+                params.status = filterStatus;
+            }
+            const response = await adminAPI.getEvents(params);
+            setEvents(response.data.events || response.data || []);
         } catch (error) {
             console.error('Error fetching events:', error);
         } finally {

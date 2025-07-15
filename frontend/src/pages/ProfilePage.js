@@ -134,7 +134,7 @@ const ProfilePage = () => {
             setAvatarFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
-                setAvatarPreview(reader.result);
+                setAvatarPreview(reader.result); // reader.result là base64, dùng trực tiếp cho preview
             };
             reader.readAsDataURL(file);
             setError('');
@@ -194,6 +194,13 @@ const ProfilePage = () => {
         setLoading(false);
     };
 
+    // Chuẩn hóa đường dẫn avatar
+    const getAvatarUrl = (avatar) => {
+      if (!avatar) return null;
+      if (avatar.startsWith('http')) return avatar;
+      return `http://localhost:5001/${avatar.replace(/^\/+/, '')}`;
+    };
+
     const handleSubmitAvatar = async () => {
         if (!avatarFile) {
             setError('Vui lòng chọn một file ảnh.');
@@ -207,10 +214,13 @@ const ProfilePage = () => {
 
         try {
             const response = await userProfileAPI.updateUserAvatar(formData);
-            setProfileData(prev => ({...prev, avatar: response.data.avatar }));
-            setUser(prev => ({...prev, avatar: response.data.avatar }));
-            setAvatarPreview(response.data.avatar);
-            setAvatarFile(null); 
+            // Sau khi upload xong, gọi lại API lấy profile mới nhất để đảm bảo đồng bộ
+            const profileRes = await userProfileAPI.getCurrentUserProfile();
+            const userData = profileRes?.data || profileRes;
+            setProfileData(userData);
+            setUser(userData);
+            setAvatarPreview(userData.avatar);
+            setAvatarFile(null);
             setSuccess(response.data.message || 'Cập nhật ảnh đại diện thành công!');
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Lỗi khi cập nhật ảnh đại diện.');
@@ -242,16 +252,23 @@ const ProfilePage = () => {
             <div className="bg-white shadow-xl rounded-lg overflow-hidden md:flex mb-8">
                 {/* Avatar Section */}
                 <div className="md:w-1/3 bg-gradient-to-br from-green-500 to-blue-600 p-6 md:p-8 text-center flex flex-col items-center justify-center">
-                    {avatarPreview ? (
-                        <img 
-                            src={avatarPreview} 
-                            alt="Avatar" 
-                            className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-md mx-auto mb-4"
-                            onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=No+Image'; }}
-                        />
-                    ) : (
-                        <FaUserCircle className="w-32 h-32 md:w-40 md:h-40 text-white opacity-75 mx-auto mb-4" />
-                    )}
+                    {(() => {
+                        // Nếu là file local (base64) thì dùng trực tiếp, nếu là string thì chuẩn hóa
+                        if (avatarPreview) {
+                            const isBase64 = typeof avatarPreview === 'string' && avatarPreview.startsWith('data:image');
+                            const src = isBase64 ? avatarPreview : getAvatarUrl(avatarPreview);
+                            return (
+                                <img 
+                                    src={src}
+                                    alt="Avatar" 
+                                    className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-md mx-auto mb-4"
+                                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150?text=No+Image'; }}
+                                />
+                            );
+                        } else {
+                            return <FaUserCircle className="w-32 h-32 md:w-40 md:h-40 text-white opacity-75 mx-auto mb-4" />;
+                        }
+                    })()}
                     <input 
                         type="file"
                         id="avatarUpload"
@@ -266,13 +283,23 @@ const ProfilePage = () => {
                         <FaCamera className="mr-2" /> Thay đổi ảnh
                     </label>
                     {avatarFile && (
-                        <button 
-                            onClick={handleSubmitAvatar}
-                            disabled={loading}
-                            className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition duration-200 text-sm disabled:opacity-50"
-                        >
-                            {loading ? 'Đang xử lý...' : 'Lưu ảnh mới'}
-                        </button>
+                        <div className="flex flex-col gap-2 w-full">
+                            <button 
+                                onClick={handleSubmitAvatar}
+                                disabled={loading}
+                                className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition duration-200 text-sm disabled:opacity-50"
+                            >
+                                {loading ? 'Đang xử lý...' : 'Lưu ảnh mới'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setAvatarFile(null); setAvatarPreview(profileData?.avatar || null); }}
+                                className="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-sm transition duration-200 text-sm"
+                                disabled={loading}
+                            >
+                                Hủy
+                            </button>
+                        </div>
                     )}
                     <p className="text-white text-xl font-semibold mt-4">{profileData?.fullName || profileData?.username}</p>
                     <p className="text-gray-200 text-sm">{profileData?.email}</p>

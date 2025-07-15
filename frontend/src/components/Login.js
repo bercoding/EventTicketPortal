@@ -8,7 +8,7 @@ import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaTicketAlt } from 'react-icons/
 const Login = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { login } = useAuth();
+    const { login, refreshUser } = useAuth();
     const [formData, setFormData] = useState({
         email: '',
         password: ''
@@ -37,6 +37,7 @@ const Login = () => {
         try {
             const response = await login(formData.email, formData.password);
             if (response.success) {
+                await refreshUser();
                 navigate(returnUrl);
             } else {
                 setLoginError(response.error || 'Đăng nhập thất bại');

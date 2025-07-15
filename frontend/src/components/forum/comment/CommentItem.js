@@ -286,9 +286,9 @@ const CommentItem = ({
             </div>
           </div>
         )}
-        {comment.replyCount > 0 && !showReplies && (
+        {(comment.replyCount > 0 || (repliesMap && (repliesMap[comment._id]?.length > 0))) && !showReplies && (
           <button className="text-blue-600 text-xs mt-1 ml-2 hover:underline font-medium transition" onClick={handleToggleReplies}>
-            Xem tất cả {comment.replyCount} phản hồi
+            Xem tất cả {(comment.replyCount || (repliesMap[comment._id]?.length || 0))} phản hồi
           </button>
         )}
         {replyingTo === comment._id && (
@@ -320,14 +320,8 @@ const CommentItem = ({
                   key={reply._id}
                   comment={reply}
                   user={user}
-                  onReply={(commentId) => setReplyContent(reply._id)}
-                  onEdit={(c) => {
-                    setEditingComment(c._id);
-                    setEditContent(c.content);
-                    setEditImage(null);
-                    setEditImagePreview(null);
-                    setRemoveEditImage(false);
-                  }}
+                  onReply={onReply}
+                  onEdit={onEdit}
                   onDelete={onDelete}
                   replyingTo={replyingTo}
                   replyContent={replyContent}
@@ -336,12 +330,7 @@ const CommentItem = ({
                   editContent={editContent}
                   setEditContent={setEditContent}
                   handleEditComment={handleEditComment}
-                  handleCancelEdit={() => {
-                    setEditingComment(null);
-                    setEditImage(null);
-                    setEditImagePreview(null);
-                    setRemoveEditImage(false);
-                  }}
+                  handleCancelEdit={handleCancelEdit}
                   fetchReplies={fetchReplies}
                   replies={showRepliesMap[reply._id] ? (repliesMap[reply._id] || []) : []}
                   loadingReplies={!!loadingRepliesMap[reply._id]}

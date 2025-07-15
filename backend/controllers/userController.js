@@ -72,8 +72,22 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         throw new Error('No avatar file provided');
     }
 
-    // Update avatar URL
-    user.avatar = req.file.path;
+    // Update avatar URL: chỉ lưu đường dẫn public
+    let avatarPath = req.file.path.replace(/\\/g, '/');
+    // Lấy phần sau 'public' (nếu có)
+    const publicIndex = avatarPath.lastIndexOf('/public/');
+    if (publicIndex !== -1) {
+        avatarPath = avatarPath.substring(publicIndex + 7); // 7 là độ dài '/public/'
+        if (!avatarPath.startsWith('/')) avatarPath = '/' + avatarPath;
+    } else {
+        // Nếu không có 'public', lấy phần sau 'uploads'
+        const uploadsIndex = avatarPath.lastIndexOf('/uploads/');
+        if (uploadsIndex !== -1) {
+            avatarPath = avatarPath.substring(uploadsIndex);
+            if (!avatarPath.startsWith('/')) avatarPath = '/' + avatarPath;
+        }
+    }
+    user.avatar = avatarPath;
     const updatedUser = await user.save();
 
     res.json({
