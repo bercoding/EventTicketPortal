@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { adminAPI } from '../../services/api';
 
 const AdminEventManagement = () => {
     const [events, setEvents] = useState([]);
@@ -14,21 +15,22 @@ const AdminEventManagement = () => {
     const fetchEvents = async () => {
         try {
             setLoading(true);
-            let url = 'http://localhost:5001/api/events/events';
-            
+            let url = 'http://localhost:5001/api/admin/events';
             // Add query parameters based on filter
             if (filter !== 'all') {
-                url += `?${filter}=true`;
+                if (filter === 'pending') {
+                    url += '?status=pending';
+                } else {
+                    url += `?${filter}=true`;
+                }
             }
-            
             const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
             });
-            
             const data = await response.json();
-            if (data.success) {
+            if (data.events) {
                 setEvents(data.events || []);
             }
         } catch (error) {
@@ -69,6 +71,22 @@ const AdminEventManagement = () => {
         } catch (error) {
             console.error('Lỗi khi cập nhật:', error);
             toast.error('Có lỗi xảy ra');
+        }
+    };
+
+    // Thêm hàm duyệt event
+    const handleApproveEvent = async (eventId) => {
+        try {
+            const response = await adminAPI.approveEvent(eventId);
+            if (response.data && response.data.event) {
+                toast.success('Duyệt sự kiện thành công!');
+                setFilter('approved'); // Chuyển filter sang đã duyệt
+                fetchEvents();
+            } else {
+                toast.error('Không thể duyệt sự kiện');
+            }
+        } catch (error) {
+            toast.error('Lỗi khi duyệt sự kiện');
         }
     };
 
@@ -143,7 +161,7 @@ const AdminEventManagement = () => {
                                 />
                             </div>
                             <div className="flex gap-2">
-                                {['all', 'featured', 'special', 'trending'].map((filterOption) => (
+                                {['all', 'pending', 'featured', 'special', 'trending'].map((filterOption) => (
                                     <button
                                         key={filterOption}
                                         onClick={() => setFilter(filterOption)}
@@ -154,6 +172,7 @@ const AdminEventManagement = () => {
                                         }`}
                                     >
                                         {filterOption === 'all' ? 'Tất cả' :
+                                         filterOption === 'pending' ? 'Chờ duyệt' :
                                          filterOption === 'featured' ? 'Nổi bật' :
                                          filterOption === 'special' ? 'Đặc biệt' : 'Xu hướng'}
                                     </button>
@@ -301,6 +320,16 @@ const AdminEventManagement = () => {
                                                             </button>
                                                         </div>
                                                     </div>
+
+                                                    {/* Approve Button */}
+                                                    {event.status === 'pending' && (
+                                                        <button
+                                                            onClick={() => handleApproveEvent(event._id)}
+                                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                                        >
+                                                            ✅ Duyệt
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

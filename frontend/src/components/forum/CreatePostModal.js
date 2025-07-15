@@ -47,7 +47,7 @@ const CreatePostModal = ({
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col"
           >
         {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
@@ -98,9 +98,9 @@ const CreatePostModal = ({
               </motion.div>
             )}
 
-        {/* Form */}
-            <form onSubmit={onSubmit} className="px-6 pb-6">
-              <div className="space-y-4 mt-4">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
+          <form onSubmit={onSubmit} className="space-y-4 mt-4" id="create-post-form">
                 {/* Title Input */}
           <input
             type="text"
@@ -171,45 +171,44 @@ const CreatePostModal = ({
               </div>
             )}
           </div>
-              </div>
-
-              {/* Footer */}
-              <div className="flex justify-between items-center pt-6 mt-6 border-t border-gray-100">
-                <div className="text-sm text-gray-500">
-                  {formData.content.length}/2000 ký tự
-                </div>
-                
-                <div className="flex gap-3">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-              type="button"
-                    onClick={onClose}
-                    className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors"
-                    disabled={isCreating}
-                  >
-                    Hủy
-                  </motion.button>
-                  
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-            type="submit"
-            disabled={isCreating || !formData.content.trim()}
-                    className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
-          >
-                    {isCreating ? (
-                      <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                        <span>Đang đăng...</span>
-                      </div>
-                    ) : (
-                      'Đăng bài'
-                    )}
-                  </motion.button>
-      </div>
-    </div>
             </form>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-between items-center pt-6 mt-6 border-t border-gray-100 px-6 pb-6">
+          <div className="text-sm text-gray-500">
+            {formData.content.length}/2000 ký tự
+          </div>
+          <div className="flex gap-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="button"
+              onClick={onClose}
+              className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors"
+              disabled={isCreating}
+            >
+              Hủy
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="submit"
+              form="create-post-form"
+              disabled={isCreating || !formData.content.trim()}
+              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+            >
+              {isCreating ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  <span>Đang đăng...</span>
+                </div>
+              ) : (
+                'Đăng bài'
+              )}
+            </motion.button>
+          </div>
+        </div>
           </motion.div>
         </motion.div>
       )}

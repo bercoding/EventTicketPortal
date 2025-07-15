@@ -24,6 +24,7 @@ const Forum = () => {
     images: [],
   });
   const [editPostId, setEditPostId] = useState(null);
+  const [editPostObj, setEditPostObj] = useState(null); // Lưu post đang edit
   const [editFormData, setEditFormData] = useState({
     title: '',
     content: '',
@@ -111,17 +112,21 @@ const Forum = () => {
     fetchPosts();
   }, []);
 
-  const handleFileChange = (e, isEdit = false) => {
+  const handleFileChange = (e, isEdit = false, oldImages = []) => {
     const files = Array.from(e.target.files);
     if (files.length > 10) {
       setError('Cannot upload more than 10 images');
       return;
     }
-
-    // Create preview URLs
+    // Nếu không chọn file mới, giữ preview ảnh cũ
+    if (files.length === 0 && isEdit && oldImages.length > 0) {
+      setImagePreview(oldImages);
+      setEditFormData((prev) => ({ ...prev, images: [] }));
+      return;
+    }
+    // Create preview URLs cho file mới
     const previews = files.map(file => URL.createObjectURL(file));
     setImagePreview(previews);
-
     if (isEdit) {
       setEditFormData((prev) => ({ ...prev, images: files }));
     } else {
@@ -171,8 +176,8 @@ const Forum = () => {
   };
 
   const startEditPost = (post) => {
-    console.log('Starting edit for post:', post);
     setEditPostId(post._id);
+    setEditPostObj(post);
     setEditFormData({
       title: post.title || '',
       content: post.content || '',
@@ -201,6 +206,7 @@ const Forum = () => {
       const response = await postAPI.updatePost(editPostId, formDataToSend);
       setPosts(posts.map(post => (post._id === editPostId ? response.data.data : post)));
       setEditPostId(null);
+      setEditPostObj(null);
       setEditFormData({ title: '', content: '', tags: '', images: [] });
       setImagePreview([]);
       setSuccessMessage('Post updated successfully!');
@@ -401,6 +407,7 @@ const Forum = () => {
                   <button
                     onClick={() => {
                       setEditPostId(null);
+                      setEditPostObj(null);
                       setEditFormData({ title: '', content: '', tags: '', images: [] });
                       setImagePreview([]);
                     }}
@@ -448,17 +455,42 @@ const Forum = () => {
                       type="file"
                       multiple
                       accept="image/*"
-                      onChange={(e) => handleFileChange(e, true)}
+                      onChange={(e) => handleFileChange(e, true, editPostObj?.images || [])}
                       className="w-full"
                     />
+                    {/* Hiển thị preview ảnh cũ nếu chưa chọn ảnh mới, có nút xóa từng ảnh cũ */}
+                    {imagePreview.length === 0 && editPostObj && editPostObj.images && editPostObj.images.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
+                        {editPostObj.images.map((img, idx) => (
+                          <div key={idx} className="relative group">
+                            <img
+                              src={img}
+                              alt={`Old Preview ${idx + 1}`}
+                              className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Xóa ảnh cũ khỏi preview và editPostObj.images
+                                const newImages = editPostObj.images.filter((_, i) => i !== idx);
+                                setEditPostObj(prev => ({ ...prev, images: newImages }));
+                              }}
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {imagePreview.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
                         {imagePreview.map((preview, index) => (
-                          <div key={index} className="relative w-full aspect-video bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                          <div key={index} className="relative group">
                             <img
                               src={preview}
                               alt={`Preview ${index + 1}`}
-                              className="object-contain max-h-60 w-full"
+                              className="w-full h-24 object-cover rounded-lg border border-gray-200"
                             />
                             <button
                               type="button"
@@ -468,9 +500,9 @@ const Forum = () => {
                                 setImagePreview(newPreviews);
                                 setEditFormData(prev => ({ ...prev, images: newFiles }));
                               }}
-                              className="absolute top-2 right-2 bg-white border border-gray-300 text-gray-600 rounded-full p-1 hover:bg-red-500 hover:text-white transition"
+                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                             >
-                              <FaTimes size={16} />
+                              ×
                             </button>
                           </div>
                         ))}
@@ -483,6 +515,7 @@ const Forum = () => {
                       type="button"
                       onClick={() => {
                         setEditPostId(null);
+                        setEditPostObj(null);
                         setEditFormData({ title: '', content: '', tags: '', images: [] });
                         setImagePreview([]);
                       }}

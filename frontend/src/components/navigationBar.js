@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, forwardRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -9,14 +9,12 @@ import {
   faPlus,
   faChevronDown,
   faCalendarAlt,
-  faCog,
-  faUsers
+  faCog
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/AuthContext';
-import { formatAvatarUrl } from '../utils/imageHelpers';
 
-const NavigationBar = forwardRef(({ className = '' }, ref) => {
-  const { user, logout } = useAuth();
+const NavigationBar = () => {
+  const { user, logout, loading } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -34,6 +32,12 @@ const NavigationBar = forwardRef(({ className = '' }, ref) => {
     };
   }, []);
 
+  if (loading) return null;
+
+  // Log user context for debugging
+  console.log('USER NAV:', user);
+  const ownerRequestStatus = user?.ownerRequestStatus ?? 'none';
+
   const handleLogout = () => {
     logout();
     setIsDropdownOpen(false);
@@ -49,7 +53,7 @@ const NavigationBar = forwardRef(({ className = '' }, ref) => {
   };
 
   return (
-    <nav ref={ref} className={`bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg z-50 ${className}`}>
+    <nav className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo và tên trang */}
@@ -77,10 +81,6 @@ const NavigationBar = forwardRef(({ className = '' }, ref) => {
                   <FontAwesomeIcon icon={faComments} className="mr-1.5" />
                   Tin nhắn
                 </Link>
-                <Link to="/friends" className="flex items-center hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105">
-                  <FontAwesomeIcon icon={faUsers} className="mr-1.5" />
-                  Bạn bè
-                </Link>
                 {/* Nút tạo sự kiện cho event_owner */}
                 {user.role === 'event_owner' && (
                   <Link 
@@ -100,7 +100,7 @@ const NavigationBar = forwardRef(({ className = '' }, ref) => {
             {user ? (
               <div className="flex items-center space-x-4">
                 {/* Owner request status */}
-                {user.role === 'user' && user.ownerRequestStatus === 'none' && (
+                {user.role === 'user' && ownerRequestStatus === 'none' && (
                   <Link
                     to="/become-owner"
                     className="bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 shadow-md"
@@ -109,7 +109,7 @@ const NavigationBar = forwardRef(({ className = '' }, ref) => {
                   </Link>
                 )}
 
-                {user.role === 'user' && user.ownerRequestStatus === 'pending' && (
+                {user.role === 'user' && ownerRequestStatus === 'pending' && (
                   <span className="bg-gray-500 text-white px-3 py-2 rounded-lg text-sm font-medium">
                     Đang chờ duyệt
                   </span>
@@ -124,7 +124,7 @@ const NavigationBar = forwardRef(({ className = '' }, ref) => {
                     <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white">
                       <img 
                         className="w-full h-full object-cover" 
-                        src={formatAvatarUrl(user.avatar)} 
+                        src={user.avatar || '/images/placeholder-avatar.svg'} 
                         alt="Avatar" 
                         onError={(e) => {e.target.src = '/images/placeholder-avatar.svg'}}
                       />
@@ -199,6 +199,6 @@ const NavigationBar = forwardRef(({ className = '' }, ref) => {
       </div>
     </nav>
   );
-});
+};
 
 export default NavigationBar;

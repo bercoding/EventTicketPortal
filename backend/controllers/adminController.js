@@ -107,7 +107,7 @@ exports.approveEvent = async (req, res) => {
         approvedBy: req.user.id
       },
       { new: true }
-    ).populate('organizer', 'username email fullName');
+    ).populate('organizers', 'username email fullName');
     
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
@@ -134,7 +134,7 @@ exports.rejectEvent = async (req, res) => {
         rejectionReason: reason
       },
       { new: true }
-    ).populate('organizer', 'username email fullName');
+    ).populate('organizers', 'username email fullName');
     
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
@@ -149,8 +149,6 @@ exports.rejectEvent = async (req, res) => {
 // View event list
 exports.getEvents = async (req, res) => {
   try {
-    console.log('🔍 API getEvents được gọi với query:', req.query);
-    
     const { page = 1, limit = 10, status, search } = req.query;
     const filter = {};
     
@@ -162,46 +160,22 @@ exports.getEvents = async (req, res) => {
       ];
     }
     
-    console.log('🔍 Tìm kiếm events với filter:', JSON.stringify(filter));
+    const events = await Event.find(filter)
+      .populate('organizers', 'username email fullName')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
     
-    try {
-      const events = await Event.find(filter)
-        .populate('organizer', 'username email fullName')
-        .populate('ticketTypes')
-        .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit);
-      
-      const total = await Event.countDocuments(filter);
-      
-      console.log(`🔍 Tìm thấy ${events.length} events`);
-      
-      if (req.query.returnFormat === 'array') {
-        console.log('Trả về events dạng mảng');
-        return res.json(events);
-      }
-      
-      res.json({
-        events,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        total
-      });
-    } catch (err) {
-      console.error('🔴 Lỗi khi query database:', err);
-      return res.status(500).json({ 
-        message: 'Error querying events from database', 
-        error: err.message,
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-      });
-    }
-  } catch (error) {
-    console.error('🔴 Error fetching events:', error);
-    res.status(500).json({ 
-      message: 'Error fetching events', 
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    const total = await Event.countDocuments(filter);
+    
+    res.json({
+      events,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
     });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching events', error: error.message });
   }
 };
 
@@ -597,112 +571,5 @@ exports.getDashboardStats = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching dashboard stats', error: error.message });
-  }
-};
-
-// Thêm API endpoint debug để lấy danh sách sự kiện
-exports.getDebugEvents = async (req, res) => {
-  try {
-    // Lấy tất cả sự kiện từ database
-    const events = await Event.find()
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .select('_id title startDate endDate status');
-
-    // Nếu không có sự kiện, tạo một số sự kiện mẫu
-    if (events.length === 0) {
-      const mockEvents = [
-        {
-          id: '685ab48cbd98a1cf388b61ae',
-          title: '111111',
-          startDate: new Date(),
-          endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          status: 'upcoming'
-        },
-        {
-          id: '685ab765bd98a1cf388b6322',
-          title: '111',
-          startDate: new Date(),
-          endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-          status: 'upcoming'
-        },
-        {
-          id: '685b54cbae2998b5b694d287',
-          title: 'Concert Nhạc 2025',
-          startDate: new Date(),
-          endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          status: 'upcoming'
-        },
-        {
-          id: '685b589c56c91bcc1eede28d',
-          title: 'Rap Việt 2025',
-          startDate: new Date(),
-          endDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-          status: 'upcoming'
-        },
-        {
-          id: '685b6ebc51efa980bf282fc5',
-          title: 'Lễ hội âm nhạc mùa hè 2025',
-          startDate: new Date(),
-          endDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-          status: 'upcoming'
-        }
-      ];
-
-      res.json({
-        success: true,
-        events: mockEvents
-      });
-    } else {
-      // Format events data
-      const formattedEvents = events.map(event => ({
-        id: event._id,
-        title: event.title,
-        startDate: event.startDate,
-        endDate: event.endDate,
-        status: event.status
-      }));
-
-      res.json({
-        success: true,
-        events: formattedEvents
-      });
-    }
-  } catch (error) {
-    console.error('Error fetching debug events:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi server khi lấy danh sách sự kiện debug',
-      error: error.message
-    });
-  }
-};
-
-// Lấy danh sách sự kiện thật cho admin
-exports.getAllEvents = async (req, res) => {
-  try {
-    // Lấy tất cả sự kiện từ database
-    const events = await Event.find()
-      .sort({ createdAt: -1 })
-      .select('_id title startDate endDate status');
-
-    // Format events data
-    const formattedEvents = events.map(event => ({
-      id: event._id,
-      title: event.title,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      status: event.status
-    }));
-
-    res.json({
-      events: formattedEvents
-    });
-  } catch (error) {
-    console.error('Error fetching events:', error);
-    res.status(500).json({
-      message: 'Lỗi server khi lấy danh sách sự kiện',
-      error: error.message
-    });
   }
 };

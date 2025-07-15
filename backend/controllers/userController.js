@@ -1,7 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
-const path = require('path');
 
 // @desc    Get current user profile
 // @route   GET /api/users/profile/me
@@ -38,7 +37,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     user.phone = req.body.phone || user.phone;
     user.dateOfBirth = req.body.dateOfBirth || user.dateOfBirth;
     user.address = req.body.address || user.address;
-    user.bio = req.body.bio || user.bio;
 
     const updatedUser = await user.save();
 
@@ -53,7 +51,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
             dateOfBirth: updatedUser.dateOfBirth,
             address: updatedUser.address,
             avatar: updatedUser.avatar,
-            bio: updatedUser.bio,
             role: updatedUser.role
         }
     });
@@ -75,19 +72,29 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
         throw new Error('No avatar file provided');
     }
 
-    // Update avatar URL with proper path for serving from public directory
-    const fileName = path.basename(req.file.path);
-    user.avatar = `/uploads/avatars/${fileName}`;
-    console.log('Avatar path set to:', user.avatar);
-    
+    // Update avatar URL: chỉ lưu đường dẫn public
+    let avatarPath = req.file.path.replace(/\\/g, '/');
+    // Lấy phần sau 'public' (nếu có)
+    const publicIndex = avatarPath.lastIndexOf('/public/');
+    if (publicIndex !== -1) {
+        avatarPath = avatarPath.substring(publicIndex + 7); // 7 là độ dài '/public/'
+        if (!avatarPath.startsWith('/')) avatarPath = '/' + avatarPath;
+    } else {
+        // Nếu không có 'public', lấy phần sau 'uploads'
+        const uploadsIndex = avatarPath.lastIndexOf('/uploads/');
+        if (uploadsIndex !== -1) {
+            avatarPath = avatarPath.substring(uploadsIndex);
+            if (!avatarPath.startsWith('/')) avatarPath = '/' + avatarPath;
+        }
+    }
+    user.avatar = avatarPath;
     const updatedUser = await user.save();
 
     res.json({
         success: true,
         data: {
             avatar: updatedUser.avatar
-        },
-        message: 'Avatar updated successfully'
+        }
     });
 });
 
@@ -206,6 +213,12 @@ const getWalletTransactions = asyncHandler(async (req, res) => {
         }
     });
 });
+
+
+
+
+
+
 
 // @desc    Pay with wallet
 // @route   POST /api/users/wallet/pay

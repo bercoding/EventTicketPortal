@@ -39,9 +39,9 @@ const createPost = [
       images
     });
 
-    // Populate user and event
+    // Populate user and event (bổ sung avatar, fullName)
     const populatedPost = await Post.findById(post._id)
-      .populate('userId', 'username email')
+      .populate('userId', 'username fullName avatar email')
       .populate('eventId', 'title')
       .lean();
 
@@ -55,7 +55,7 @@ const createPost = [
 // Get all posts
 const getPosts = asyncHandler(async (req, res) => {
   const posts = await Post.find()
-    .populate('userId', 'username email')
+    .populate('userId', 'username fullName avatar email')
     .populate('eventId', 'title')
     .lean();
   if (!posts) {
@@ -70,7 +70,7 @@ const getPosts = asyncHandler(async (req, res) => {
 // Get a single post by ID
 const getPostById = asyncHandler(async (req, res) => {
   const post = await Post.findById(req.params.id)
-    .populate('userId', 'username email')
+    .populate('userId', 'username fullName avatar email')
     .populate('eventId', 'title')
     .lean();
   if (!post) {
@@ -137,9 +137,9 @@ const updatePost = [
 
     const updatedPost = await post.save();
 
-    // Populate user and event
+    // Populate user and event (bổ sung avatar, fullName)
     const populatedPost = await Post.findById(updatedPost._id)
-      .populate('userId', 'username email')
+      .populate('userId', 'username fullName avatar email')
       .populate('eventId', 'title')
       .lean();
 

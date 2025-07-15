@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { userProfileAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { FaBuilding, FaBriefcase, FaPaperPlane } from 'react-icons/fa';
+import { useAuth } from '../context/AuthContext';
 
 const BecomeOwnerPage = () => {
     const [formData, setFormData] = useState({
@@ -19,6 +20,7 @@ const BecomeOwnerPage = () => {
     });
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const { refreshUser } = useAuth();
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -40,7 +42,8 @@ const BecomeOwnerPage = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            await userProfileAPI.submitOwnerRequest(formData);
+            await userProfileAPI.requestOwnerRole(formData);
+            await refreshUser();
             toast.success('Your request has been submitted successfully! We will review it shortly.');
             navigate('/profile');
         } catch (error) {
@@ -60,6 +63,14 @@ const BecomeOwnerPage = () => {
             <div className="absolute inset-0 bg-black bg-opacity-60"></div>
             
             <div className="relative z-10 bg-white p-8 rounded-lg shadow-xl w-full max-w-4xl">
+                {/* Close button */}
+                <button
+                    onClick={() => navigate(-1)}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold focus:outline-none"
+                    title="Đóng"
+                >
+                    &times;
+                </button>
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">Become an Event Organizer</h1>
                     <p className="text-gray-600 mt-2">Fill out the form below to start hosting your own events.</p>

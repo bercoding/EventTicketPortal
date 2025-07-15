@@ -393,12 +393,9 @@ const CommentSection = ({ postId, totalCount, setTotalCount, onCommentsFetched }
             }));
             setShowRepliesMap((prev) => ({ ...prev, [parentId]: true }));
           } else {
-            // Nếu chưa mở replies, chỉ tăng replyCount cho comment cha
-            setComments((prev) => prev.map(c =>
-              c._id === parentId
-                ? { ...c, replyCount: (c.replyCount || 0) + 1 }
-                : c
-            ));
+            // Nếu chưa mở replies, tự động mở và fetch lại replies cho mọi cấp
+            setShowRepliesMap((prev) => ({ ...prev, [parentId]: true }));
+            fetchReplies(parentId, 0, 10); // Cho phép lồng nhiều cấp hơn nếu cần
           }
         } else {
           setComments((prev) => [response.data.data, ...prev]);
