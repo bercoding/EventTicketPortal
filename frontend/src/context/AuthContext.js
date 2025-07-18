@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
     const checkUser = async () => {
         try {
             const token = localStorage.getItem('token');
-            console.log('🔍 Checking user with token:', token ? 'exists' : 'none');
+            console.log('🔍 Checking user with token:', token ? token.substring(0, 15) + '...' : 'none');
             
             if (!token) {
                 console.log('❌ No token found');
@@ -27,6 +27,7 @@ export const AuthProvider = ({ children }) => {
 
             // Kiểm tra token có hợp lệ không
             try {
+                console.log('🔄 Calling getMe API to validate token...');
                 const response = await authAPI.getMe();
                 console.log('👤 User check response:', response);
                 
@@ -34,12 +35,21 @@ export const AuthProvider = ({ children }) => {
                     console.log('✅ Setting user:', response.data.email, response.data.id);
                     setUser(response.data);
                 } else {
-                    console.log('❌ Invalid user data, clearing token');
+                    console.log('❌ Invalid user data in response, clearing token', response);
                     localStorage.removeItem('token');
                     setUser(null);
                 }
             } catch (error) {
                 console.error('❌ Token validation failed:', error);
+                // Kiểm tra chi tiết lỗi để xử lý phù hợp
+                if (error.response && error.response.status === 401) {
+                    console.log('🔒 Token expired or invalid, clearing token');
+                } else {
+                    console.log('🔄 Network or server error, keeping token for retry');
+                    // Giữ token nếu là lỗi mạng tạm thời
+                    setLoading(false);
+                    return;
+                }
                 localStorage.removeItem('token');
                 setUser(null);
             }
@@ -288,10 +298,18 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
+    
     if (!context) {
         throw new Error('useAuth must be used within an AuthProvider');
     }
-    return context;
+    
+    // Thêm thuộc tính isAuthenticated để kiểm tra cả token và user
+    const isAuthenticated = !!context.user && !!localStorage.getItem('token');
+    
+    return {
+        ...context,
+        isAuthenticated
+    };
 };
 
 export { AuthContext };

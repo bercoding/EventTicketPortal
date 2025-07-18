@@ -10,7 +10,7 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
       hasSeatingMap: !!(eventData && eventData.seatingMap),
       sections: eventData?.seatingMap?.sections?.length || 0,
       firstSectionPosition: eventData?.seatingMap?.sections?.[0] 
-        ? `(${eventData.seatingMap.sections[0].x}, ${eventData.seatingMap.sections[0].y})` 
+        ? `(${typeof eventData.seatingMap.sections[0].x === 'number' ? eventData.seatingMap.sections[0].x : 'missing'}, ${typeof eventData.seatingMap.sections[0].y === 'number' ? eventData.seatingMap.sections[0].y : 'missing'})` 
         : 'N/A',
       selectedSeats: selectedSeats?.length || 0
     });
@@ -18,13 +18,13 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
     // Log detailed section information for debugging
     if (eventData?.seatingMap?.sections) {
       eventData.seatingMap.sections.forEach((section, idx) => {
-        console.log(`🪑 Section ${idx}: ${section.name} at (${section.x}, ${section.y})`);
+        console.log(`🪑 Section ${idx}: ${section.name} at (${typeof section.x === 'number' ? section.x : 'missing'}, ${typeof section.y === 'number' ? section.y : 'missing'})`);
         
         if (section.rows) {
           console.log(`  - Has ${section.rows.length} rows`);
           section.rows.forEach((row, rIdx) => {
             if (row.seats && row.seats.length > 0) {
-              console.log(`    - Row ${row.name}: ${row.seats.length} seats, first seat at (${row.seats[0].x}, ${row.seats[0].y})`);
+              console.log(`    - Row ${row.name}: ${row.seats.length} seats, first seat at (${typeof row.seats[0].x === 'number' ? row.seats[0].x : 'missing'}, ${typeof row.seats[0].y === 'number' ? row.seats[0].y : 'missing'})`);
             }
           });
         }
@@ -326,14 +326,24 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
     console.log(`🎭 Rendering ${sections.length} sections in AdvancedSeatingChart`);
     
     return sections.map((section, sectionIndex) => {
-      // Find section coordinates from seats if not explicitly defined
-      let sectionX = section.x;
-      let sectionY = section.y;
-      let sectionWidth = section.width || 300;
-      let sectionHeight = section.height || 150;
+      // CRITICAL FIX: Always trust the actual section coordinates
+      // Only calculate as fallback if absolutely necessary
       
-      // If section doesn't have coordinates, try to calculate from first row's first seat
-      if (typeof sectionX !== 'number' || typeof sectionY !== 'number') {
+      // Get exact coordinates from the section data
+      const sectionX = typeof section.x === 'number' ? section.x : null;
+      const sectionY = typeof section.y === 'number' ? section.y : null;
+      const sectionWidth = typeof section.width === 'number' ? section.width : 300;
+      const sectionHeight = typeof section.height === 'number' ? section.height : 150;
+      
+      // Log the exact coordinates we found in the data
+      console.log(`📍 Original section coordinates: ${section.name} at (${sectionX}, ${sectionY})`);
+      
+      // Only calculate position if coordinates are actually missing
+      let finalX = sectionX;
+      let finalY = sectionY;
+      
+      // Only if we don't have valid coordinates, try to calculate from seats
+      if (finalX === null || finalY === null) {
         console.log(`🔍 Section ${section.name} missing coordinates, calculating from seats`);
         
         if (Array.isArray(section.rows) && section.rows.length > 0) {
@@ -341,48 +351,37 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
           if (Array.isArray(firstRow.seats) && firstRow.seats.length > 0) {
             // Get first and last seat in first row
             const firstSeat = firstRow.seats[0];
-            const lastSeat = firstRow.seats[firstRow.seats.length - 1];
             
             if (typeof firstSeat.x === 'number' && typeof firstSeat.y === 'number') {
               // Calculate section position based on first seat
-              sectionX = firstSeat.x - 30; // Padding to the left
-              sectionY = firstSeat.y - 30; // Padding above
+              finalX = firstSeat.x - 30; // Padding to the left
+              finalY = firstSeat.y - 30; // Padding above
               
-              // If we have last seat, calculate width
-              if (lastSeat && typeof lastSeat.x === 'number') {
-                sectionWidth = (lastSeat.x - firstSeat.x) + 60; // Add padding
-              }
-              
-              // Calculate height based on last row if available
-              if (section.rows.length > 1) {
-                const lastRow = section.rows[section.rows.length - 1];
-                if (Array.isArray(lastRow.seats) && lastRow.seats.length > 0) {
-                  const lastRowSeat = lastRow.seats[0];
-                  if (typeof lastRowSeat.y === 'number') {
-                    sectionHeight = (lastRowSeat.y - firstSeat.y) + 60; // Add padding
-                  }
-                }
-              }
-              
-              console.log(`✅ Calculated section position: (${sectionX}, ${sectionY}) with size ${sectionWidth}x${sectionHeight}`);
+              console.log(`✅ Calculated section position: (${finalX}, ${finalY}) with size ${sectionWidth}x${sectionHeight}`);
             }
           }
         }
+      } else {
+        console.log(`✅ Using section's original position: (${finalX}, ${finalY})`);
       }
       
       // If we still don't have valid coordinates, use defaults based on section index
-      if (typeof sectionX !== 'number' || typeof sectionY !== 'number') {
+      if (finalX === null || finalY === null) {
         console.warn(`⚠️ Could not calculate coordinates for section ${section.name}, using defaults`);
-        sectionX = 100 + (sectionIndex % 3) * 400;
-        sectionY = 200 + Math.floor(sectionIndex / 3) * 300;
+        finalX = 100 + (sectionIndex % 3) * 400;
+        finalY = 200 + Math.floor(sectionIndex / 3) * 300;
       }
       
-      console.log(`🎭 Rendering section "${section.name}" at (${sectionX}, ${sectionY}) with ${sectionWidth}x${sectionHeight}`);
+      // Final confirmation of the coordinates we're using
+      console.log(`🎭 Rendering section "${section.name}" at (${finalX}, ${finalY}) with ${sectionWidth}x${sectionHeight}`);
+      
+      // Determine section name
+      const sectionName = section.name || `Section ${sectionIndex + 1}`;
       
       // Check for rows and seats
       let hasSeats = false;
       if (Array.isArray(section.rows)) {
-        section.rows.forEach((row, rowIdx) => {
+        section.rows.forEach((row) => {
           if (Array.isArray(row.seats) && row.seats.length > 0) {
             hasSeats = true;
             console.log(`   🎭 Row ${row.name}: ${row.seats.length} seats`);
@@ -415,8 +414,8 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
         <g key={`section-${sectionIndex}`} className="section">
           {/* Section background */}
           <rect
-            x={sectionX}
-            y={sectionY}
+            x={finalX}
+            y={finalY}
             width={sectionWidth}
             height={sectionHeight}
             fill={`${sectionColor}20`} 
@@ -428,8 +427,8 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
           
           {/* Section name */}
           <text
-            x={sectionX + sectionWidth / 2}
-            y={sectionY - 10}
+            x={finalX + sectionWidth / 2}
+            y={finalY - 10}
             textAnchor="middle"
             fill="#ffffff"
             fontWeight="bold"
@@ -438,14 +437,14 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
             strokeWidth={0.5}
             paintOrder="stroke"
           >
-            {section.name}
+            {sectionName}
           </text>
           
           {/* Ticket type name - displayed below section name */}
           {ticketInfo && (
             <text
-              x={sectionX + sectionWidth / 2}
-              y={sectionY - 30}
+              x={finalX + sectionWidth / 2}
+              y={finalY - 30}
               textAnchor="middle"
               fill={sectionColor}
               fontWeight="bold"
@@ -464,13 +463,33 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
               return null;
             }
             
+            // Calculate row label position
+            let labelX = null;
+            let labelY = null;
+            
+            // Tính toán vị trí nhãn hàng dựa trên cách tính toán vị trí ghế mới
+            // Đặt nhãn hàng bên trái hàng
+            if (section.rows && section.rows.length > 0) {
+              // Tính số hàng và số ghế tối đa trong một hàng
+              const totalRows = section.rows.length;
+              const maxSeatsInRow = Math.max(...section.rows.map(r => r.seats ? r.seats.length : 0));
+              
+              // Tính khoảng cách giữa các ghế và khoảng cách giữa các hàng
+              const seatSpacingX = sectionWidth / (maxSeatsInRow + 1);
+              const seatSpacingY = sectionHeight / (totalRows + 1);
+              
+              // Tính vị trí nhãn hàng - đặt bên trái hàng
+              labelX = finalX - 20; // Lùi 20px về bên trái so với section
+              labelY = finalY + (rowIndex + 1) * seatSpacingY; // Cùng chiều cao với hàng ghế
+            }
+            
             return (
               <g key={`row-${sectionIndex}-${rowIndex}`} className="row">
                 {/* Row label */}
-                {row.name && row.seats[0] && typeof row.seats[0].x === 'number' && (
+                {labelX !== null && labelY !== null && (
                   <text
-                    x={row.seats[0].x - 20}
-                    y={row.seats[0].y}
+                    x={labelX}
+                    y={labelY}
                     textAnchor="end"
                     dominantBaseline="middle"
                     fill="#ffffff"
@@ -485,8 +504,34 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
                 
                 {/* Seats */}
                 {row.seats.map((seat, seatIndex) => {
-                  if (!seat || typeof seat.x !== 'number' || typeof seat.y !== 'number') {
+                  if (!seat) {
                     return null;
+                  }
+                  
+                  // Tính toán lại vị trí ghế dựa trên kích thước section và vị trí trong hàng
+                  // Thay vì sử dụng tọa độ từ database, chúng ta sẽ tính toán vị trí để đảm bảo phân bố đều
+                  
+                  // Tính số hàng và số ghế tối đa trong một hàng
+                  const totalRows = section.rows.length;
+                  const maxSeatsInRow = Math.max(...section.rows.map(r => r.seats ? r.seats.length : 0));
+                  
+                  // Tính khoảng cách giữa các ghế và khoảng cách giữa các hàng
+                  const seatSpacingX = sectionWidth / (maxSeatsInRow + 1);
+                  const seatSpacingY = sectionHeight / (totalRows + 1);
+                  
+                  // Tính vị trí ghế trong section
+                  const relativeX = (seatIndex + 1) * seatSpacingX;
+                  const relativeY = (rowIndex + 1) * seatSpacingY;
+                  
+                  // Tính toán vị trí cuối cùng của ghế
+                  const seatX = finalX + relativeX;
+                  const seatY = finalY + relativeY;
+                  
+                  // Log để debug
+                  if (seatIndex === 0 && rowIndex === 0) {
+                    console.log(`Section ${section.name}: ${sectionWidth}x${sectionHeight} at (${finalX}, ${finalY})`);
+                    console.log(`Row ${row.name}, Seat ${seat.number}: calculated position (${seatX}, ${seatY})`);
+                    console.log(`Spacing: X=${seatSpacingX}, Y=${seatSpacingY}, Total rows: ${totalRows}, Max seats: ${maxSeatsInRow}`);
                   }
                   
                   // Determine if this seat is selected
@@ -497,53 +542,58 @@ const AdvancedSeatingChart = ({ eventData, selectedSeats, onSeatSelect }) => {
                   
                   // Determine seat status
                   const isAvailable = seat.status !== 'sold' && seat.status !== 'reserved';
-                  const seatColor = getSeatFillColor(seat, section);
+                  
+                  // Determine seat size based on density
+                  const seatSize = 18; // Default seat size
+                  
+                  // Generate unique identifier for the seat
+                  const seatId = `seat-${section.name}-${row.name}-${seat.number}`;
+                  
+                  // Determine fill color based on status
+                  const fillColor = getSeatFillColor(seat, section);
                   
                   return (
-                    <g
-                      key={`seat-${sectionIndex}-${rowIndex}-${seatIndex}`}
-                      className={`seat ${isSelected ? 'selected' : ''} ${seat.status || 'available'}`}
+                    <g 
+                      key={`seat-${sectionIndex}-${rowIndex}-${seatIndex}`} 
+                      className={`seat ${isSelected ? 'selected' : ''} ${isAvailable ? 'available' : 'unavailable'}`}
+                      onClick={() => {
+                        if (onSeatSelect && isAvailable) {
+                          const seatData = {
+                            _id: seat._id || seatId,
+                            section: section.name,
+                            sectionName: section.name,
+                            row: row.name,
+                            number: seat.number,
+                            price: ticketTypes.find(tt => tt._id === section.ticketTier)?.price || 0,
+                            status: seat.status || 'available',
+                            // Lưu lại vị trí tính toán để có thể sử dụng sau này
+                            calculatedX: relativeX,
+                            calculatedY: relativeY
+                          };
+                          onSeatSelect(seatData);
+                        }
+                      }}
                     >
-                      {/* Seat circle */}
-                      <circle
-                        cx={seat.x}
-                        cy={seat.y}
-                        r={12} // Increased size
-                        fill={seatColor}
+                      {/* Seat shape */}
+                      <rect
+                        x={seatX - seatSize/2}
+                        y={seatY - seatSize/2}
+                        width={seatSize}
+                        height={seatSize}
+                        rx={4}
+                        fill={fillColor}
                         stroke={isSelected ? '#ffffff' : '#000000'}
-                        strokeWidth={isSelected ? 2 : 1}
-                        opacity={isAvailable ? 1 : 0.5}
-                        onClick={() => {
-                          if (isAvailable && onSeatSelect) {
-                            console.log(`🪑 Seat clicked: section=${section.name}, row=${row.name}, seat=${seat.number}`);
-                            onSeatSelect({
-                              ...seat,
-                              _id: seat._id || `${section.name}-${row.name}-${seat.number}`,
-                              section: section.name,
-                              sectionName: section.name,
-                              row: row.name,
-                              rowName: row.name,
-                              ticketTier: section.ticketTier,
-                              ticketType: ticketTypes.find(tt => 
-                                tt._id === section.ticketTier || 
-                                tt._id.toString() === section.ticketTier.toString()
-                              )
-                            });
-                          }
-                        }}
-                        style={{
-                          cursor: isAvailable ? 'pointer' : 'not-allowed',
-                          transition: 'all 0.2s ease'
-                        }}
+                        strokeWidth={isSelected ? 2 : 0.5}
+                        style={{ cursor: isAvailable ? 'pointer' : 'not-allowed' }}
                       />
                       
                       {/* Seat number */}
                       <text
-                        x={seat.x}
-                        y={seat.y}
+                        x={seatX}
+                        y={seatY}
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        fill={isSelected ? '#ffffff' : '#000000'}
+                        fill={isSelected || seat.status === 'sold' || seat.status === 'reserved' ? '#FFFFFF' : '#000000'}
                         fontSize={10}
                         fontWeight="bold"
                         style={{ pointerEvents: 'none' }}

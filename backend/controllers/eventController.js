@@ -6,6 +6,42 @@ const TicketType = require('../models/TicketType');
 const Ticket = require('../models/Ticket');
 const mongoose = require('mongoose');
 
+// Helper function to create a section with rows and seats
+const createSection = (name, ticketTierId, totalSeats, numRows, seatsPerRow, x, y, seatSpacing, rowSpacing) => {
+  // Create section object with provided properties
+  const section = {
+    name,
+    x,
+    y,
+    width: seatsPerRow * seatSpacing,
+    height: numRows * rowSpacing,
+    ticketTier: ticketTierId,
+    rows: []
+  };
+  
+  // Generate rows and seats
+  for (let i = 0; i < numRows; i++) {
+    const rowName = String.fromCharCode(65 + i); // A, B, C...
+    const seats = [];
+    
+    for (let j = 0; j < seatsPerRow; j++) {
+      seats.push({
+        number: `${j + 1}`,
+        status: 'available',
+        x: x + (j * seatSpacing),
+        y: y + (i * rowSpacing)
+      });
+    }
+    
+    section.rows.push({
+      name: rowName,
+      seats
+    });
+  }
+  
+  return section;
+};
+
 // Lấy danh sách sự kiện
 const getEvents = asyncHandler(async (req, res) => {
   const { 
@@ -408,6 +444,9 @@ const createEventWithSeating = asyncHandler(async (req, res) => {
       });
     }
     
+    // Initialize ticketTypeIds at function scope to avoid undefined references
+    let ticketTypeIds = [];
+    
     console.log('Request body keys:', Object.keys(req.body));
     
     // Giới hạn kích thước và độ phức tạp của seatingMap
@@ -566,6 +605,19 @@ const createEventWithSeating = asyncHandler(async (req, res) => {
       req.body.capacity = capacity > 0 ? capacity : 100;
     }
     
+    // IMPORTANT: Always preserve exact section positions from user's custom design
+    if (seatingMap && Array.isArray(seatingMap.sections)) {
+      // Verify and log each section's position to ensure they're being preserved
+      seatingMap.sections.forEach((section, index) => {
+        console.log(`📍 Preserving section ${index} position: (${section.x}, ${section.y}), dimensions: ${section.width}x${section.height}`);
+        
+        // Ensure section has valid coordinates - but do NOT modify them if they exist
+        if (typeof section.x !== 'number' || typeof section.y !== 'number') {
+          console.warn(`⚠️ Section ${index} has invalid coordinates, will use defaults`);
+        }
+      });
+    }
+    
     // Extract ticket types data from request body - look for ticketTypesData first, then fall back to ticketTypes
     let ticketTypesData = req.body.ticketTypesData || req.body.ticketTypes || [];
     
@@ -615,7 +667,8 @@ const createEventWithSeating = asyncHandler(async (req, res) => {
     if (Array.isArray(ticketTypesData) && ticketTypesData.length > 0) {
       console.log('🎫 Creating ticket types:', ticketTypesData.length);
       
-      const ticketTypeIds = [];
+      // Use the outer ticketTypeIds variable instead of declaring a new one
+      ticketTypeIds = [];
       for (const tt of ticketTypesData) {
         const ticketType = await TicketType.create({
           name: tt.name,
@@ -638,143 +691,225 @@ const createEventWithSeating = asyncHandler(async (req, res) => {
         console.log(`🎫 Processing seatingMap for event...`);
         console.log(`🎫 Available ticket types: ${ticketTypeIds.length}`);
         
-        // Check if seatingMap is valid or needs regeneration
+        // Kiểm tra và log chi tiết về layout hiện tại
+        console.log(`🎭 Current seating map has ${createdEvent.seatingMap.sections.length} sections`);
+        createdEvent.seatingMap.sections.forEach((section, index) => {
+          console.log(`Section ${index + 1}: name=${section.name || 'unnamed'}, position=(${section.x || 'undefined'}, ${section.y || 'undefined'}), size=(${section.width || 'undefined'} x ${section.height || 'undefined'})`);
+        });
+        
+        // Đảm bảo biến useFixedLayout được khởi tạo
         let useFixedLayout = false;
         
-        // Check if seatingMap is empty or invalid
-        if (!createdEvent.seatingMap.sections || createdEvent.seatingMap.sections.length === 0) {
-          console.log("🎭 No sections found, using fixed layout");
-          useFixedLayout = true;
-        } else {
-          // Check if sections have valid coordinates and dimensions
-          const hasInvalidSections = createdEvent.seatingMap.sections.some(section => 
+        // Check if sections have valid coordinates and dimensions
+        // Only use fixed layout if ALL sections are invalid - this prioritizes keeping custom layouts
+        const hasInvalidSections = createdEvent.seatingMap.sections.length === 0 || 
+          createdEvent.seatingMap.sections.every(section => 
             typeof section.x !== 'number' || 
             typeof section.y !== 'number' ||
             typeof section.width !== 'number' || 
             typeof section.height !== 'number'
           );
-          
-          if (hasInvalidSections) {
-            console.log("🎭 Found sections with invalid coordinates, using fixed layout");
-            useFixedLayout = true;
-          }
-          
-          // Check if sections have seats
-          const hasSections = createdEvent.seatingMap.sections.some(section => 
-            Array.isArray(section.rows) && section.rows.length > 0 && 
-            section.rows.some(row => Array.isArray(row.seats) && row.seats.length > 0)
-          );
-          
-          if (!hasSections) {
-            console.log("🎭 No seats found in sections, using fixed layout");
-            useFixedLayout = true;
-          }
-        }
         
-        // ALWAYS use fixed layout to ensure consistency
-        console.log("🎭 Using fixed layout for guaranteed reliability");
-        useFixedLayout = true;
-        
-        // If we need to regenerate the seating map, do it here
-        if (useFixedLayout) {
-          console.log("🎭 Generating fixed seating layout");
-          const fixedLayout = createFixedLayout();
-          
-          // Assign different ticket types to different sections
-          if (ticketTypeIds.length > 0) {
-            // First section gets first ticket type (Vé Thường)
-            fixedLayout.sections[0].ticketTier = ticketTypeIds[0];
-            
-            // Second section gets second ticket type (Vé VIP) if available, otherwise first ticket type
-            if (ticketTypeIds.length > 1) {
-              fixedLayout.sections[1].ticketTier = ticketTypeIds[1];
-            } else {
-              fixedLayout.sections[1].ticketTier = ticketTypeIds[0];
-            }
-            
-            console.log(`🎫 Assigned ticket types to sections: Section 1 -> ${ticketTypeIds[0]}, Section 2 -> ${ticketTypeIds.length > 1 ? ticketTypeIds[1] : ticketTypeIds[0]}`);
-          }
-          
-          // Update the event with the new seating map
-          createdEvent.seatingMap = fixedLayout;
-          await createdEvent.save();
-          console.log("✅ Fixed seating layout saved to event");
+        if (hasInvalidSections) {
+          console.log("🎭 All sections have invalid coordinates, using fixed layout");
+          useFixedLayout = true;
         } else {
-          // Otherwise, just update the ticket tiers in the existing seating map
-          let ticketTierIndex = 0;
-          for (const section of createdEvent.seatingMap.sections) {
-            // Ensure each section has a ticketTier associated with it
-            if (!section.ticketTier && ticketTypeIds.length > 0) {
-              section.ticketTier = ticketTypeIds[ticketTierIndex % ticketTypeIds.length];
-              ticketTierIndex++;
-            }
-          }
-          
-          await createdEvent.save();
-          console.log("✅ Updated ticket tiers in seating map");
+          // Không kiểm tra rows và seats nữa, chỉ cần có sections với tọa độ hợp lệ
+          // Bỏ qua kiểm tra seats, cho phép sections không có rows và seats
+          console.log("🎭 Sections have valid coordinates, keeping custom layout");
         }
-      } else {
-        // If there's no seating map at all, create one using fixed layout
-        console.log("🎭 No seating map found, creating a fixed layout");
-        const fixedLayout = createFixedLayout();
+      }
+      
+      // Only use fixed layout if needed based on the checks above
+      console.log("🎭 Respecting user's custom seating layout when possible");
+      
+      // Make sure useFixedLayout is defined
+      useFixedLayout = typeof useFixedLayout !== 'undefined' ? useFixedLayout : false;
+      
+      // If we need to regenerate the seating map, do it here
+      if (useFixedLayout) {
+        console.log("🎭 Generating fixed seating layout");
+        // Make sure createFixedLayout is properly defined and called
+        const fixedLayout = typeof createFixedLayout === 'function' ? createFixedLayout() : {
+          layoutType: 'theater', 
+          sections: [
+            {
+              name: "Khu 1 (Vé Thường)",
+              x: 100,
+              y: 250,
+              width: 350,
+              height: 200,
+              rows: []
+            },
+            {
+              name: "Khu 2 (Vé VIP)", 
+              x: 650,
+              y: 250,
+              width: 350,
+              height: 200,
+              rows: []
+            }
+          ],
+          stage: { x: 400, y: 80, width: 400, height: 100 },
+          venueObjects: []
+        };
         
         // Assign different ticket types to different sections
-        if (ticketTypeIds.length > 0) {
+        // IMPORTANT: Check if ticketTypeIds is defined and not empty before using it
+        const ticketIds = ticketTypeIds || [];
+        if (ticketIds.length > 0 && fixedLayout.sections && fixedLayout.sections.length > 0) {
           // First section gets first ticket type (Vé Thường)
-          fixedLayout.sections[0].ticketTier = ticketTypeIds[0];
+          fixedLayout.sections[0].ticketTier = ticketIds[0];
           
           // Second section gets second ticket type (Vé VIP) if available, otherwise first ticket type
-          if (ticketTypeIds.length > 1) {
-            fixedLayout.sections[1].ticketTier = ticketTypeIds[1];
-          } else {
-            fixedLayout.sections[1].ticketTier = ticketTypeIds[0];
+          if (ticketIds.length > 1 && fixedLayout.sections.length > 1) {
+            fixedLayout.sections[1].ticketTier = ticketIds[1];
+          } else if (fixedLayout.sections.length > 1) {
+            fixedLayout.sections[1].ticketTier = ticketIds[0];
           }
           
-          console.log(`🎫 Assigned ticket types to sections: Section 1 -> ${ticketTypeIds[0]}, Section 2 -> ${ticketTypeIds.length > 1 ? ticketTypeIds[1] : ticketTypeIds[0]}`);
+          console.log(`🎫 Assigned ticket types to sections: Section 1 -> ${ticketIds[0]}, Section 2 -> ${fixedLayout.sections.length > 1 ? (ticketIds.length > 1 ? ticketIds[1] : ticketIds[0]) : 'N/A'}`);
         }
         
+        // Update the event with the new seating map
         createdEvent.seatingMap = fixedLayout;
         await createdEvent.save();
-        console.log("✅ Fixed seating layout created and saved to event");
+        console.log("✅ Fixed seating layout saved to event");
+      } else {
+        // CRITICAL: If we're using custom layout, absolutely preserve all positions exactly as designed
+        console.log("🎭 Using custom layout - PRESERVING ALL POSITIONS");
+        
+        // Just assign ticket types if needed, but don't modify positions or layout
+        // IMPORTANT: Check if ticketTypeIds is defined and not empty before using it
+        const ticketIds = ticketTypeIds || [];
+        if (ticketIds.length > 0) {
+          createdEvent.seatingMap.sections.forEach((section, idx) => {
+            // Only assign ticket tier if it doesn't already have one
+            if (!section.ticketTier) {
+              // Rotate through available ticket types
+              const ticketTypeIdx = idx % ticketIds.length;
+              section.ticketTier = ticketIds[ticketTypeIdx];
+              console.log(`🎫 Assigned ticket type ${ticketIds[ticketTypeIdx]} to section "${section.name || idx}"`);
+            }
+          });
+        }
+        
+        // Log all section positions to verify they're preserved
+        createdEvent.seatingMap.sections.forEach((section, idx) => {
+          console.log(`✓ Section ${idx} (${section.name}): position preserved at (${section.x}, ${section.y}), size: ${section.width}x${section.height}`);
+        });
+        
+        await createdEvent.save();
+        console.log("✅ Custom seating layout preserved with original positions");
+      }
+    }
+    
+    // If there's no seating map at all, create one using fixed layout
+    if (!createdEvent.seatingMap || !createdEvent.seatingMap.sections || createdEvent.seatingMap.sections.length === 0) {
+      console.log("🎭 No seating map found, creating a default layout");
+      // Make sure createFixedLayout is properly defined and called
+      const fixedLayout = typeof createFixedLayout === 'function' ? createFixedLayout() : {
+        layoutType: 'theater', 
+        sections: [
+          {
+            name: "Khu 1 (Vé Thường)",
+            x: 100,
+            y: 250,
+            width: 350,
+            height: 200,
+            rows: []
+          },
+          {
+            name: "Khu 2 (Vé VIP)", 
+            x: 650,
+            y: 250,
+            width: 350,
+            height: 200,
+            rows: []
+          }
+        ],
+        stage: { x: 400, y: 80, width: 400, height: 100 },
+        venueObjects: []
+      };
+      
+      // Assign different ticket types to different sections
+      // IMPORTANT: Check if ticketTypeIds is defined and not empty before using it
+      const ticketIds = ticketTypeIds || [];
+      if (ticketIds.length > 0 && fixedLayout.sections && fixedLayout.sections.length > 0) {
+        // First section gets first ticket type (Vé Thường)
+        fixedLayout.sections[0].ticketTier = ticketIds[0];
+        
+        // Second section gets second ticket type (Vé VIP) if available, otherwise first ticket type
+        if (ticketIds.length > 1 && fixedLayout.sections.length > 1) {
+          fixedLayout.sections[1].ticketTier = ticketIds[1];
+        } else if (fixedLayout.sections.length > 1) {
+          fixedLayout.sections[1].ticketTier = ticketIds[0];
+        }
+        
+        console.log(`🎫 Assigned ticket types to sections: Section 1 -> ${ticketIds[0]}, Section 2 -> ${fixedLayout.sections.length > 1 ? (ticketIds.length > 1 ? ticketIds[1] : ticketIds[0]) : 'N/A'}`);
       }
       
-      // Ensure we preserve the stage and venue objects exactly as provided
-      if (seatingMap && seatingMap.stage) {
-        createdEvent.seatingMap.stage = JSON.parse(JSON.stringify(seatingMap.stage));
-      }
+      createdEvent.seatingMap = fixedLayout;
       
-      if (seatingMap && Array.isArray(seatingMap.venueObjects)) {
-        createdEvent.seatingMap.venueObjects = JSON.parse(JSON.stringify(seatingMap.venueObjects));
-      }
-      
-      // Ensure we preserve the stage and venue objects exactly as provided
-      if (seatingMap && seatingMap.stage) {
-        createdEvent.seatingMap.stage = JSON.parse(JSON.stringify(seatingMap.stage));
-      }
-      
-      if (seatingMap && Array.isArray(seatingMap.venueObjects)) {
-        createdEvent.seatingMap.venueObjects = JSON.parse(JSON.stringify(seatingMap.venueObjects));
-      }
-      
-      // Make sure layoutType is preserved
+      // Preserve original layout type if available
       if (seatingMap && seatingMap.layoutType) {
         createdEvent.seatingMap.layoutType = seatingMap.layoutType;
+        console.log(`✅ Preserved original layout type: ${seatingMap.layoutType}`);
       }
       
-      // Log the seating map before saving
-      console.log(`🎭 Final seating map before save: layoutType=${createdEvent.seatingMap.layoutType}, sections=${createdEvent.seatingMap.sections.length}, venueObjects=${createdEvent.seatingMap.venueObjects?.length || 0}`);
+      // Preserve original venue objects if available
+      if (seatingMap && Array.isArray(seatingMap.venueObjects) && seatingMap.venueObjects.length > 0) {
+        createdEvent.seatingMap.venueObjects = JSON.parse(JSON.stringify(seatingMap.venueObjects));
+        console.log(`✅ Preserved ${seatingMap.venueObjects.length} original venue objects even with fixed layout`);
+      }
       
-      // Mark the seatingMap as modified to ensure it's saved
-      createdEvent.markModified('seatingMap');
+      // Preserve original stage if available
+      if (seatingMap && seatingMap.stage) {
+        createdEvent.seatingMap.stage = JSON.parse(JSON.stringify(seatingMap.stage));
+        console.log(`✅ Preserved original stage position even with fixed layout`);
+      }
       
-      // Ensure we save the event with all the processed data
       await createdEvent.save();
-      
-      console.log(`✅ Created ${ticketTypeIds.length} ticket types for event`);
-      console.log(`✅ Final seating map has ${createdEvent.seatingMap.sections.length} sections, ${createdEvent.seatingMap.venueObjects?.length || 0} venue objects`);
-      console.log(`✅ Stage position: (${createdEvent.seatingMap.stage.x}, ${createdEvent.seatingMap.stage.y})`);
+      console.log("✅ Default seating layout created and saved to event");
     }
 
+    // Always ensure we preserve original stage and venue objects exactly as provided
+    if (seatingMap && seatingMap.stage && createdEvent.seatingMap) {
+      createdEvent.seatingMap.stage = JSON.parse(JSON.stringify(seatingMap.stage));
+      console.log("✅ Preserved original stage position");
+      createdEvent.markModified('seatingMap.stage');
+    }
+    
+    if (seatingMap && Array.isArray(seatingMap.venueObjects) && createdEvent.seatingMap) {
+      createdEvent.seatingMap.venueObjects = JSON.parse(JSON.stringify(seatingMap.venueObjects));
+      console.log(`✅ Preserved ${seatingMap.venueObjects.length} original venue objects`);
+      createdEvent.markModified('seatingMap.venueObjects');
+    }
+    
+    // Make sure layoutType is preserved
+    if (seatingMap && seatingMap.layoutType && createdEvent.seatingMap) {
+      createdEvent.seatingMap.layoutType = seatingMap.layoutType;
+      console.log(`✅ Preserved original layout type: ${seatingMap.layoutType}`);
+      createdEvent.markModified('seatingMap.layoutType');
+    }
+    
+    // Final confirmation of the seating map structure
+    if (createdEvent.seatingMap) {
+      console.log(`🎭 Final seating map before save: layoutType=${createdEvent.seatingMap.layoutType}, sections=${createdEvent.seatingMap.sections?.length || 0}, venueObjects=${createdEvent.seatingMap.venueObjects?.length || 0}`);
+      
+      // Mark the entire seatingMap as modified to ensure all changes are saved
+      createdEvent.markModified('seatingMap');
+      
+      // Save one final time
+      await createdEvent.save();
+      
+      console.log(`✅ Created ${Array.isArray(ticketTypeIds) ? ticketTypeIds.length : 0} ticket types for event`);
+      console.log(`✅ Final seating map has ${createdEvent.seatingMap.sections?.length || 0} sections, ${createdEvent.seatingMap.venueObjects?.length || 0} venue objects`);
+      if (createdEvent.seatingMap.stage) {
+        console.log(`✅ Final stage position: (${createdEvent.seatingMap.stage.x}, ${createdEvent.seatingMap.stage.y})`);
+      }
+    }
+    
     // Populate organizers and venue
     const populatedEvent = await Event.findById(createdEvent._id)
       .populate('organizers', 'username email fullName avatar')

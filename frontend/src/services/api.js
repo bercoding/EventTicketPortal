@@ -53,6 +53,29 @@ api.interceptors.response.use(
   },
   (error) => {
     console.log('❌ API Error:', error.response || error);
+    
+    // Xử lý lỗi 401 (Unauthorized) - token hết hạn hoặc không hợp lệ
+    if (error.response && error.response.status === 401) {
+      console.log('🔒 Unauthorized error detected (401), token may be invalid or expired');
+      
+      // Kiểm tra nếu không phải là request đến /auth/login hoặc /auth/register
+      const isAuthEndpoint = error.config.url.includes('/auth/login') || 
+                            error.config.url.includes('/auth/register') ||
+                            error.config.url.includes('/auth/verify-otp');
+      
+      if (!isAuthEndpoint) {
+        console.log('🔄 Non-auth endpoint with 401 error, clearing token');
+        // Xóa token và reload trang để đăng xuất
+        localStorage.removeItem('token');
+        
+        // Nếu không phải là trang đăng nhập, chuyển hướng đến trang đăng nhập
+        if (!window.location.pathname.includes('/login')) {
+          console.log('🔄 Redirecting to login page');
+          window.location.href = '/login';
+        }
+      }
+    }
+    
     return Promise.reject(error);
   }
 );
