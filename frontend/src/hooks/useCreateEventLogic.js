@@ -78,6 +78,86 @@ const useCreateEventLogic = (templateInfo = null) => {
   const [lastStepChange, setLastStepChange] = useState(0);
   const STEP_THROTTLE_MS = 1000; // Thời gian tối thiểu giữa các lần chuyển bước (1 giây)
 
+  // Địa chỉ hành chính Việt Nam
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [wards, setWards] = useState([]);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
+  const [selectedDistrictCode, setSelectedDistrictCode] = useState('');
+  const [selectedWardCode, setSelectedWardCode] = useState('');
+
+  // Fetch provinces khi mount
+  useEffect(() => {
+    fetch('https://provinces.open-api.vn/api/p/')
+      .then(res => res.json())
+      .then(data => setProvinces(data))
+      .catch(() => setProvinces([]));
+  }, []);
+
+  // Fetch districts khi chọn tỉnh
+  useEffect(() => {
+    if (selectedProvinceCode) {
+      fetch(`https://provinces.open-api.vn/api/p/${selectedProvinceCode}?depth=2`)
+        .then(res => res.json())
+        .then(data => setDistricts(data.districts || []))
+        .catch(() => setDistricts([]));
+    } else {
+      setDistricts([]);
+      setSelectedDistrictCode('');
+      setWards([]);
+      setSelectedWardCode('');
+    }
+  }, [selectedProvinceCode]);
+
+  // Fetch wards khi chọn quận
+  useEffect(() => {
+    if (selectedDistrictCode) {
+      fetch(`https://provinces.open-api.vn/api/d/${selectedDistrictCode}?depth=2`)
+        .then(res => res.json())
+        .then(data => setWards(data.wards || []))
+        .catch(() => setWards([]));
+    } else {
+      setWards([]);
+      setSelectedWardCode('');
+    }
+  }, [selectedDistrictCode]);
+
+  // Khi chọn tỉnh, cập nhật formData.location.city
+  useEffect(() => {
+    const province = provinces.find(p => p.code === selectedProvinceCode);
+    setFormData(prev => ({
+      ...prev,
+      location: {
+        ...prev.location,
+        city: province ? province.name : ''
+      }
+    }));
+  }, [selectedProvinceCode]);
+
+  // Khi chọn quận, cập nhật formData.location.district
+  useEffect(() => {
+    const district = districts.find(d => d.code === selectedDistrictCode);
+    setFormData(prev => ({
+      ...prev,
+      location: {
+        ...prev.location,
+        district: district ? district.name : ''
+      }
+    }));
+  }, [selectedDistrictCode]);
+
+  // Khi chọn phường, cập nhật formData.location.ward
+  useEffect(() => {
+    const ward = wards.find(w => w.code === selectedWardCode);
+    setFormData(prev => ({
+      ...prev,
+      location: {
+        ...prev.location,
+        ward: ward ? ward.name : ''
+      }
+    }));
+  }, [selectedWardCode]);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -705,12 +785,33 @@ const useCreateEventLogic = (templateInfo = null) => {
     }));
   };
 
+  // Sửa handleChange để cập nhật code khi chọn dropdown
+  const handleChangeWithDropdown = (e) => {
+    const { name, value } = e.target;
+    if (name === 'location.city') {
+      setSelectedProvinceCode(value);
+      setSelectedDistrictCode('');
+      setSelectedWardCode('');
+      return;
+    }
+    if (name === 'location.district') {
+      setSelectedDistrictCode(value);
+      setSelectedWardCode('');
+      return;
+    }
+    if (name === 'location.ward') {
+      setSelectedWardCode(value);
+      return;
+    }
+    handleChange(e);
+  };
+
   return {
     formData,
     setFormData,
     currentStep,
     setCurrentStep,
-    handleChange,
+    handleChange: handleChangeWithDropdown,
     handleImageUpload,
 
     handleNextStep,
@@ -729,7 +830,13 @@ const useCreateEventLogic = (templateInfo = null) => {
     handleVenueLayoutChange,
     isOnlineEvent,
     isGeneralEvent,
-    isSeatingEvent
+    isSeatingEvent,
+    provinces,
+    districts,
+    wards,
+    selectedProvinceCode,
+    selectedDistrictCode,
+    selectedWardCode
   };
 };
 
