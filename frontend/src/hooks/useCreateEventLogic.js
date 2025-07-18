@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -78,6 +78,8 @@ const useCreateEventLogic = (templateInfo = null) => {
   const [lastStepChange, setLastStepChange] = useState(0);
   const STEP_THROTTLE_MS = 1000; // Thời gian tối thiểu giữa các lần chuyển bước (1 giây)
 
+  const rerunNextStepRef = useRef(false);
+
   // Địa chỉ hành chính Việt Nam
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
@@ -122,17 +124,19 @@ const useCreateEventLogic = (templateInfo = null) => {
     }
   }, [selectedDistrictCode]);
 
-  // Khi chọn tỉnh, cập nhật formData.location.city
+  // Khôi phục lại useEffect đồng bộ tên tỉnh/thành với code
   useEffect(() => {
-    const province = provinces.find(p => p.code === selectedProvinceCode);
-    setFormData(prev => ({
-      ...prev,
-      location: {
-        ...prev.location,
-        city: province ? province.name : ''
-      }
-    }));
-  }, [selectedProvinceCode]);
+    if (selectedProvinceCode) {
+      const province = provinces.find(p => p.code === selectedProvinceCode);
+      setFormData(prev => ({
+        ...prev,
+        location: {
+          ...prev.location,
+          city: province ? province.name : ''
+        }
+      }));
+    }
+  }, [selectedProvinceCode, provinces]);
 
   // Khi chọn quận, cập nhật formData.location.district
   useEffect(() => {
@@ -307,6 +311,9 @@ const useCreateEventLogic = (templateInfo = null) => {
     }
 
     console.log('handleNextStep called. Current step:', currentStep);
+    console.log('DEBUG: formData.location.city:', formData.location.city);
+    console.log('DEBUG: selectedProvinceCode:', selectedProvinceCode);
+    console.log('DEBUG: provinces:', provinces);
     
     // Kiểm tra xem có phải do người dùng thực sự thao tác với nút điều hướng
     const isFromNavigation = e && e.nativeEvent && e.nativeEvent.isTrusted && 
@@ -327,13 +334,47 @@ const useCreateEventLogic = (templateInfo = null) => {
     setLastStepChange(now);
 
     if (currentStep === 1) {
+      // Nếu city rỗng nhưng đã chọn code, đồng bộ lại và tự động validate lại
+      if (!formData.location.city && selectedProvinceCode && !rerunNextStepRef.current) {
+        const province = provinces.find(p => p.code === selectedProvinceCode);
+        if (province) {
+          setFormData(prev => ({
+            ...prev,
+            location: {
+              ...prev.location,
+              city: province.name
+            }
+          }));
+          rerunNextStepRef.current = true;
+          setTimeout(() => {
+            handleNextStep();
+          }, 0);
+          return;
+        }
+      }
+      rerunNextStepRef.current = false;
       // Validation cơ bản cho tất cả template
       if (!formData.title || !formData.description) {
         toast.error('Vui lòng điền đầy đủ các thông tin bắt buộc: Tên sự kiện, Mô tả.');
         return;
       }
-
-      // Không kiểm tra địa điểm ở bước 1 nữa, chỉ kiểm tra các thông tin cơ bản
+      // Kiểm tra địa chỉ ở bước 1
+      if (!isOnlineEvent && !selectedProvinceCode) {
+        console.log('DEBUG: validate fail - city:', formData.location.city);
+        toast.error('Vui lòng chọn thành phố.');
+        return;
+      }
+      // Đồng bộ lại city trước khi sang bước tiếp theo
+      if (!formData.location.city) {
+        const province = provinces.find(p => p.code === selectedProvinceCode);
+        setFormData(prev => ({
+          ...prev,
+          location: {
+            ...prev.location,
+            city: province ? province.name : ''
+          }
+        }));
+      }
       console.log('Validation passed for Step 1. Moving to next step.');
       setCurrentStep(prevStep => prevStep + 1);
       
@@ -376,10 +417,11 @@ const useCreateEventLogic = (templateInfo = null) => {
           toast.error('Vui lòng nhập địa chỉ.');
           return;
         }
-        if (!formData.location.city) {
-          toast.error('Vui lòng chọn thành phố.');
-          return;
-        }
+        // BỎ validate thành phố ở đây
+        // if (!formData.location.city) {
+        //   toast.error('Vui lòng chọn thành phố.');
+        //   return;
+        // }
       } else {
         // Online event - cần link tham gia và nền tảng
         if (!formData.location.meetingLink || !formData.location.platform) {
@@ -790,17 +832,42 @@ const useCreateEventLogic = (templateInfo = null) => {
     const { name, value } = e.target;
     if (name === 'location.city') {
       setSelectedProvinceCode(value);
+      const province = provinces.find(p => p.code === value);
+      setFormData(prev => ({
+        ...prev,
+        location: {
+          ...prev.location,
+          city: province ? province.name : ''
+        }
+      }));
+      console.log('DEBUG handleChangeWithDropdown: chọn tỉnh', { code: value, name: province ? province.name : '', formDataCity: province ? province.name : '' });
       setSelectedDistrictCode('');
       setSelectedWardCode('');
       return;
     }
     if (name === 'location.district') {
       setSelectedDistrictCode(value);
+      const district = districts.find(d => d.code === value);
+      setFormData(prev => ({
+        ...prev,
+        location: {
+          ...prev.location,
+          district: district ? district.name : ''
+        }
+      }));
       setSelectedWardCode('');
       return;
     }
     if (name === 'location.ward') {
       setSelectedWardCode(value);
+      const ward = wards.find(w => w.code === value);
+      setFormData(prev => ({
+        ...prev,
+        location: {
+          ...prev.location,
+          ward: ward ? ward.name : ''
+        }
+      }));
       return;
     }
     handleChange(e);

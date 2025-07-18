@@ -363,14 +363,14 @@ const CreateEventWithSeating = () => {
                     <label>Thành phố *</label>
                     <select
                       name="location.city"
-                      value={selectedProvinceCode}
+                      value={formData.location.city}
                       onChange={handleChange}
                       required
                       className="form-control"
                     >
                       <option value="">Chọn Tỉnh/Thành</option>
                       {provinces && provinces.map(province => (
-                        <option key={province.code} value={province.code}>{province.name}</option>
+                        <option key={province.code} value={province.name}>{province.name}</option>
                       ))}
                     </select>
                   </div>

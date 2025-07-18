@@ -5,6 +5,7 @@ import { faEdit, faTrash, faMapMarkerAlt, faCalendarAlt, faUsers, faTag, faUserT
 import useManageEventLogic from '../../hooks/useManageEventLogic';
 import ImageUpload from '../../components/event/ImageUpload';
 import useCreateEventLogic from '../../hooks/useCreateEventLogic';
+import { uploadImage } from '../../services/api';
 
 const ManageEvent = () => {
   const { id: eventId } = useParams();
@@ -337,12 +338,11 @@ const ManageEvent = () => {
                   onChange={async (e) => {
                     const file = e.target.files[0];
                     if (file) {
-                      const formDataUpload = new FormData();
-                      formDataUpload.append('image', file);
-                      const res = await fetch('/api/upload', { method: 'POST', body: formDataUpload });
-                      const data = await res.json();
-                      if (data.url) {
-                        handleImageChange('banner', data.url);
+                      const result = await uploadImage(file, 'banner');
+                      if (result.success) {
+                        handleImageChange('banner', result.url);
+                      } else {
+                        alert(result.message || 'Upload ảnh thất bại');
                       }
                     }
                   }}
@@ -353,12 +353,11 @@ const ManageEvent = () => {
                   onChange={async (e) => {
                     const file = e.target.files[0];
                     if (file) {
-                      const formDataUpload = new FormData();
-                      formDataUpload.append('image', file);
-                      const res = await fetch('/api/upload', { method: 'POST', body: formDataUpload });
-                      const data = await res.json();
-                      if (data.url) {
-                        handleImageChange('logo', data.url);
+                      const result = await uploadImage(file, 'logo');
+                      if (result.success) {
+                        handleImageChange('logo', result.url);
+                      } else {
+                        alert(result.message || 'Upload ảnh thất bại');
                       }
                     }
                   }}
