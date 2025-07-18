@@ -204,6 +204,17 @@ const useManageEventLogic = (eventId) => {
     setFormData(prev => ({ ...prev, tags: e.target.value.split(', ').map(tag => tag.trim()).filter(tag => tag !== '') }));
   };
 
+  // Thêm hàm cập nhật ảnh
+  const handleImageChange = (type, url) => {
+    setFormData(prev => ({
+      ...prev,
+      images: {
+        ...prev.images,
+        [type]: url
+      }
+    }));
+  };
+
   return {
     loading,
     event,
@@ -216,7 +227,7 @@ const useManageEventLogic = (eventId) => {
     user,
     handleCategoryChange,
     handleTagsChange,
-    // Add other state variables and functions that ManageEvent needs here
+    handleImageChange // trả về hàm này
   };
 };
 
