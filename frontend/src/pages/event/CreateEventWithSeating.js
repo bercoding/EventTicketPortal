@@ -358,17 +358,21 @@ const CreateEventWithSeating = () => {
                     />
                   </div>
                   
+                  {/* Thay input Thành phố thành dropdown */}
                   <div className="form-group">
                     <label>Thành phố *</label>
-                    <input
-                      type="text"
+                    <select
                       name="location.city"
                       value={formData.location.city}
                       onChange={handleChange}
-                      placeholder="Tên thành phố"
                       required
                       className="form-control"
-                    />
+                    >
+                      <option value="">Chọn Tỉnh/Thành</option>
+                      {provinces && provinces.map(province => (
+                        <option key={province.code} value={province.name}>{province.name}</option>
+                      ))}
+                    </select>
                   </div>
                   
                   <div className="form-group">

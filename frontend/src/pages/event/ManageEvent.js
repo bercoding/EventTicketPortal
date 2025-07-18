@@ -4,6 +4,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEdit, faTrash, faMapMarkerAlt, faCalendarAlt, faUsers, faTag, faUserTie, faFileAlt, faMoneyBillWave, faGlobe, faClock, faImages, faInfoCircle, faRulerCombined, faTicketAlt, faUpload } from '@fortawesome/free-solid-svg-icons';
 import useManageEventLogic from '../../hooks/useManageEventLogic';
 import ImageUpload from '../../components/event/ImageUpload';
+import useCreateEventLogic from '../../hooks/useCreateEventLogic';
+import { uploadImage } from '../../services/api';
 
 const ManageEvent = () => {
   const { id: eventId } = useParams();
@@ -21,7 +23,28 @@ const ManageEvent = () => {
     user,
     handleCategoryChange,
     handleTagsChange,
+    handleImageChange // lấy hàm này
   } = useManageEventLogic(eventId);
+
+  // Lấy logic dropdown tỉnh thành từ useCreateEventLogic
+  const {
+    provinces,
+    selectedProvinceCode,
+    handleChange: handleChangeDropdown
+  } = useCreateEventLogic();
+
+  // Tự động bật chế độ chỉnh sửa nếu user là event_owner và là organizer
+  React.useEffect(() => {
+    if (
+      user &&
+      user.role === 'event_owner' &&
+      event &&
+      event.organizers &&
+      event.organizers.some(organizer => organizer._id === user._id)
+    ) {
+      setIsEditing(true);
+    }
+  }, [user, event, setIsEditing]);
 
   // Early validation to prevent null eventId API calls
   if (!eventId || eventId === 'null' || eventId === 'undefined') {
@@ -229,17 +252,22 @@ const ManageEvent = () => {
                     className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
                   />
                 </div>
+                {/* Thành phố (dropdown) */}
                 <div>
                   <label htmlFor="city" className="block text-sm font-medium text-gray-300 mb-2">Thành phố</label>
-                  <input
-                    type="text"
+                  <select
                     id="city"
-                    name="city"
-                    value={formData.location.city}
-                    onChange={handleChange}
+                    name="location.city"
+                    value={selectedProvinceCode || ''}
+                    onChange={handleChangeDropdown}
                     required
                     className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  />
+                  >
+                    <option value="">Chọn Tỉnh/Thành</option>
+                    {provinces && provinces.map(province => (
+                      <option key={province.code} value={province.code}>{province.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label htmlFor="country" className="block text-sm font-medium text-gray-300 mb-2">Quốc gia</label>
@@ -305,20 +333,34 @@ const ManageEvent = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <ImageUpload
-                  image={formData.images.banner}
-                  handleImageUpload={(e) => handleChange({ target: { name: 'images.banner', value: e.target.files[0] } })}
-                  type="banner"
-                  title="Ảnh bìa sự kiện"
-                  description="PNG, JPG (Tối đa 10MB, tỷ lệ 16:9)"
-                  aspectRatio="16/9"
+                  label="Ảnh bìa sự kiện"
+                  imageUrl={formData.images.banner}
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const result = await uploadImage(file, 'banner');
+                      if (result.success) {
+                        handleImageChange('banner', result.url);
+                      } else {
+                        alert(result.message || 'Upload ảnh thất bại');
+                      }
+                    }
+                  }}
                 />
                 <ImageUpload
-                  image={formData.images.logo}
-                  handleImageUpload={(e) => handleChange({ target: { name: 'images.logo', value: e.target.files[0] } })}
-                  type="logo"
-                  title="Ảnh logo sự kiện"
-                  description="PNG, JPG (Tối đa 5MB, tỷ lệ 1:1)"
-                  aspectRatio="1/1"
+                  label="Ảnh logo sự kiện"
+                  imageUrl={formData.images.logo}
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const result = await uploadImage(file, 'logo');
+                      if (result.success) {
+                        handleImageChange('logo', result.url);
+                      } else {
+                        alert(result.message || 'Upload ảnh thất bại');
+                      }
+                    }
+                  }}
                 />
               </div>
             </div>

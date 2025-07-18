@@ -16,7 +16,12 @@ const rowSchema = new mongoose.Schema({
 const sectionSchema = new mongoose.Schema({
     name: { type: String, required: true },
     ticketTier: { type: mongoose.Schema.Types.ObjectId, ref: 'TicketType' }, // Tham chiếu đến loại vé
-    rows: [rowSchema]
+    rows: [rowSchema],
+    // Thêm tọa độ cho section
+    x: { type: Number },
+    y: { type: Number },
+    width: { type: Number },
+    height: { type: Number }
 }, { _id: false });
 
 const eventSchema = new mongoose.Schema({

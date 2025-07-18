@@ -82,10 +82,28 @@ const BasicSeatingDesigner = ({ seatingMap, setSeatingMap, ticketTypes = [], lay
       // Always create a deep clone to avoid reference issues
       const newMap = {
         layoutType: seatingMap.layoutType || layoutType,
-        sections: Array.isArray(seatingMap.sections) ? JSON.parse(JSON.stringify(seatingMap.sections)) : [],
+        sections: [],
         stage: seatingMap.stage ? JSON.parse(JSON.stringify(seatingMap.stage)) : { id: "stage-main", x: 400, y: 50, width: 300, height: 60 },
         venueObjects: Array.isArray(seatingMap.venueObjects) ? JSON.parse(JSON.stringify(seatingMap.venueObjects)) : []
       };
+      
+      // Carefully process sections to ensure coordinates are preserved
+      if (Array.isArray(seatingMap.sections)) {
+        newMap.sections = seatingMap.sections.map(section => {
+          // Ensure x and y are valid numbers
+          const x = typeof section.x === 'number' ? section.x : 200;
+          const y = typeof section.y === 'number' ? section.y : 200;
+          
+          // Log section position for debugging
+          console.log(`Processing section ${section.id || 'unknown'}: position (${x}, ${y})`);
+          
+          return {
+            ...JSON.parse(JSON.stringify(section)),
+            x: x,
+            y: y
+          };
+        });
+      }
       
       setLocalMap(newMap);
     }
@@ -126,17 +144,26 @@ const BasicSeatingDesigner = ({ seatingMap, setSeatingMap, ticketTypes = [], lay
   
   // Add a new section
   const addSection = () => {
+    // Calculate a good position for the new section - below the stage
+    const stageY = localMapRef.current.stage?.y || 50;
+    const stageHeight = localMapRef.current.stage?.height || 60;
+    const stageCenterX = localMapRef.current.stage?.x 
+      ? localMapRef.current.stage.x + (localMapRef.current.stage.width / 2) 
+      : 400;
+    
     const newSection = {
       id: `section-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       name: `Khu ${localMapRef.current.sections.length + 1}`,
-      x: 200,
-      y: 200,
+      x: Math.max(50, stageCenterX - 150), // Center horizontally relative to stage
+      y: stageY + stageHeight + 50, // Position below stage with some spacing
       width: 300,
       height: 200,
       rows: 10,
       seatsPerRow: 15,
       ticketTypeId: ticketTypes.length > 0 ? ticketTypes[0]._id : undefined
     };
+    
+    console.log('Adding new section at position:', { x: newSection.x, y: newSection.y });
     
     // Create new map with added section using deep clone
     const newMap = JSON.parse(JSON.stringify(localMapRef.current));
@@ -160,10 +187,33 @@ const BasicSeatingDesigner = ({ seatingMap, setSeatingMap, ticketTypes = [], lay
   
   // Add a venue object
   const addVenueObject = (objectType) => {
+    // Calculate a good position for the new venue object - to the side of existing objects
+    const existingObjects = localMapRef.current.venueObjects || [];
+    const objectCount = existingObjects.length;
+    
+    // Position to the right side of the canvas if there are no objects yet
+    // Otherwise, position to the right of the last object
+    let posX = 700;
+    let posY = 300;
+    
+    if (objectCount > 0) {
+      const lastObject = existingObjects[objectCount - 1];
+      if (lastObject && typeof lastObject.x === 'number' && typeof lastObject.y === 'number') {
+        posX = lastObject.x + 80; // Position to the right with some spacing
+        posY = lastObject.y;
+        
+        // If we're going too far right, move down and back to the left
+        if (posX > 800) {
+          posX = 700;
+          posY = lastObject.y + 80;
+        }
+      }
+    }
+    
     const newObject = {
       id: `venue-object-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-      x: 300,
-      y: 300,
+      x: posX,
+      y: posY,
       width: objectType.width || 60,
       height: objectType.height || 60,
       type: objectType.id,
@@ -171,6 +221,8 @@ const BasicSeatingDesigner = ({ seatingMap, setSeatingMap, ticketTypes = [], lay
       color: objectType.color,
       isRound: objectType.isRound
     };
+    
+    console.log('Adding new venue object at position:', { x: newObject.x, y: newObject.y });
     
     // Create new map with added venue object using deep clone
     const newMap = JSON.parse(JSON.stringify(localMapRef.current));
@@ -315,10 +367,16 @@ Last Action: ${debugInfo.lastAction}`);
     // Calculate offset
     const point = getSvgCoordinates(e);
     
+    // Make sure element has valid coordinates
+    const elementX = typeof element.x === 'number' ? element.x : 0;
+    const elementY = typeof element.y === 'number' ? element.y : 0;
+    
     const offset = {
-      x: point.x - element.x,
-      y: point.y - element.y
+      x: point.x - elementX,
+      y: point.y - elementY
     };
+    
+    console.log('Drag offset calculated:', offset, 'Point:', point, 'Element position:', { x: elementX, y: elementY });
     
     setDragOffset(offset);
     dragOffsetRef.current = offset;
@@ -353,9 +411,13 @@ Last Action: ${debugInfo.lastAction}`);
     // Get coordinates in SVG space
     const point = getSvgCoordinates(e);
     
+    // Make sure drag offset is valid
+    const offsetX = typeof dragOffsetRef.current.x === 'number' ? dragOffsetRef.current.x : 0;
+    const offsetY = typeof dragOffsetRef.current.y === 'number' ? dragOffsetRef.current.y : 0;
+    
     // Calculate new position
-    const newX = Math.max(0, point.x - dragOffsetRef.current.x);
-    const newY = Math.max(0, point.y - dragOffsetRef.current.y);
+    const newX = Math.max(0, point.x - offsetX);
+    const newY = Math.max(0, point.y - offsetY);
     
     // Create a deep copy of the current map
     const newMap = JSON.parse(JSON.stringify(localMapRef.current));
@@ -581,68 +643,76 @@ Last Action: ${debugInfo.lastAction}`);
             )}
             
             {/* Sections */}
-            {Array.isArray(localMap.sections) && localMap.sections.map((section) => (
-              <g
-                key={section.id}
-                className={`section ${selectedElement?.id === section.id ? 'selected' : ''}`}
-                transform={`translate(${section.x},${section.y})`}
-                onMouseDown={(e) => handleDragStart(e, section, 'section')}
-                data-type="section"
-                data-id={section.id}
-                style={{ cursor: isDragging && selectedElement?.id === section.id ? 'grabbing' : 'grab' }}
-              >
-                <rect
-                  width={section.width}
-                  height={section.height}
-                  fill={section.ticketTypeId ? 
-                    (ticketTypes.find(t => t._id === section.ticketTypeId)?.color || '#3B82F6') : 
-                    '#3B82F6'
-                  }
-                  fillOpacity="0.2"
-                  stroke={selectedElement?.id === section.id ? 
-                    '#ffffff' : 
-                    (section.ticketTypeId ? 
-                      (ticketTypes.find(t => t._id === section.ticketTypeId)?.color || '#3B82F6') : 
-                      '#3B82F6')
-                  }
-                  strokeWidth={selectedElement?.id === section.id ? 2 : 1}
-                  rx="4"
-                />
-                <text
-                  x="10"
-                  y="20"
-                  fill="white"
-                  fontSize="14"
-                  fontWeight="bold"
-                  style={{ pointerEvents: 'none' }}
-                  stroke="rgba(0,0,0,0.5)"
-                  strokeWidth="0.5"
+            {Array.isArray(localMap.sections) && localMap.sections.map((section) => {
+              // Ensure section has valid coordinates
+              const sectionX = typeof section.x === 'number' ? section.x : 200;
+              const sectionY = typeof section.y === 'number' ? section.y : 200;
+              
+              console.log(`Rendering section ${section.id}: position (${sectionX}, ${sectionY})`);
+              
+              return (
+                <g
+                  key={section.id}
+                  className={`section ${selectedElement?.id === section.id ? 'selected' : ''}`}
+                  transform={`translate(${sectionX},${sectionY})`}
+                  onMouseDown={(e) => handleDragStart(e, section, 'section')}
+                  data-type="section"
+                  data-id={section.id}
+                  style={{ cursor: isDragging && selectedElement?.id === section.id ? 'grabbing' : 'grab' }}
                 >
-                  {section.name}
-                </text>
-                {section.ticketTypeId && ticketTypes.find(t => t._id === section.ticketTypeId) && (
+                  <rect
+                    width={section.width}
+                    height={section.height}
+                    fill={section.ticketTypeId ? 
+                      (ticketTypes.find(t => t._id === section.ticketTypeId)?.color || '#3B82F6') : 
+                      '#3B82F6'
+                    }
+                    fillOpacity="0.2"
+                    stroke={selectedElement?.id === section.id ? 
+                      '#ffffff' : 
+                      (section.ticketTypeId ? 
+                        (ticketTypes.find(t => t._id === section.ticketTypeId)?.color || '#3B82F6') : 
+                        '#3B82F6')
+                    }
+                    strokeWidth={selectedElement?.id === section.id ? 2 : 1}
+                    rx="4"
+                  />
                   <text
                     x="10"
-                    y="40"
+                    y="20"
                     fill="white"
-                    fontSize="12"
+                    fontSize="14"
+                    fontWeight="bold"
                     style={{ pointerEvents: 'none' }}
                     stroke="rgba(0,0,0,0.5)"
                     strokeWidth="0.5"
                   >
-                    {ticketTypes.find(t => t._id === section.ticketTypeId)?.name} - {ticketTypes.find(t => t._id === section.ticketTypeId)?.price.toLocaleString('vi-VN')}đ
+                    {section.name}
                   </text>
-                )}
-                {selectedElement?.id === section.id && (
-                  <>
-                    <circle cx="0" cy="0" r="4" fill="#fff" className="handle" />
-                    <circle cx={section.width} cy="0" r="4" fill="#fff" className="handle" />
-                    <circle cx="0" cy={section.height} r="4" fill="#fff" className="handle" />
-                    <circle cx={section.width} cy={section.height} r="4" fill="#fff" className="handle" />
-                  </>
-                )}
-              </g>
-            ))}
+                  {section.ticketTypeId && ticketTypes.find(t => t._id === section.ticketTypeId) && (
+                    <text
+                      x="10"
+                      y="40"
+                      fill="white"
+                      fontSize="12"
+                      style={{ pointerEvents: 'none' }}
+                      stroke="rgba(0,0,0,0.5)"
+                      strokeWidth="0.5"
+                    >
+                      {ticketTypes.find(t => t._id === section.ticketTypeId)?.name} - {ticketTypes.find(t => t._id === section.ticketTypeId)?.price.toLocaleString('vi-VN')}đ
+                    </text>
+                  )}
+                  {selectedElement?.id === section.id && (
+                    <>
+                      <circle cx="0" cy="0" r="4" fill="#fff" className="handle" />
+                      <circle cx={section.width} cy="0" r="4" fill="#fff" className="handle" />
+                      <circle cx="0" cy={section.height} r="4" fill="#fff" className="handle" />
+                      <circle cx={section.width} cy={section.height} r="4" fill="#fff" className="handle" />
+                    </>
+                  )}
+                </g>
+              );
+            })}
             
             {/* Venue Objects */}
             {Array.isArray(localMap.venueObjects) && localMap.venueObjects.map((object) => (

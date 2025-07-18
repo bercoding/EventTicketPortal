@@ -1,115 +1,149 @@
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+const mongoose = require('mongoose');
+require('dotenv').config({ path: '../.env' });
+const Event = require('../models/Event');
 
-// --- Cấu hình ---
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env') });
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/event-ticketing-platform')
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
-import Event from '../models/Event.js';
-import TicketType from '../models/TicketType.js';
-
-// --- ID SỰ KIỆN CẦN CẬP NHẬT ---
-const EVENT_ID_TO_UPDATE = '684fbe158f87b4156adc77ae'; // ID sự kiện bạn đang làm việc
-
-const connectDB = async () => {
-    try {
-        await mongoose.connect(process.env.MONGO_URI);
-        console.log('MongoDB Connected...');
-    } catch (err) {
-        console.error(err.message);
-        process.exit(1);
-    }
-};
-
-const generateSeatingMap = (ticketTiers) => {
-    const sections = [];
-    const seatsPerSection = 20;
-    const rowsPerSection = 4;
-    const seatsPerRow = 5;
-    const seatSpacing = 20;
-    const rowSpacing = 20;
-    const sectionSpacing = 30; // Khoảng cách giữa các khu vực
-
-    const totalSections = 6;
-    const sectionsPerRow = 3; 
-
-    // Tính toán vị trí bắt đầu để căn giữa
-    const totalBlockWidth = (sectionsPerRow * (seatsPerRow * seatSpacing)) + ((sectionsPerRow - 1) * sectionSpacing);
-    const startX = 400 - (totalBlockWidth / 2); // Căn giữa với sân khấu (rộng 300, tâm 400)
-    const startY = 150; // Vị trí Y bắt đầu bên dưới sân khấu
-
-    for (let i = 0; i < totalSections; i++) {
-        const sectionRowIndex = Math.floor(i / sectionsPerRow);
-        const sectionColIndex = i % sectionsPerRow;
-
-        const sectionX = startX + sectionColIndex * (seatsPerRow * seatSpacing + sectionSpacing);
-        const sectionY = startY + sectionRowIndex * (rowsPerSection * rowSpacing + rowSpacing + 20);
-
-        const sectionName = String.fromCharCode(65 + i); // A, B, C, D, E, F
-        
-        // Gán loại vé cho từng khu vực một cách tuần tự
-        const ticketTier = ticketTiers[i % ticketTiers.length]._id;
-
-        const section = {
-            name: sectionName,
-            ticketTier: ticketTier,
-            rows: [],
-            labelPosition: { x: sectionX + ((seatsPerRow-1) * seatSpacing) / 2, y: sectionY - 15 }
-        };
-
-        for (let j = 0; j < rowsPerSection; j++) {
-            const row = {
-                name: `${sectionName}${j + 1}`,
-                seats: [],
-            };
-            for (let k = 0; k < seatsPerRow; k++) {
-                row.seats.push({
-                    number: `${row.name}-${k + 1}`,
-                    status: 'available',
-                    x: sectionX + k * seatSpacing,
-                    y: sectionY + j * rowSpacing,
-                });
-            }
-            section.rows.push(row);
+// Function to update seating map coordinates
+const updateSeatingMapCoordinates = async () => {
+  try {
+    console.log('Starting seating map coordinates update...');
+    
+    // Find all events with seating template type
+    const events = await Event.find({ templateType: 'seating' });
+    
+    console.log(`Found ${events.length} seating events`);
+    
+    let updatedCount = 0;
+    
+    for (const event of events) {
+      if (!event.seatingMap || !Array.isArray(event.seatingMap.sections)) {
+        console.log(`Event ${event._id} has no valid seatingMap.sections, skipping...`);
+        continue;
+      }
+      
+      const sections = event.seatingMap.sections;
+      let needsUpdate = false;
+      
+      console.log(`Processing event: ${event.title} (${event._id}), ${sections.length} sections`);
+      
+      // Check if any section is missing coordinates
+      for (const section of sections) {
+        if (typeof section.x !== 'number' || typeof section.y !== 'number' || 
+            typeof section.width !== 'number' || typeof section.height !== 'number') {
+          needsUpdate = true;
+          console.log(`  Found section "${section.name}" with missing coordinates`);
+          break;
         }
-        sections.push(section);
+      }
+      
+      if (needsUpdate) {
+        console.log(`  Updating event ${event._id}`);
+        
+        // Default section positions for different section counts
+        const defaultPositions = [
+          // For 1 section
+          [{ x: 400, y: 250, width: 600, height: 300 }],
+          
+          // For 2 sections
+          [
+            { x: 100, y: 250, width: 400, height: 250 },
+            { x: 700, y: 250, width: 400, height: 250 }
+          ],
+          
+          // For 3 sections
+          [
+            { x: 400, y: 250, width: 400, height: 200 },
+            { x: 100, y: 500, width: 400, height: 200 },
+            { x: 700, y: 500, width: 400, height: 200 }
+          ],
+          
+          // For 4 sections
+          [
+            { x: 100, y: 250, width: 400, height: 200 },
+            { x: 700, y: 250, width: 400, height: 200 },
+            { x: 100, y: 500, width: 400, height: 200 },
+            { x: 700, y: 500, width: 400, height: 200 }
+          ],
+          
+          // Default for 5+ sections
+          [
+            { x: 100, y: 250, width: 350, height: 200 },
+            { x: 525, y: 250, width: 350, height: 200 },
+            { x: 950, y: 250, width: 350, height: 200 },
+            { x: 100, y: 500, width: 350, height: 200 },
+            { x: 525, y: 500, width: 350, height: 200 }
+          ]
+        ];
+        
+        // Select appropriate positions based on section count
+        const positionSet = sections.length <= 4 
+          ? defaultPositions[sections.length - 1] 
+          : defaultPositions[4];
+        
+        // Apply default positions to sections
+        sections.forEach((section, index) => {
+          // Use position set if available, otherwise calculate based on index
+          const position = index < positionSet.length 
+            ? positionSet[index]
+            : {
+                x: 100 + (index % 3) * 425,
+                y: 250 + Math.floor(index / 3) * 250,
+                width: 350,
+                height: 200
+              };
+          
+          // Update section coordinates
+          if (typeof section.x !== 'number') section.x = position.x;
+          if (typeof section.y !== 'number') section.y = position.y;
+          if (typeof section.width !== 'number') section.width = position.width;
+          if (typeof section.height !== 'number') section.height = position.height;
+          
+          console.log(`    Updated section "${section.name}" to position (${section.x}, ${section.y})`);
+          
+          // Update seat coordinates to be relative to section
+          if (Array.isArray(section.rows)) {
+            section.rows.forEach((row, rowIndex) => {
+              if (Array.isArray(row.seats)) {
+                const rowHeight = section.height / section.rows.length;
+                const seatWidth = section.width / (row.seats.length || 1);
+                
+                row.seats.forEach((seat, seatIndex) => {
+                  // Only update seats with invalid or very large coordinates
+                  if (typeof seat.x !== 'number' || typeof seat.y !== 'number' || 
+                      seat.x > 1000 || seat.y > 1000) {
+                    seat.x = seatIndex * seatWidth + (seatWidth / 2);
+                    seat.y = rowIndex * rowHeight + (rowHeight / 2);
+                    console.log(`      Updated seat ${row.name}${seat.number} to relative position (${seat.x}, ${seat.y})`);
+                  }
+                });
+              }
+            });
+          }
+        });
+        
+        // Mark seatingMap as modified to ensure it saves correctly
+        event.markModified('seatingMap');
+        await event.save();
+        updatedCount++;
+        console.log(`  ✅ Saved updated seating map for event ${event._id}`);
+      } else {
+        console.log(`  ✓ Event ${event._id} has valid section coordinates, no update needed`);
+      }
     }
     
-    return { layoutType: 'theater', sections };
+    console.log(`Update complete. Updated ${updatedCount} events out of ${events.length}`);
+  } catch (error) {
+    console.error('Error updating seating maps:', error);
+  } finally {
+    // Disconnect from MongoDB
+    await mongoose.disconnect();
+    console.log('MongoDB disconnected');
+  }
 };
 
-
-const updateEvent = async () => {
-    await connectDB();
-    try {
-        const event = await Event.findById(EVENT_ID_TO_UPDATE);
-        if (!event) {
-            console.log('Không tìm thấy sự kiện với ID đã cho.');
-            return;
-        }
-
-        const ticketTypes = await TicketType.find({ event: event._id });
-        if (ticketTypes.length === 0) {
-            console.log("Sự kiện này chưa có loại vé nào. Vui lòng tạo loại vé trước.");
-            return;
-        }
-
-        console.log('Đang tạo sơ đồ ghế mới...');
-        const newSeatingMap = generateSeatingMap(ticketTypes);
-        
-        event.seatingMap = newSeatingMap;
-        await event.save();
-
-        console.log(`Cập nhật thành công sơ đồ ghế cho sự kiện: "${event.title}"`);
-
-    } catch (error) {
-        console.error('Lỗi khi cập nhật sự kiện:', error);
-    } finally {
-        mongoose.connection.close();
-    }
-};
-
-updateEvent(); 
+// Run the update function
+updateSeatingMapCoordinates(); 

@@ -205,8 +205,31 @@ const SelectSeatPage = () => {
                     );
                 } else {
                     console.log(`🪑 Using ${eventDataFromResponse.seatingMap.sections.length} sections from database seatingMap`);
+                    
+                    // IMPORTANT: Make sure each section has valid coordinates
                     eventDataFromResponse.seatingMap.sections.forEach((section, idx) => {
                         console.log(`🪑 Section ${idx}: ${section.name} with ${section.rows?.length || 0} rows`);
+                        
+                        // Explicitly log coordinates to verify they exist
+                        if (typeof section.x === 'number' && typeof section.y === 'number') {
+                            console.log(`✅ Section ${section.name} has valid coordinates: (${section.x}, ${section.y}), size: ${section.width}x${section.height}`);
+                        } else {
+                            console.warn(`⚠️ Section ${section.name} is missing coordinates`);
+                            
+                            // Calculate coordinates from first row's first seat if available
+                            if (Array.isArray(section.rows) && section.rows.length > 0 &&
+                                Array.isArray(section.rows[0].seats) && section.rows[0].seats.length > 0) {
+                                
+                                const firstSeat = section.rows[0].seats[0];
+                                if (typeof firstSeat.x === 'number' && typeof firstSeat.y === 'number') {
+                                    section.x = firstSeat.x - 20;
+                                    section.y = firstSeat.y - 20;
+                                    section.width = section.width || 300; 
+                                    section.height = section.height || 200;
+                                    console.log(`🛠️ Generated coordinates for section ${section.name}: (${section.x}, ${section.y})`);
+                                }
+                            }
+                        }
                     });
                 }
                 

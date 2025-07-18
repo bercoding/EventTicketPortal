@@ -8,7 +8,11 @@ const sendEmail = require('../config/email');
 
 // Tạo token JWT
 const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    console.log(`Generating token for user ID: ${id}`);
+    // Tăng thời gian hết hạn lên 7 ngày để tránh logout quá nhanh
+    const token = jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    console.log(`Token generated with expiry: 7 days`);
+    return token;
 };
 
 // Tạo OTP
@@ -317,20 +321,33 @@ exports.login = async (req, res) => {
 // Lấy thông tin người dùng hiện tại
 exports.getMe = async (req, res) => {
     try {
+        console.log('🔍 getMe called for user ID:', req.user?.id);
+        
+        if (!req.user || !req.user.id) {
+            console.log('❌ getMe: No user in request');
+            return res.status(401).json({
+                success: false,
+                message: 'Không tìm thấy thông tin xác thực'
+            });
+        }
+        
         const user = await User.findById(req.user.id).select('-password');
         
         if (!user) {
+            console.log('❌ getMe: User not found in database for ID:', req.user.id);
             return res.status(404).json({
                 success: false,
                 message: 'Không tìm thấy người dùng'
             });
         }
 
+        console.log('✅ getMe: User found:', user.email);
         res.status(200).json({
             success: true,
             data: user
         });
     } catch (error) {
+        console.error('❌ getMe error:', error);
         res.status(400).json({ 
             success: false,
             message: 'Không thể lấy thông tin người dùng',
