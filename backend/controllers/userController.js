@@ -34,7 +34,8 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     user.username = req.body.username || user.username;
     user.email = req.body.email || user.email;
     user.fullName = req.body.fullName || user.fullName;
-    user.phone = req.body.phone || user.phone;
+    user.phone = req.body.phoneNumber || user.phone; // Map phoneNumber from frontend
+    user.bio = req.body.bio !== undefined ? req.body.bio : user.bio; // Map bio from frontend
     user.dateOfBirth = req.body.dateOfBirth || user.dateOfBirth;
     user.address = req.body.address || user.address;
 
@@ -47,7 +48,8 @@ const updateUserProfile = asyncHandler(async (req, res) => {
             username: updatedUser.username,
             email: updatedUser.email,
             fullName: updatedUser.fullName,
-            phone: updatedUser.phone,
+            phoneNumber: updatedUser.phone, // Trả về phoneNumber cho frontend
+            bio: updatedUser.bio,           // Trả về bio cho frontend
             dateOfBirth: updatedUser.dateOfBirth,
             address: updatedUser.address,
             avatar: updatedUser.avatar,
