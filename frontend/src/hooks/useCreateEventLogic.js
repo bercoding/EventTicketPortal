@@ -358,12 +358,12 @@ const useCreateEventLogic = (templateInfo = null) => {
         toast.error('Vui lòng điền đầy đủ các thông tin bắt buộc: Tên sự kiện, Mô tả.');
         return;
       }
-      // Kiểm tra địa chỉ ở bước 1
-      if (!isOnlineEvent && !selectedProvinceCode) {
-        console.log('DEBUG: validate fail - city:', formData.location.city);
-        toast.error('Vui lòng chọn thành phố.');
-        return;
-      }
+      // BỎ kiểm tra thành phố ở bước 1
+      // if (!isOnlineEvent && !selectedProvinceCode) {
+      //   console.log('DEBUG: validate fail - city:', formData.location.city);
+      //   toast.error('Vui lòng chọn thành phố.');
+      //   return;
+      // }
       // Đồng bộ lại city trước khi sang bước tiếp theo
       if (!formData.location.city) {
         const province = provinces.find(p => p.code === selectedProvinceCode);
@@ -389,9 +389,9 @@ const useCreateEventLogic = (templateInfo = null) => {
       const endDate = new Date(formData.endDate);
       const now = new Date();
       
-      // Kiểm tra thời gian trong tương lai
-      if (startDate <= now) {
-        toast.error('Ngày bắt đầu phải trong tương lai (ít nhất 1 giờ từ bây giờ).');
+      // Kiểm tra thời gian trong tương lai (ít nhất 1 giờ)
+      if (startDate.getTime() - now.getTime() < 60 * 60 * 1000) {
+        toast.error('Ngày bắt đầu phải sau thời điểm hiện tại ít nhất 1 giờ.');
         return;
       }
       
@@ -406,35 +406,21 @@ const useCreateEventLogic = (templateInfo = null) => {
         toast.error('Sự kiện phải có thời lượng ít nhất 30 phút.');
         return;
       }
+
+      // Validate tổng số vé không vượt quá sức chứa (cho event general và online)
+      if (isGeneralEvent || isOnlineEvent) {
+        const totalTickets = formData.ticketTypes.reduce((sum, ticket) => sum + (Number(ticket.totalQuantity) || 0), 0);
+        const capacity = Number(formData.capacity) || 0;
+        if (totalTickets > capacity) {
+          toast.error('Tổng số lượng vé không được lớn hơn sức chứa.');
+          return;
+        }
+      }
       
-      // Kiểm tra thông tin địa điểm ở bước 2 (nếu là sự kiện offline)
-      if (!isOnlineEvent) {
-        if (!formData.location.venueName) {
-          toast.error('Vui lòng nhập tên địa điểm.');
-          return;
-        }
-        if (!formData.location.address) {
-          toast.error('Vui lòng nhập địa chỉ.');
-          return;
-        }
-        // BỎ validate thành phố ở đây
-        // if (!formData.location.city) {
-        //   toast.error('Vui lòng chọn thành phố.');
-        //   return;
-        // }
-      } else {
-        // Online event - cần link tham gia và nền tảng
-        if (!formData.location.meetingLink || !formData.location.platform) {
-          toast.error('Vui lòng cung cấp đầy đủ nền tảng và link tham gia cho sự kiện online.');
-          return;
-        }
-        // Validate URL format
-        try {
-          new URL(formData.location.meetingLink);
-        } catch (error) {
-          toast.error('Link tham gia không hợp lệ. Vui lòng nhập URL đúng định dạng.');
-          return;
-        }
+      // Thêm validate thành phố ở bước 2 (nếu là offline event)
+      if (!isOnlineEvent && !selectedProvinceCode) {
+        toast.error('Vui lòng chọn thành phố.');
+        return;
       }
       
       console.log('Validation passed for Step 2. Moving to next step.');
@@ -625,6 +611,17 @@ const useCreateEventLogic = (templateInfo = null) => {
         toast.error('Vui lòng thêm ít nhất một loại vé');
         setLoading(false);
         return;
+      }
+
+      // Validate tổng số lượng vé không vượt quá sức chứa (chỉ cho event general)
+      if (isGeneralEvent) {
+        const totalTickets = formData.ticketTypes.reduce((sum, ticket) => sum + (Number(ticket.totalQuantity) || 0), 0);
+        const capacity = Number(formData.capacity) || 0;
+        if (totalTickets > capacity) {
+          toast.error('Tổng số lượng vé không được lớn hơn sức chứa.');
+          setLoading(false);
+          return;
+        }
       }
 
       for (const ticket of formData.ticketTypes) {
@@ -832,6 +829,7 @@ const useCreateEventLogic = (templateInfo = null) => {
     const { name, value } = e.target;
     if (name === 'location.city') {
       setSelectedProvinceCode(value);
+      // Force update city name in formData
       const province = provinces.find(p => p.code === value);
       setFormData(prev => ({
         ...prev,
@@ -840,7 +838,6 @@ const useCreateEventLogic = (templateInfo = null) => {
           city: province ? province.name : ''
         }
       }));
-      console.log('DEBUG handleChangeWithDropdown: chọn tỉnh', { code: value, name: province ? province.name : '', formDataCity: province ? province.name : '' });
       setSelectedDistrictCode('');
       setSelectedWardCode('');
       return;

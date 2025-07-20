@@ -363,16 +363,26 @@ const CreateEventWithSeating = () => {
                     <label>Thành phố *</label>
                     <select
                       name="location.city"
-                      value={formData.location.city}
+                      value={selectedProvinceCode}
                       onChange={handleChange}
                       required
                       className="form-control"
                     >
                       <option value="">Chọn Tỉnh/Thành</option>
                       {provinces && provinces.map(province => (
-                        <option key={province.code} value={province.name}>{province.name}</option>
+                        <option key={province.code} value={province.code}>{province.name}</option>
                       ))}
                     </select>
+                    {/* Hiển thị tên thành phố đã chọn */}
+                    {formData.location.city && (
+                      <input
+                        type="text"
+                        value={formData.location.city}
+                        readOnly
+                        className="form-control mt-2 bg-gray-100"
+                        style={{ pointerEvents: 'none', color: '#333' }}
+                      />
+                    )}
                   </div>
                   
                   <div className="form-group">
