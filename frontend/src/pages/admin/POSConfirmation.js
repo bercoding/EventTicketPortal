@@ -210,16 +210,15 @@ const POSConfirmation = () => {
                                             <div className="text-sm text-gray-900">{payment.pos_TxnRef}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{payment.userEmail}</div>
-                                            <div className="text-sm text-gray-500">{payment.userName}</div>
+                                            <div className="text-sm text-gray-900">{payment.user?.fullName || payment.user?.username || payment.user?.email || 'N/A'}</div>
+                                            <div className="text-sm text-gray-500">{payment.user?.email}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{payment.eventTitle}</div>
-                                            <div className="text-sm text-gray-500">{payment.bookingType}</div>
+                                            <div className="text-sm text-gray-900">{payment.event?.title || 'N/A'}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900">
-                                                {formatCurrency(payment.totalAmount)}
+                                                {formatCurrency(payment.amount)}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">

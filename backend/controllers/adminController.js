@@ -44,7 +44,7 @@ exports.getUsers = async (req, res) => {
 // Ban user
 exports.banUser = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { id: userId } = req.params;
     const { reason } = req.body;
     
     const user = await User.findByIdAndUpdate(
@@ -480,24 +480,19 @@ exports.getOwnerRequests = async (req, res) => {
 // Approve owner request
 exports.approveOwnerRequest = async (req, res) => {
   try {
-    const { requestId } = req.params;
-    
-    const request = await OwnerRequest.findById(requestId)
+    const { id } = req.params;
+    const request = await OwnerRequest.findById(id)
       .populate('user', 'username email fullName');
-    
     if (!request) {
       return res.status(404).json({ message: 'Request not found' });
     }
-    
     // Update request status
     request.status = 'approved';
     request.approvedAt = new Date();
     request.approvedBy = req.user.id;
     await request.save();
-    
-    // Update user role to owner
-    await User.findByIdAndUpdate(request.user._id, { role: 'owner' });
-    
+    // Update user role to event_owner
+    await User.findByIdAndUpdate(request.user._id, { role: 'event_owner' });
     res.json({ message: 'Owner request approved successfully', request });
   } catch (error) {
     res.status(500).json({ message: 'Error approving owner request', error: error.message });
@@ -507,11 +502,10 @@ exports.approveOwnerRequest = async (req, res) => {
 // Reject owner request
 exports.rejectOwnerRequest = async (req, res) => {
   try {
-    const { requestId } = req.params;
+    const { id } = req.params;
     const { reason } = req.body;
-    
     const request = await OwnerRequest.findByIdAndUpdate(
-      requestId,
+      id,
       { 
         status: 'rejected',
         rejectedAt: new Date(),
@@ -520,11 +514,9 @@ exports.rejectOwnerRequest = async (req, res) => {
       },
       { new: true }
     ).populate('user', 'username email fullName');
-    
     if (!request) {
       return res.status(404).json({ message: 'Request not found' });
     }
-    
     res.json({ message: 'Owner request rejected successfully', request });
   } catch (error) {
     res.status(500).json({ message: 'Error rejecting owner request', error: error.message });

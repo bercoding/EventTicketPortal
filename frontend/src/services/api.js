@@ -758,9 +758,11 @@ export const uploadImage = async (file, type) => {
     );
 
     if (response.data.success) {
+      // Trả về đường dẫn gốc từ backend, không thêm tiền tố
+      // Backend đã trả về đường dẫn relative (e.g., /uploads/events/file.jpg)
       return {
         success: true,
-        url: `http://localhost:5001${response.data.data[type]}`
+        url: response.data.data[type]
       };
     } else {
       return {

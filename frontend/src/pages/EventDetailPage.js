@@ -191,10 +191,11 @@ const EventDetailPage = () => {
                                         {event.location?.venueName || 'Chưa xác định địa điểm'}
                                     </h3>
                                     <p className="text-gray-600">
-                                        {event.location?.address ? 
-                                            `${event.location.address}, ${event.location.city || ''}` : 
-                                            'Địa chỉ sẽ được cập nhật'
-                                        }
+                                        {event.location?.address}
+                                        {event.location?.ward ? `, ${event.location.ward}` : ''}
+                                        {event.location?.district ? `, ${event.location.district}` : ''}
+                                        {event.location?.city ? `, ${event.location.city}` : ''}
+                                        {event.location?.country ? `, ${event.location.country}` : ''}
                                     </p>
                                 </div>
                             </div>
@@ -239,7 +240,11 @@ const EventDetailPage = () => {
                                             {event.location?.venueName || 'Chưa xác định'}
                                         </p>
                                         <p className="text-gray-500 text-sm">
-                                            {event.location?.city || ''}
+                                            {event.location?.address}
+                                            {event.location?.ward ? `, ${event.location.ward}` : ''}
+                                            {event.location?.district ? `, ${event.location.district}` : ''}
+                                            {event.location?.city ? `, ${event.location.city}` : ''}
+                                            {event.location?.country ? `, ${event.location.country}` : ''}
                                         </p>
                                     </div>
                                 </div>

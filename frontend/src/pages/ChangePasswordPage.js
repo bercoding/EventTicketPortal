@@ -29,8 +29,8 @@ const ChangePasswordPage = () => {
 
         setPasswordLoading(true);
         try {
-            const response = await userProfileAPI.changePassword({ oldPassword, newPassword, confirmNewPassword });
-            setPasswordSuccess(response.data.message || 'Đổi mật khẩu thành công! Bạn có thể cần đăng nhập lại.');
+            const response = await userProfileAPI.changePassword({ currentPassword: oldPassword, newPassword });
+            setPasswordSuccess(response.message || 'Đổi mật khẩu thành công! Bạn có thể cần đăng nhập lại.');
             setOldPassword('');
             setNewPassword('');
             setConfirmNewPassword('');

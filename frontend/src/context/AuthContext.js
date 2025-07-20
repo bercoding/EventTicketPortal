@@ -101,9 +101,6 @@ export const AuthProvider = ({ children }) => {
         try {
             console.log('🚀 Starting login for:', email);
             
-            // Clear any existing auth data first
-            clearAuthData();
-            
             setError(null);
             const response = await authAPI.login({ email, password });
             
@@ -116,7 +113,7 @@ export const AuthProvider = ({ children }) => {
                 console.log('🔑 Storing token and setting user');
                 
                 localStorage.setItem('token', token);
-                setUser(userData);
+                await checkUser();
                 
                 // Verify the user was set correctly
                 setTimeout(() => {
@@ -277,6 +274,8 @@ export const AuthProvider = ({ children }) => {
         loading,
         error,
         isAuthenticated: !!user,
+        isBanned: user?.isBanned || false,
+        banReason: user?.banReason || '',
         login,
         register,
         verifyOTP,

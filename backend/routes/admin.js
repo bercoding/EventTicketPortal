@@ -76,8 +76,8 @@ router.post('/users/:id/unban', adminController.unbanUser);
 
 // Event management
 router.get('/events', adminController.getEvents);
-router.post('/events/:id/approve', adminController.approveEvent);
-router.post('/events/:id/reject', adminController.rejectEvent);
+router.post('/events/:eventId/approve', adminController.approveEvent);
+router.post('/events/:eventId/reject', adminController.rejectEvent);
 
 // Complaint management
 router.get('/complaints', adminController.getComplaints);
@@ -90,7 +90,7 @@ router.delete('/posts/:id', adminController.deletePost);
 
 // Violation reports
 router.get('/violation-reports', adminController.getViolationReports);
-router.post('/violation-reports/:id/resolve', adminController.resolveViolationReport);
+router.post('/violation-reports/:id/resolve', adminController.resolveViolationReport)
 
 // Revenue
 router.get('/revenue', adminController.getRevenue);
