@@ -168,11 +168,14 @@ const createEvent = asyncHandler(async (req, res) => {
     
     const createdEvent = await Event.create(eventData);
     
-    // Tạo ticket types nếu có
-    if (req.body.ticketTypes && Array.isArray(req.body.ticketTypes)) {
+    // --- Ưu tiên ticketTypesData nếu có, fallback sang ticketTypes ---
+    const ticketTypesInput = Array.isArray(req.body.ticketTypesData) && req.body.ticketTypesData.length > 0
+      ? req.body.ticketTypesData
+      : (Array.isArray(req.body.ticketTypes) ? req.body.ticketTypes : []);
+
+    if (ticketTypesInput.length > 0) {
       const ticketTypeIds = [];
-      
-      for (const tt of req.body.ticketTypes) {
+      for (const tt of ticketTypesInput) {
         const ticketType = await TicketType.create({
           name: tt.name,
           price: tt.price || 0,
@@ -182,14 +185,12 @@ const createEvent = asyncHandler(async (req, res) => {
           color: tt.color || '#3B82F6',
           event: createdEvent._id
         });
-        
         ticketTypeIds.push(ticketType._id);
       }
-      
-      // Cập nhật event với danh sách ticketTypes
       createdEvent.ticketTypes = ticketTypeIds;
       await createdEvent.save();
     }
+    // --- END ---
     
     // Trả về event đã được populate
     const populatedEvent = await Event.findById(createdEvent._id)
