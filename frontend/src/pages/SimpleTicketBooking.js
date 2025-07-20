@@ -28,7 +28,10 @@ const SimpleTicketBooking = () => {
             name: ticketType.name,
             price: ticketType.price,
             quantity: 0,
-            maxQuantity: Math.min(ticketType.quantity || 0, 10), // Limit to 10 per type
+            maxQuantity: Math.min(
+              ticketType.availableQuantity ?? ticketType.totalQuantity ?? 0,
+              10
+            ), // Limit to 10 per type
             description: ticketType.description
           })) || [];
           
