@@ -5,8 +5,8 @@ class VietQRService {
     constructor() {
         // Thông tin ngân hàng mặc định (có thể config từ env)
         this.bankConfig = {
-            accountNo: process.env.BANK_ACCOUNT_NO || '1234567890',
-            accountName: process.env.BANK_ACCOUNT_NAME || 'SHOP ABC',
+            accountNo: process.env.BANK_ACCOUNT_NO || '0763140575',
+            accountName: process.env.BANK_ACCOUNT_NAME || 'LE THANH NHAN',
             acqId: process.env.BANK_ACQ_ID || '970422', // Mã ngân hàng MB Bank
             template: 'compact'
         };
