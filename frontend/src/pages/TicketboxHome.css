@@ -8,12 +8,21 @@
 
 /* Hero Banner */
 .hero-banner {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 60px 0 40px;
-  margin-bottom: 40px;
-  position: relative;
-  overflow: hidden;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
 }
 
 .hero-content {
@@ -100,47 +109,51 @@
 
 /* Category Navigation */
 .category-nav {
-  max-width: 1200px;
-  margin: 0 auto 60px;
-  padding: 0 24px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
 .category-buttons {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  flex-wrap: wrap;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
 }
 
 .category-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  border: 2px solid #e2e8f0;
-  background: white;
-  border-radius: 50px;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  font-size: 0.95rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 1rem;
+    color: white;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    min-width: 100px;
 }
 
 .category-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  border-color: #667eea;
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-5px);
 }
 
 .category-btn.active {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border-color: transparent;
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    background: rgba(255, 255, 255, 0.3);
+    border-color: white;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
 
 .category-icon {
-  font-size: 1.1rem;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.category-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: center;
 }
 
 /* Event Sections */
@@ -154,21 +167,18 @@
   margin-bottom: 60px;
 }
 
+/* Section Headers */
 .section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
 }
 
 .section-title {
-  font-size: 2rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #1e293b, #475569);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0;
+    font-size: 2rem;
+    font-weight: bold;
+    color: #2d3748;
 }
 
 .section-icon {
@@ -571,4 +581,504 @@
     opacity: 1;
     transform: translateY(0);
   }
+} 
+
+/* Swiper Customization */
+.featured-swiper,
+.events-swiper,
+.special-swiper,
+.trending-swiper {
+    position: relative;
+    padding: 0 50px;
+}
+
+.featured-swiper .swiper-button-next,
+.featured-swiper .swiper-button-prev,
+.events-swiper .swiper-button-next,
+.events-swiper .swiper-button-prev,
+.special-swiper .swiper-button-next,
+.special-swiper .swiper-button-prev,
+.trending-swiper .swiper-button-next,
+.trending-swiper .swiper-button-prev {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    color: white;
+    transition: all 0.3s ease;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.featured-swiper .swiper-button-next:hover,
+.featured-swiper .swiper-button-prev:hover,
+.events-swiper .swiper-button-next:hover,
+.events-swiper .swiper-button-prev:hover,
+.special-swiper .swiper-button-next:hover,
+.special-swiper .swiper-button-prev:hover,
+.trending-swiper .swiper-button-next:hover,
+.trending-swiper .swiper-button-prev:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.1);
+}
+
+.featured-swiper .swiper-button-next::after,
+.featured-swiper .swiper-button-prev::after,
+.events-swiper .swiper-button-next::after,
+.events-swiper .swiper-button-prev::after,
+.special-swiper .swiper-button-next::after,
+.special-swiper .swiper-button-prev::after,
+.trending-swiper .swiper-button-next::after,
+.trending-swiper .swiper-button-prev::after {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.featured-swiper .swiper-pagination,
+.events-swiper .swiper-pagination,
+.special-swiper .swiper-pagination,
+.trending-swiper .swiper-pagination {
+    bottom: -30px;
+}
+
+.featured-swiper .swiper-pagination-bullet,
+.events-swiper .swiper-pagination-bullet,
+.special-swiper .swiper-pagination-bullet,
+.trending-swiper .swiper-pagination-bullet {
+    width: 12px;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.3);
+    opacity: 1;
+    transition: all 0.3s ease;
+}
+
+.featured-swiper .swiper-pagination-bullet-active,
+.events-swiper .swiper-pagination-bullet-active,
+.special-swiper .swiper-pagination-bullet-active,
+.trending-swiper .swiper-pagination-bullet-active {
+    background: #667eea;
+    transform: scale(1.2);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .category-buttons {
+        gap: 0.5rem;
+    }
+    
+    .category-btn {
+        min-width: 80px;
+        padding: 0.75rem;
+    }
+    
+    .category-icon {
+        font-size: 1.5rem;
+    }
+    
+    .category-name {
+        font-size: 0.75rem;
+    }
+    
+    .featured-swiper,
+    .events-swiper,
+    .special-swiper,
+    .trending-swiper {
+        padding: 0 30px;
+    }
+    
+    .featured-swiper .swiper-button-next,
+    .featured-swiper .swiper-button-prev,
+    .events-swiper .swiper-button-next,
+    .events-swiper .swiper-button-prev,
+    .special-swiper .swiper-button-next,
+    .special-swiper .swiper-button-prev,
+    .trending-swiper .swiper-button-next,
+    .trending-swiper .swiper-button-prev {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .featured-swiper .swiper-button-next::after,
+    .featured-swiper .swiper-button-prev::after,
+    .events-swiper .swiper-button-next::after,
+    .events-swiper .swiper-button-prev::after,
+    .special-swiper .swiper-button-next::after,
+    .special-swiper .swiper-button-prev::after,
+    .trending-swiper .swiper-button-next::after,
+    .trending-swiper .swiper-button-prev::after {
+        font-size: 16px;
+    }
+}
+
+/* Loading Animation */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Hover Effects */
+.hover\:scale-105:hover {
+    transform: scale(1.05);
+}
+
+.hover\:scale-110:hover {
+    transform: scale(1.1);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+} 
+
+/* Custom styles for TicketboxHome */
+
+/* Swiper Navigation Buttons */
+.famous-concerts-swiper .swiper-button-next,
+.famous-concerts-swiper .swiper-button-prev,
+.events-swiper .swiper-button-next,
+.events-swiper .swiper-button-prev,
+.ongoing-events-swiper .swiper-button-next,
+.ongoing-events-swiper .swiper-button-prev {
+    background: rgba(0, 0, 0, 0.7);
+    color: #93c5fd; /* blue-300 */
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.famous-concerts-swiper .swiper-button-next:hover,
+.famous-concerts-swiper .swiper-button-prev:hover,
+.events-swiper .swiper-button-next:hover,
+.events-swiper .swiper-button-prev:hover,
+.ongoing-events-swiper .swiper-button-next:hover,
+.ongoing-events-swiper .swiper-button-prev:hover {
+    background: rgba(59, 130, 246, 0.8); /* blue-500 */
+    color: white;
+    transform: scale(1.1);
+}
+
+.famous-concerts-swiper .swiper-button-next::after,
+.famous-concerts-swiper .swiper-button-prev::after,
+.events-swiper .swiper-button-next::after,
+.events-swiper .swiper-button-prev::after,
+.ongoing-events-swiper .swiper-button-next::after,
+.ongoing-events-swiper .swiper-button-prev::after {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* Swiper Pagination */
+.famous-concerts-swiper .swiper-pagination-bullet,
+.events-swiper .swiper-pagination-bullet,
+.ongoing-events-swiper .swiper-pagination-bullet {
+    background: #93c5fd; /* blue-300 */
+    opacity: 0.5;
+    transition: all 0.3s ease;
+}
+
+.famous-concerts-swiper .swiper-pagination-bullet-active,
+.events-swiper .swiper-pagination-bullet-active,
+.ongoing-events-swiper .swiper-pagination-bullet-active {
+    background: #3b82f6; /* blue-500 */
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+/* Hover effects for concert cards */
+.famous-concerts-swiper .swiper-slide {
+    transition: transform 0.3s ease;
+}
+
+.famous-concerts-swiper .swiper-slide:hover {
+    transform: translateY(-10px);
+}
+
+/* Event card hover effects */
+.events-swiper .swiper-slide,
+.ongoing-events-swiper .swiper-slide {
+    transition: transform 0.3s ease;
+}
+
+.events-swiper .swiper-slide:hover,
+.ongoing-events-swiper .swiper-slide:hover {
+    transform: translateY(-5px);
+}
+
+/* Category buttons hover effects */
+.category-btn {
+    transition: all 0.3s ease;
+}
+
+.category-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1f2937; /* gray-800 */
+}
+
+::-webkit-scrollbar-thumb {
+    background: #3b82f6; /* blue-500 */
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #2563eb; /* blue-600 */
+}
+
+/* Animation for shimmer effect */
+@keyframes shimmer {
+    0% {
+        background-position: -200px 0;
+    }
+    100% {
+        background-position: calc(200px + 100%) 0;
+    }
+}
+
+.shimmer {
+    background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+    background-size: 200px 100%;
+    animation: shimmer 2s infinite;
+}
+
+/* Glowing effect for important elements */
+.glow {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+}
+
+.glow:hover {
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.8);
+}
+
+/* Custom button styles */
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+    left: 100%;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+}
+
+/* Text gradient effects */
+.text-gradient {
+    background: linear-gradient(135deg, #93c5fd 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Card hover animations */
+.card-hover {
+    transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Loading animation */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Floating animation */
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.animate-float {
+    animation: float 3s ease-in-out infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .famous-concerts-swiper .swiper-button-next,
+    .famous-concerts-swiper .swiper-button-prev,
+    .events-swiper .swiper-button-next,
+    .events-swiper .swiper-button-prev,
+    .ongoing-events-swiper .swiper-button-next,
+    .ongoing-events-swiper .swiper-button-prev {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .famous-concerts-swiper .swiper-button-next::after,
+    .famous-concerts-swiper .swiper-button-prev::after,
+    .events-swiper .swiper-button-next::after,
+    .events-swiper .swiper-button-prev::after,
+    .ongoing-events-swiper .swiper-button-next::after,
+    .ongoing-events-swiper .swiper-button-prev::after {
+        font-size: 16px;
+    }
+}
+
+/* Dark theme enhancements */
+.dark-theme {
+    background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #000000 100%);
+}
+
+.dark-theme::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Glass morphism effect */
+.glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Neon glow effect */
+.neon-glow {
+    text-shadow: 
+        0 0 5px #93c5fd,
+        0 0 10px #93c5fd,
+        0 0 15px #93c5fd,
+        0 0 20px #3b82f6;
+}
+
+/* Gradient text animation */
+@keyframes gradient-text {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.animated-gradient-text {
+    background: linear-gradient(-45deg, #93c5fd, #3b82f6, #1d4ed8, #93c5fd);
+    background-size: 400% 400%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradient-text 3s ease infinite;
+}
+
+/* Footer responsive layout */
+@media (max-width: 768px) {
+    .footer-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    
+    .footer-branding {
+        text-align: center;
+    }
+    
+    .footer-services,
+    .footer-company {
+        text-align: center;
+    }
+    
+    .footer-contact {
+        text-align: center;
+    }
+}
+
+/* Loading skeleton for ongoing events */
+.loading-skeleton {
+    background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+    background-size: 200px 100%;
+    animation: shimmer 2s infinite;
+}
+
+/* Line clamp utility */
+.line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 } 

@@ -102,17 +102,17 @@ const HomePage = () => {
     const EventCard = ({ event, showFullDetails = false }) => {
         // Simple helper functions
         const safeFormatDate = (dateString) => {
-            if (!dateString) return 'Ngày sẽ được cập nhật';
+            if (!dateString) return null; // Return null instead of placeholder text
             try {
                 const date = new Date(dateString);
-                if (isNaN(date.getTime())) return 'Ngày sẽ được cập nhật';
+                if (isNaN(date.getTime())) return null; // Return null for invalid dates
                 return date.toLocaleDateString('vi-VN', { 
                     day: '2-digit', 
                     month: '2-digit', 
                     year: 'numeric' 
                 });
             } catch (e) {
-                return 'Ngày sẽ được cập nhật';
+                return null; // Return null for any errors
             }
         };
 
@@ -196,9 +196,11 @@ const HomePage = () => {
                     </div>
 
                     {/* Ngày tháng */}
-                    <div className="card-date">
-                        {startDateFormatted}
-                    </div>
+                    {startDateFormatted && (
+                        <div className="card-date">
+                            {startDateFormatted}
+                        </div>
+                    )}
 
                     {/* Nút đặt vé - luôn ở cuối */}
                     <button
@@ -229,12 +231,16 @@ const HomePage = () => {
                         // Simple helpers for hero section
                         const heroDateFormatted = event.startDate 
                             ? new Date(event.startDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-                            : 'Ngày sẽ được cập nhật';
+                            : null;
                         const heroTimeFormatted = event.startDate
                             ? new Date(event.startDate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-                            : 'TBA';
-                        const heroPriceRange = 'Liên hệ để biết giá';
-                        const heroLocationDisplay = 'Địa điểm sẽ được cập nhật';
+                            : null;
+                        const heroPriceRange = event.ticketTypes && event.ticketTypes.length > 0 
+                            ? `${Math.min(...event.ticketTypes.map(t => t.price || 0)).toLocaleString('vi-VN')} VNĐ`
+                            : 'Liên hệ để biết giá';
+                        const heroLocationDisplay = event.location?.venueName || event.location?.type === 'online' 
+                            ? (event.location.type === 'online' ? '🌐 Trực tuyến' : event.location.venueName)
+                            : null;
                         
                         const getHeroEventImage = () => {
                             // Handle old format: event.images = {logo: "url", banner: "url"}
@@ -275,14 +281,23 @@ const HomePage = () => {
                                                 <h1 className="text-6xl font-bold mb-4 leading-tight">
                                                     {event.title || 'Sự kiện đặc biệt'}
                                                 </h1>
-                                                <div className="flex items-center mb-4 text-xl">
-                                                    <FaCalendarAlt className="mr-3" />
-                                                    <span>{heroDateFormatted} • {heroTimeFormatted}</span>
-                                                </div>
-                                                <div className="flex items-center mb-6 text-xl">
-                                                    <FaMapMarkerAlt className="mr-3" />
-                                                    <span>{heroLocationDisplay}</span>
-                                                </div>
+                                                {(heroDateFormatted || heroTimeFormatted) && (
+                                                    <div className="flex items-center mb-4 text-xl">
+                                                        <FaCalendarAlt className="mr-3" />
+                                                        <span>
+                                                            {heroDateFormatted && heroTimeFormatted 
+                                                                ? `${heroDateFormatted} • ${heroTimeFormatted}`
+                                                                : heroDateFormatted || heroTimeFormatted
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {heroLocationDisplay && (
+                                                    <div className="flex items-center mb-6 text-xl">
+                                                        <FaMapMarkerAlt className="mr-3" />
+                                                        <span>{heroLocationDisplay}</span>
+                                                    </div>
+                                                )}
                                                 <div className="mb-8">
                                                     <span className="text-3xl font-bold text-yellow-400">{heroPriceRange}</span>
                                                 </div>

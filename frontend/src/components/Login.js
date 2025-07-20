@@ -49,12 +49,12 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pastel-50 via-pastel-100 to-pastel-200 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
             {/* Background decorative elements */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full opacity-10 animate-pulse"></div>
-                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-indigo-400 to-pink-500 rounded-full opacity-10 animate-pulse" style={{animationDelay: '1s'}}></div>
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-purple-400 to-blue-500 rounded-full opacity-5 animate-spin" style={{animationDuration: '20s'}}></div>
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-pastel-400 to-pastel-500 rounded-full opacity-10 animate-pulse"></div>
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-pastel-400 to-pastel-500 rounded-full opacity-10 animate-pulse" style={{animationDelay: '1s'}}></div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-pastel-400 to-pastel-500 rounded-full opacity-5 animate-spin" style={{animationDuration: '20s'}}></div>
             </div>
 
             <div className="max-w-md w-full space-y-8 relative z-10">
@@ -67,7 +67,7 @@ const Login = () => {
                             className="w-81 h-auto"
                         />
                     </div>
-                    <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    <h2 className="text-4xl font-bold bg-gradient-to-r from-pastel-600 to-pastel-700 bg-clip-text text-transparent">
                         Chào mừng trở lại
                     </h2>
                     <p className="mt-2 text-gray-600">
@@ -103,7 +103,7 @@ const Login = () => {
                             </label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <FaEnvelope className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
+                                    <FaEnvelope className="h-5 w-5 text-gray-400 group-focus-within:text-pastel-500 transition-colors duration-200" />
                                 </div>
                                 <input
                                     id="email"
@@ -111,7 +111,7 @@ const Login = () => {
                                     type="email"
                                     autoComplete="email"
                                     required
-                                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70"
+                                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pastel-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70"
                                     placeholder="your@email.com"
                                     value={formData.email}
                                     onChange={handleChange}
@@ -126,7 +126,7 @@ const Login = () => {
                             </label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <FaLock className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-200" />
+                                    <FaLock className="h-5 w-5 text-gray-400 group-focus-within:text-pastel-500 transition-colors duration-200" />
                                 </div>
                                 <input
                                     id="password"
@@ -134,7 +134,7 @@ const Login = () => {
                                     type={showPassword ? "text" : "password"}
                                     autoComplete="current-password"
                                     required
-                                    className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70"
+                                    className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pastel-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70"
                                     placeholder="••••••••"
                                     value={formData.password}
                                     onChange={handleChange}
@@ -153,7 +153,7 @@ const Login = () => {
                         <div className="flex justify-end">
                             <Link
                                 to="/forgot-password"
-                                className="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors duration-200"
+                                className="text-sm font-medium text-pastel-600 hover:text-pastel-500 transition-colors duration-200"
                             >
                                 Quên mật khẩu?
                             </Link>
@@ -163,7 +163,7 @@ const Login = () => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg"
+                            className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-sm font-medium text-white bg-gradient-to-r from-pastel-600 to-pastel-700 hover:from-pastel-700 hover:to-pastel-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pastel-500 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg"
                         >
                             {loading ? (
                                 <>
@@ -183,7 +183,7 @@ const Login = () => {
                             <span className="text-gray-600">Chưa có tài khoản? </span>
                             <Link
                                 to="/register"
-                                className="font-medium text-blue-600 hover:text-blue-500 transition-colors duration-200"
+                                className="font-medium text-pastel-600 hover:text-pastel-500 transition-colors duration-200"
                             >
                                 Đăng ký ngay
                             </Link>

@@ -3,15 +3,17 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
+    background-color: #f0f8ff;
 }
 
 .login-container, .register-container {
     max-width: 400px;
     margin: 50px auto;
     padding: 20px;
-    border: 1px solid #e0e0e0;
-    border-radius: 5px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(14, 165, 233, 0.1);
+    background-color: #ffffff;
 }
 
 .form-group {
@@ -22,14 +24,23 @@
     display: block;
     margin-bottom: 5px;
     font-weight: bold;
+    color: #0c4a6e;
 }
 
 .form-group input {
     width: 100%;
     padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border: 1px solid #bae6fd;
+    border-radius: 6px;
     font-size: 16px;
+    background-color: #ffffff;
+    color: #0c4a6e;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
 }
 
 .btn {
@@ -37,11 +48,12 @@
     background-color: #007bff;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 16px;
     display: inline-block;
     margin-right: 10px;
+    transition: all 0.2s ease;
 }
 
 .btn-primary {
@@ -55,47 +67,45 @@
 .alert {
     padding: 10px;
     margin-bottom: 15px;
-    border-radius: 4px;
+    border-radius: 6px;
 }
 
 .alert-danger {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
 }
 
 .alert-success {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
+    background-color: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
 }
 
-
-/* Typo */
+/* Typography with pastel blue theme */
 h1 {
   font-size: 2rem;
   margin-bottom: 1.5rem;
-  color: #333;
+  color: #0c4a6e;
 }
 h2 {
   font-size: 1.5rem;
   margin-bottom: 1rem;
-  color: #444;
+  color: #075985;
 }
 p {
   font-size: 1rem;
   line-height: 1.5;
-  color: #666;
+  color: #64748b;
 }
 
-
-/* Navigation Bar */
+/* Navigation Bar with pastel blue theme */
 .welcome-box {
-  background-color: #f0f9ff;
+  background-color: #e0f2fe;
   padding: 1.5rem;
   border-left: 5px solid #0ea5e9;
   margin-bottom: 2rem;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .welcome-box h2 {
@@ -105,7 +115,7 @@ p {
 
 .welcome-box p {
   margin: 0.5rem 0;
-  color: #333;
+  color: #075985;
 }
 
 .btn {
@@ -113,8 +123,9 @@ p {
   padding: 0.5rem 1rem;
   font-size: 0.95rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .btn-danger {
@@ -127,38 +138,43 @@ p {
 }
 
 .events-container {
-  background-color: #f9fafb;
+  background-color: #ffffff;
   padding: 1.5rem;
-  border-radius: 6px;
+  border-radius: 8px;
+  border: 1px solid #bae6fd;
+  box-shadow: 0 2px 4px rgba(14, 165, 233, 0.1);
 }
 
 .events-container h3 {
   margin-bottom: 0.5rem;
-  color: #111827;
+  color: #0c4a6e;
 }
 
 .events-container p {
-  color: #6b7280;
+  color: #64748b;
 }
 
-/* Đảm bảo chỉ hiển thị một navigation bar */
+/* Navigation bar styling with pastel blue theme */
 nav.bg-gradient-to-r.from-blue-600.to-indigo-700.text-white.shadow-lg {
   position: sticky;
   top: 0;
   z-index: 1000;
+  background: linear-gradient(to right, #0ea5e9, #0284c7) !important;
 }
 
-/* Đảm bảo không có hai navigation bar hiển thị chồng lên nhau */
+/* Ensure no duplicate navigation bars */
 nav.bg-gradient-to-r.from-blue-600.to-indigo-700.text-white.shadow-lg + 
 nav.bg-gradient-to-r.from-blue-600.to-indigo-700.text-white.shadow-lg {
   display: none;
 }
 
-/* Fix cho Interactive Seating Designer */
+/* Interactive Seating Designer with pastel blue theme */
 .interactive-seating-designer {
   overflow: hidden;
   position: relative;
   border-radius: 8px;
+  background-color: #ffffff;
+  border: 1px solid #bae6fd;
 }
 
 .seating-designer-toolbar {
@@ -167,7 +183,7 @@ nav.bg-gradient-to-r.from-blue-600.to-indigo-700.text-white.shadow-lg {
   gap: 8px;
   margin-bottom: 15px;
   padding: 10px;
-  background-color: #1f2937;
+  background-color: #e0f2fe;
   border-radius: 8px;
   z-index: 100;
 }
@@ -175,26 +191,29 @@ nav.bg-gradient-to-r.from-blue-600.to-indigo-700.text-white.shadow-lg {
 .seating-designer-canvas {
   position: relative;
   height: 600px;
-  border: 2px solid #4b5563;
+  border: 2px solid #bae6fd;
   border-radius: 8px;
   overflow: hidden;
+  background-color: #f0f8ff;
 }
 
 .seating-designer-toolbar button {
   padding: 8px 12px;
-  color: white;
-  border: none;
-  border-radius: 4px;
+  color: #0c4a6e;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 5px;
   transition: all 0.2s;
+  background-color: #ffffff;
 }
 
 .seating-designer-toolbar button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.1), 0 2px 4px -1px rgba(14, 165, 233, 0.06);
+  background-color: #e0f2fe;
 }
 
 /* Ensure SVG elements are interactive */
@@ -212,29 +231,30 @@ nav.bg-gradient-to-r.from-blue-600.to-indigo-700.text-white.shadow-lg {
 }
 
 .section.selected rect, .venue-object.selected rect, .stage.selected {
-  stroke: white;
+  stroke: #0ea5e9;
   stroke-width: 2px;
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+  filter: drop-shadow(0 0 4px rgba(14, 165, 233, 0.5));
 }
 
 /* Fix for the seatingMap container to ensure it's tall enough */
 .seating-map-container {
   min-height: 650px;
+  background-color: #f0f8ff;
 }
 
 /* For debugging */
 .debug-outline {
-  border: 2px dashed red;
+  border: 2px dashed #ef4444;
 }
 
 .debug-info {
   position: fixed;
   bottom: 10px;
   right: 10px;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: rgba(12, 74, 110, 0.9);
   color: white;
   padding: 10px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-family: monospace;
   max-width: 400px;
   z-index: 9999;

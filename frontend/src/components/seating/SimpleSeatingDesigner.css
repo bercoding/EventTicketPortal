@@ -3,22 +3,22 @@
   flex-direction: column;
   width: 100%;
   min-height: 500px;
-  background-color: #111827;
+  background-color: #f0f8ff;
   border-radius: 8px;
   overflow: hidden;
-  color: white;
+  color: #0c4a6e;
   position: relative;
   z-index: 1;
 }
 
 /* Toolbar */
 .designer-toolbar {
-  background-color: #1f2937;
+  background-color: #e0f2fe;
   padding: 12px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  border-bottom: 1px solid #374151;
+  border-bottom: 1px solid #bae6fd;
   z-index: 50;
 }
 
@@ -27,9 +27,9 @@
   align-items: center;
   gap: 6px;
   padding: 10px 12px;
-  background-color: #374151;
-  color: white;
-  border: none;
+  background-color: #ffffff;
+  color: #0c4a6e;
+  border: 1px solid #bae6fd;
   border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
@@ -42,7 +42,8 @@
 }
 
 .toolbar-button:hover {
-  background-color: #4b5563;
+  background-color: #e0f2fe;
+  border-color: #0ea5e9;
 }
 
 .toolbar-button:active {
@@ -51,43 +52,55 @@
 
 .toolbar-button.green {
   background-color: #10b981;
+  color: white;
+  border-color: #10b981;
 }
 
 .toolbar-button.green:hover {
   background-color: #059669;
+  border-color: #059669;
 }
 
 .toolbar-button.red {
   background-color: #ef4444;
+  color: white;
+  border-color: #ef4444;
 }
 
 .toolbar-button.red:hover {
   background-color: #dc2626;
+  border-color: #dc2626;
 }
 
 .toolbar-button.blue {
-  background-color: #3b82f6;
+  background-color: #0ea5e9;
+  color: white;
+  border-color: #0ea5e9;
 }
 
 .toolbar-button.blue:hover {
-  background-color: #2563eb;
+  background-color: #0284c7;
+  border-color: #0284c7;
 }
 
 .toolbar-button.disabled {
-  background-color: #6b7280;
+  background-color: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
   opacity: 0.6;
   cursor: not-allowed !important;
 }
 
 .toolbar-button.disabled:hover {
-  background-color: #6b7280;
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
 }
 
 /* Canvas */
 .designer-canvas {
   flex-grow: 1;
   position: relative;
-  background-color: #111827;
+  background-color: #f0f8ff;
   overflow: hidden;
   height: 600px;
 }
