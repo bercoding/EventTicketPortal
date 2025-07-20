@@ -50,12 +50,15 @@ const getUserTickets = async (req, res) => {
 // @route   POST /api/tickets/:id/return
 // @access  Private
 const returnTicket = async (req, res) => {
+    console.log('== [RETURN TICKET] ==', { ticketId: req.params.id, userId: req.user?.id });
     try {
         const ticket = await Ticket.findById(req.params.id).populate('event');
 
         if (!ticket) {
+            console.log('Ticket not found:', req.params.id);
             return res.status(404).json({ message: 'Không tìm thấy vé.' });
         }
+        console.log('Ticket:', ticket);
 
         // Check if the logged-in user owns the ticket
         const userId = req.user.id || req.user._id;
@@ -63,113 +66,25 @@ const returnTicket = async (req, res) => {
             return res.status(401).json({ message: 'Không được phép thực hiện hành động này.' });
         }
         
-        // Check if ticket is already returned
+        // Chỉ cho phép trả vé nếu vé đang có hiệu lực
         if (ticket.status === 'returned') {
-            return res.status(400).json({ message: 'Vé này đã được trả.' });
+            return res.status(400).json({ message: 'Vé này đã được trả trước đó.' });
+        }
+        if (ticket.status !== 'active' && ticket.status !== 'valid') {
+            return res.status(400).json({ message: 'Vé không ở trạng thái có hiệu lực, không thể trả.' });
         }
 
-        // Check if ticket is already used
-        if (ticket.isUsed) {
-            return res.status(400).json({ message: 'Không thể trả vé đã được sử dụng.' });
-        }
-
-        const event = ticket.event;
-        if (!event) {
-            return res.status(404).json({ message: 'Không tìm thấy sự kiện liên quan đến vé này.' });
-        }
-
-        // Check if the return is made at least 24 hours before the event starts
-        const eventStartDate = new Date(event.startDate);
-        const now = new Date();
-        const hoursDifference = (eventStartDate - now) / (1000 * 60 * 60);
-
-        if (hoursDifference < 24) {
-            return res.status(400).json({ message: 'Chỉ có thể trả vé trước 24 giờ kể từ khi sự kiện bắt đầu.' });
-        }
-
-        // Calculate refund amount (75% of ticket price)
-        const refundAmount = ticket.price * 0.75;
-        const feeAmount = ticket.price * 0.25;
-
-        // Update ticket status
+        // Thực hiện trả vé
         ticket.status = 'returned';
         ticket.returnedAt = new Date();
-        ticket.refundAmount = refundAmount;
+        // Nếu có hoàn tiền, set refundAmount (ví dụ 75% giá vé)
+        ticket.refundAmount = Math.floor(ticket.price * 0.75);
         await ticket.save();
-        
-        // Add refund to user's balance/wallet and record transaction
-        const user = await User.findById(userId);
-        if(user) {
-            user.walletBalance = (user.walletBalance || 0) + refundAmount;
-            
-            // Add transaction record
-            user.walletTransactions.push({
-                type: 'refund',
-                amount: refundAmount,
-                description: `Hoàn tiền vé: ${ticket.event.title}`,
-                relatedTicket: ticket._id
-            });
-            
-            await user.save();
-            console.log(`💰 Updated user wallet balance: ${user.walletBalance} VNĐ`);
-        }
 
-        // Update seat status in seatingMap if seat information exists
-        if (ticket.seat && ticket.seat.section && ticket.seat.row && ticket.seat.seatNumber) {
-            console.log(`🔄 Updating seat status for: ${ticket.seat.section}-${ticket.seat.row}-${ticket.seat.seatNumber}`);
-            
-            const section = event.seatingMap?.sections?.find(s => s.name === ticket.seat.section);
-            if (section) {
-                console.log(`✅ Found section: ${section.name}`);
-                const row = section.rows?.find(r => r.name === ticket.seat.row);
-                if (row) {
-                    console.log(`✅ Found row: ${row.name}`);
-                    // Create expected seat number format: "B2-8"
-                    const expectedSeatNumber = `${ticket.seat.row}-${ticket.seat.seatNumber}`;
-                    const seat = row.seats?.find(s => s.number === expectedSeatNumber);
-                    if (seat) {
-                        console.log(`✅ Found seat: ${seat.number}, changing status from ${seat.status} to available`);
-                        seat.status = 'available'; // Make seat available again
-                    } else {
-                        console.log(`❌ Seat not found: ${expectedSeatNumber}`);
-                        console.log(`Available seats in row:`, row.seats?.map(s => s.number));
-                    }
-                } else {
-                    console.log(`❌ Row not found: ${ticket.seat.row}`);
-                    console.log(`Available rows:`, section.rows?.map(r => r.name));
-                }
-            } else {
-                console.log(`❌ Section not found: ${ticket.seat.section}`);
-                console.log(`Available sections:`, event.seatingMap?.sections?.map(s => s.name));
-            }
-        } else {
-            console.log(`⚠️ Incomplete seat information:`, {
-                section: ticket.seat?.section,
-                row: ticket.seat?.row,
-                seatNumber: ticket.seat?.seatNumber
-            });
-        }
-
-        // Increase event's available ticket count
-        if (event.availableSeats !== undefined) {
-             event.availableSeats += 1;
-        }
-        
-        await event.save();
-
-        console.log(`✅ Ticket returned successfully: ${ticket._id}`);
-        console.log(`💰 Refund amount: ${refundAmount.toLocaleString()} VNĐ`);
-        console.log(`💸 Fee deducted: ${feeAmount.toLocaleString()} VNĐ`);
-
-        res.json({ 
-            message: `Trả vé thành công! Bạn được hoàn ${refundAmount.toLocaleString()} VNĐ (đã trừ phí 25%).`,
-            refundAmount: refundAmount,
-            feeAmount: feeAmount,
-            originalPrice: ticket.price
-        });
+        return res.json({ message: 'Trả vé thành công!', ticket });
 
     } catch (error) {
-        console.error('Error returning ticket:', error);
+        console.error('Error returning ticket:', error, error?.stack);
         res.status(500).json({ message: 'Lỗi máy chủ.' });
     }
 };

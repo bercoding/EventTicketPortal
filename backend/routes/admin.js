@@ -90,7 +90,7 @@ router.delete('/posts/:id', adminController.deletePost);
 
 // Violation reports
 router.get('/violation-reports', adminController.getViolationReports);
-router.post('/violation-reports/:id/resolve', adminController.resolveViolationReport);
+router.post('/violation-reports/:id/resolve', adminController.resolveViolationReport)
 
 // Revenue
 router.get('/revenue', adminController.getRevenue);

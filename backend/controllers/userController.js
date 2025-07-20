@@ -138,13 +138,33 @@ const changePassword = asyncHandler(async (req, res) => {
 });
 
 // @desc    Submit owner request
-// @route   POST /api/users/owner-request
+// @route   POST /api/users/request-owner
 // @access  Private
+const OwnerRequest = require('../models/OwnerRequest');
 const submitOwnerRequest = asyncHandler(async (req, res) => {
-    res.json({
-        success: true,
-        message: 'Owner request feature not implemented yet'
+    const userId = req.user.id;
+    const { businessName, businessType, businessDescription, contactInfo, estimatedEventFrequency, previousExperience } = req.body;
+
+    // Kiểm tra đã có yêu cầu chờ duyệt chưa
+    const existing = await OwnerRequest.findOne({ user: userId, status: 'pending' });
+    if (existing) {
+        res.status(400);
+        throw new Error('Bạn đã gửi yêu cầu và đang chờ duyệt.');
+    }
+
+    const request = await OwnerRequest.create({
+        user: userId,
+        businessName,
+        businessType,
+        businessDescription,
+        contactInfo,
+        estimatedEventFrequency,
+        previousExperience,
+        status: 'pending',
+        createdAt: new Date()
     });
+
+    res.json({ success: true, message: 'Đã gửi yêu cầu trở thành đối tác. Vui lòng chờ admin duyệt.', request });
 });
 
 // @desc    Get owner request status

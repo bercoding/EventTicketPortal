@@ -944,14 +944,22 @@ const getPOSPayments = async (req, res) => {
     try {
         const payments = await Payment.find({ paymentMethod: 'pos' })
             .sort({ createdAt: -1 })
+            .populate('user', 'email fullName username')
+            .populate('event', 'title')
             .lean();
 
         const formattedPayments = payments.map(payment => ({
             _id: payment._id,
             pos_TxnRef: payment.pos_TxnRef,
-            eventId: payment.event,
-            eventTitle: payment.eventTitle,
-            userEmail: payment.userEmail,
+            user: payment.user ? {
+                email: payment.user.email,
+                fullName: payment.user.fullName,
+                username: payment.user.username
+            } : null,
+            event: payment.event ? {
+                title: payment.event.title,
+                _id: payment.event._id
+            } : null,
             amount: payment.totalAmount,
             status: payment.status,
             createdAt: payment.createdAt
