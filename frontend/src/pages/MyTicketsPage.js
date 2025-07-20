@@ -91,7 +91,7 @@ const MyTicketsPage = () => {
             const refundAmount = response.data.refundAmount;
             const feeAmount = response.data.feeAmount;
             setTimeout(() => {
-                toast.info(`💰 Số tiền hoàn: ${refundAmount.toLocaleString()} VNĐ\n💸 Phí xử lý: ${feeAmount.toLocaleString()} VNĐ`, {
+                toast.info(`💰 Số tiền hoàn: ${refundAmount !== undefined && refundAmount !== null ? refundAmount.toLocaleString() : 'N/A'} VNĐ\n💸 Phí xử lý: ${feeAmount !== undefined && feeAmount !== null ? feeAmount.toLocaleString() : 'N/A'} VNĐ`, {
                     autoClose: 5000
                 });
             }, 1000);

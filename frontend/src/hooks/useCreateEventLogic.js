@@ -406,7 +406,7 @@ const useCreateEventLogic = (templateInfo = null) => {
         toast.error('Sự kiện phải có thời lượng ít nhất 30 phút.');
         return;
       }
-
+      
       // Validate tổng số vé không vượt quá sức chứa (cho event general và online)
       if (isGeneralEvent || isOnlineEvent) {
         const totalTickets = formData.ticketTypes.reduce((sum, ticket) => sum + (Number(ticket.totalQuantity) || 0), 0);
@@ -420,7 +420,7 @@ const useCreateEventLogic = (templateInfo = null) => {
       // Thêm validate thành phố ở bước 2 (nếu là offline event)
       if (!isOnlineEvent && !selectedProvinceCode) {
         toast.error('Vui lòng chọn thành phố.');
-        return;
+          return;
       }
       
       console.log('Validation passed for Step 2. Moving to next step.');

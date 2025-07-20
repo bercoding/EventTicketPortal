@@ -39,12 +39,6 @@ const AdminSidebar = () => {
             description: 'Duyệt và quản lý sự kiện'
         },
         {
-            name: 'Quản lý vé',
-            path: '/admin/ticket-management',
-            icon: FaTicketAlt,
-            description: 'Quét và xác thực vé'
-        },
-        {
             name: 'Thanh toán POS',
             path: '/admin/pos-confirmation',
             icon: FaCreditCard,

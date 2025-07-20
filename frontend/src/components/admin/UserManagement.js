@@ -34,7 +34,7 @@ const UserManagement = () => {
             setShowBanModal(false);
             setBanReason('');
             setSelectedUser(null);
-            fetchUsers();
+            await fetchUsers(); // Đảm bảo cập nhật lại danh sách users
         } catch (error) {
             console.error('Error banning user:', error);
         }
