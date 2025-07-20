@@ -179,6 +179,7 @@ const createEvent = asyncHandler(async (req, res) => {
         const ticketType = await TicketType.create({
           name: tt.name,
           price: tt.price || 0,
+          // Sử dụng giá trị người dùng đã nhập hoặc fallback vào giá trị mặc định nếu không tồn tại
           totalQuantity: tt.totalQuantity || 100,
           availableQuantity: tt.availableQuantity || tt.totalQuantity || 100,
           description: tt.description || '',
@@ -675,8 +676,9 @@ const createEventWithSeating = asyncHandler(async (req, res) => {
           name: tt.name,
           price: tt.price || 0,
           description: tt.description || '',
-          totalQuantity: tt.totalQuantity || 100,
-          availableQuantity: tt.availableQuantity || tt.totalQuantity || 100,
+          // Sử dụng chính xác số lượng vé mà người dùng đã thiết lập
+          totalQuantity: parseInt(tt.totalQuantity) || 100,
+          availableQuantity: parseInt(tt.availableQuantity || tt.totalQuantity) || 100,
           color: tt.color || '#3B82F6',
           event: createdEvent._id
         });

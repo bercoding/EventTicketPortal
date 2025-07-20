@@ -28,10 +28,8 @@ const SimpleTicketBooking = () => {
             name: ticketType.name,
             price: ticketType.price,
             quantity: 0,
-            maxQuantity: Math.min(
-              ticketType.availableQuantity ?? ticketType.totalQuantity ?? 0,
-              10
-            ), // Limit to 10 per type
+            // Sử dụng toàn bộ số lượng vé có sẵn, không giới hạn ở 10
+            maxQuantity: ticketType.availableQuantity ?? ticketType.totalQuantity ?? 0,
             description: ticketType.description
           })) || [];
           

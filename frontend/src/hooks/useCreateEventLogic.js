@@ -290,16 +290,21 @@ const useCreateEventLogic = (templateInfo = null) => {
       // Upload file lên server và lấy URL
       const result = await uploadImage(file, imageType);
       if (result.success) {
+        // Đảm bảo lưu đúng đường dẫn từ backend
+        const imageUrl = result.url;
+        console.log(`🖼️ Upload ${imageType} successful:`, imageUrl);
+        
         setFormData(prev => ({
           ...prev,
           images: {
             ...prev.images,
-            [imageType]: result.url
+            [imageType]: imageUrl
           }
         }));
       } else {
         // Có thể hiển thị thông báo lỗi ở đây nếu muốn
-        alert(result.message || 'Upload ảnh thất bại');
+        console.error('Upload image failed:', result.message);
+        toast.error(result.message || 'Upload ảnh thất bại');
       }
     }
   };
@@ -736,13 +741,27 @@ const useCreateEventLogic = (templateInfo = null) => {
           locationData.platform = formData.location.platform;
         }
 
+        // Đảm bảo rằng thông tin về số lượng vé được gửi chính xác
+        const ticketTypesData = formData.ticketTypes.map(ticket => ({
+          ...ticket,
+          // Chuyển đổi thành số nguyên rõ ràng để tránh lỗi
+          totalQuantity: parseInt(ticket.totalQuantity) || 100,
+          availableQuantity: parseInt(ticket.availableQuantity || ticket.totalQuantity) || 100
+        }));
+
+        // Đảm bảo capacity cũng được gửi chính xác
+        const capacity = parseInt(formData.capacity) || 
+          ticketTypesData.reduce((sum, ticket) => sum + (parseInt(ticket.totalQuantity) || 0), 0);
+
         payload = {
           ...formData,
           organizers: [user._id],
           location: locationData,
           organizer: formData.organizer,
+          // Đảm bảo capacity có giá trị đúng
+          capacity: capacity > 0 ? capacity : 100,
           ticketTypes: [], // Gửi mảng rỗng cho ticketTypes
-          ticketTypesData: formData.ticketTypes, // Gửi loại vé thực tế ở field này
+          ticketTypesData: ticketTypesData, // Gửi loại vé thực tế ở field này
           templateType: templateInfo?.templateType || 'general'
         };
       }

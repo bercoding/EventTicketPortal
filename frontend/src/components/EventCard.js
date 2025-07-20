@@ -54,14 +54,39 @@ const EventCard = ({ event, size = 'normal', className = '' }) => {
     const getEventImage = () => {
         // Handle old format: event.images = {logo: "url", banner: "url"}
         if (event.images && typeof event.images === 'object' && !Array.isArray(event.images)) {
-            return event.images.banner || event.images.logo || '/images/placeholder-event.svg';
+            // Kiểm tra nếu URL đã có http hoặc https, hoặc bắt đầu bằng /uploads
+            const bannerUrl = event.images.banner || '';
+            const logoUrl = event.images.logo || '';
+            
+            // Ưu tiên sử dụng banner, nếu không có thì dùng logo
+            let imageUrl = bannerUrl || logoUrl;
+            
+            if (!imageUrl) return '/images/placeholder-event.svg';
+            
+            // Kiểm tra nếu URL không bắt đầu bằng http/https và không phải đường dẫn tuyệt đối
+            if (!imageUrl.startsWith('http') && !imageUrl.startsWith('https')) {
+                // Nếu URL bắt đầu bằng /uploads thì thêm tiền tố
+                if (imageUrl.startsWith('/uploads')) {
+                    return `http://localhost:5001${imageUrl}`;
+                }
+            }
+            return imageUrl;
         }
         
         // Handle new format: event.images = ["/uploads/events/filename.jpg"]
         if (!event.images || !Array.isArray(event.images) || event.images.length === 0) {
             return '/images/placeholder-event.svg';
         }
-        return `http://localhost:5001${event.images[0]}`;
+        
+        const imageUrl = event.images[0];
+        // Kiểm tra nếu URL không bắt đầu bằng http/https và không phải đường dẫn tuyệt đối
+        if (!imageUrl.startsWith('http') && !imageUrl.startsWith('https')) {
+            // Nếu URL bắt đầu bằng /uploads thì thêm tiền tố
+            if (imageUrl.startsWith('/uploads')) {
+                return `http://localhost:5001${imageUrl}`;
+            }
+        }
+        return imageUrl;
     };
 
     const getCategoryBadge = () => {
