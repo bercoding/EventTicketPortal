@@ -95,20 +95,20 @@ const Register = () => {
 
     if (showOTPForm) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pastel-50 via-pastel-100 to-pastel-200 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
                 {/* Background decorative elements */}
                 <div className="absolute inset-0 overflow-hidden">
-                    <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-green-400 to-blue-500 rounded-full opacity-10 animate-pulse"></div>
-                    <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-blue-400 to-purple-500 rounded-full opacity-10 animate-pulse" style={{animationDelay: '1s'}}></div>
+                    <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-pastel-400 to-pastel-500 rounded-full opacity-10 animate-pulse"></div>
+                    <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-pastel-400 to-pastel-500 rounded-full opacity-10 animate-pulse" style={{animationDelay: '1s'}}></div>
                 </div>
 
                 <div className="max-w-md w-full space-y-8 relative z-10">
                     {/* Logo and Header */}
                     <div className="text-center">
-                        <div className="mx-auto w-20 h-20 bg-gradient-to-r from-green-600 to-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg transform hover:scale-105 transition-transform duration-300">
+                        <div className="mx-auto w-20 h-20 bg-gradient-to-r from-pastel-600 to-pastel-700 rounded-2xl flex items-center justify-center mb-6 shadow-lg transform hover:scale-105 transition-transform duration-300">
                             <FaShieldAlt className="text-white text-3xl" />
                         </div>
-                        <h2 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+                        <h2 className="text-4xl font-bold bg-gradient-to-r from-pastel-600 to-pastel-700 bg-clip-text text-transparent">
                             Xác thực OTP
                         </h2>
                         <p className="mt-2 text-gray-600">
@@ -137,7 +137,7 @@ const Register = () => {
                                     name="otp"
                                     type="text"
                                     required
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70 text-center text-lg font-mono tracking-widest"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pastel-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm hover:bg-white/70 text-center text-lg font-mono tracking-widest"
                                     placeholder="000000"
                                     value={otp}
                                     onChange={(e) => setOTP(e.target.value)}
@@ -148,7 +148,7 @@ const Register = () => {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-sm font-medium text-white bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg"
+                                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-sm font-medium text-white bg-gradient-to-r from-pastel-600 to-pastel-700 hover:from-pastel-700 hover:to-pastel-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pastel-500 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 shadow-lg"
                             >
                                 {loading ? (
                                     <>
@@ -181,21 +181,21 @@ const Register = () => {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pastel-50 via-pastel-100 to-pastel-200 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
             {/* Background decorative elements */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full opacity-10 animate-pulse"></div>
-                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-pink-400 to-blue-500 rounded-full opacity-10 animate-pulse" style={{animationDelay: '1s'}}></div>
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-5 animate-spin" style={{animationDuration: '20s'}}></div>
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-pastel-400 to-pastel-500 rounded-full opacity-10 animate-pulse"></div>
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-pastel-400 to-pastel-500 rounded-full opacity-10 animate-pulse" style={{animationDelay: '1s'}}></div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-pastel-400 to-pastel-500 rounded-full opacity-5 animate-spin" style={{animationDuration: '20s'}}></div>
             </div>
 
             <div className="max-w-md w-full space-y-8 relative z-10">
                 {/* Logo and Header */}
                 <div className="text-center">
-                    <div className="mx-auto w-20 h-20 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg transform hover:scale-105 transition-transform duration-300">
+                    <div className="mx-auto w-20 h-20 bg-gradient-to-r from-pastel-600 to-pastel-700 rounded-2xl flex items-center justify-center mb-6 shadow-lg transform hover:scale-105 transition-transform duration-300">
                         <FaTicketAlt className="text-white text-3xl" />
                     </div>
-                    <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                    <h2 className="text-4xl font-bold bg-gradient-to-r from-pastel-600 to-pastel-700 bg-clip-text text-transparent">
                         Tham gia cùng chúng tôi
                     </h2>
                     <p className="mt-2 text-gray-600">

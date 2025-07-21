@@ -3,6 +3,7 @@ import { ticketService } from '../services/ticketService';
 import { toast } from 'react-toastify';
 import QRCode from 'qrcode';
 import { useSearchParams } from 'react-router-dom';
+import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTicketAlt, FaQrcode, FaTimes, FaExclamationTriangle, FaCheckCircle, FaInfoCircle } from 'react-icons/fa';
 
 const MyTicketsPage = () => {
     const [searchParams] = useSearchParams();
@@ -109,45 +110,50 @@ const MyTicketsPage = () => {
     };
 
     const calculateRefund = (price) => {
-        const refundAmount = price * 0.75;
         const feeAmount = price * 0.25;
+        const refundAmount = price - feeAmount;
         return { refundAmount, feeAmount };
     };
-    
+
     const canReturnTicket = (ticket) => {
-        if (ticket.status !== 'active') return false;
-        
-        if (!ticket.event || !ticket.event.startDate) return false;
+        if (!ticket.event?.startDate) return false;
         const eventDate = new Date(ticket.event.startDate);
         const now = new Date();
-        const hoursDifference = (eventDate - now) / (1000 * 60 * 60);
-        return hoursDifference >= 24;
+        const hoursUntilEvent = (eventDate - now) / (1000 * 60 * 60);
+        return hoursUntilEvent > 24;
     };
 
     const formatDateTime = (dateString) => {
-        const date = new Date(dateString);
-        return {
-            date: date.toLocaleDateString('vi-VN', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-            }),
-            time: date.toLocaleTimeString('vi-VN', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-            })
-        };
+        if (!dateString) return { date: 'Chưa có ngày', time: 'Chưa có giờ' };
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return { date: 'Chưa có ngày', time: 'Chưa có giờ' };
+            
+            return {
+                date: date.toLocaleDateString('vi-VN', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                }),
+                time: date.toLocaleTimeString('vi-VN', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                })
+            };
+        } catch (e) {
+            return { date: 'Chưa có ngày', time: 'Chưa có giờ' };
+        }
     };
 
     const getStatusColor = (status) => {
         switch (status) {
-            case 'active': return 'bg-green-100 text-green-800';
-            case 'pending': return 'bg-yellow-100 text-yellow-800';
-            case 'returned': return 'bg-red-100 text-red-800';
-            case 'cancelled': return 'bg-gray-100 text-gray-600';
-            case 'used': return 'bg-gray-100 text-gray-800';
-            default: return 'bg-blue-100 text-blue-800';
+            case 'active': return 'bg-gradient-to-r from-green-500 to-emerald-500 text-white';
+            case 'pending': return 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white';
+            case 'returned': return 'bg-gradient-to-r from-red-500 to-pink-500 text-white';
+            case 'cancelled': return 'bg-gradient-to-r from-gray-500 to-slate-500 text-white';
+            case 'used': return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white';
+            default: return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white';
         }
     };
 
@@ -168,258 +174,306 @@ const MyTicketsPage = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-400 mx-auto mb-4"></div>
+                    <p className="text-blue-300 text-lg">Đang tải vé của bạn...</p>
+                </div>
             </div>
         );
     }
     
     if (error) {
         return (
-            <div className="container mx-auto p-8 text-center">
-                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                    <h2 className="text-xl font-semibold text-red-800 mb-2">Có lỗi xảy ra</h2>
-                    <p className="text-red-600">{error}</p>
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
+                <div className="bg-gray-800/50 backdrop-blur-sm border border-red-500/30 rounded-2xl p-8 max-w-md w-full text-center">
+                    <div className="text-red-400 text-4xl mb-4">⚠️</div>
+                    <h2 className="text-xl font-bold text-red-300 mb-2">Có lỗi xảy ra</h2>
+                    <p className="text-red-200 mb-6">{error}</p>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 font-semibold py-3 px-6 rounded-xl border border-blue-500/30 transition-all duration-300"
+                    >
+                        Thử lại
+                    </button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="container mx-auto p-4 md:p-8">
-                <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">Vé Của Tôi</h1>
-                    <p className="text-gray-600">Quản lý và xem chi tiết các vé sự kiện của bạn</p>
-                </div>
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+            {/* Header Section */}
+            <div className="relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-cyan-600/20"></div>
+                <div className="relative z-10 container mx-auto px-4 py-12">
+                    <div className="text-center mb-8">
+                        <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 mb-4">
+                            Vé Của Tôi
+                        </h1>
+                        <p className="text-blue-300 text-lg bg-gray-800/50 backdrop-blur-sm rounded-xl px-6 py-3 border border-blue-500/30 inline-block">
+                            🎫 Quản lý và xem chi tiết các vé sự kiện của bạn
+                        </p>
+                    </div>
 
-                {/* Filter Bar */}
-                <div className="mb-6 bg-white rounded-lg shadow p-4">
-                    <div className="flex items-center space-x-4">
-                        <span className="text-gray-700 font-medium">Lọc theo trạng thái:</span>
-                        <div className="flex flex-wrap gap-2">
-                            <button
-                                onClick={() => setSelectedStatus('all')}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
-                                    ${selectedStatus === 'all' 
-                                        ? 'bg-blue-500 text-white' 
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                            >
-                                Tất cả
-                            </button>
-                            <button
-                                onClick={() => setSelectedStatus('active')}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
-                                    ${selectedStatus === 'active' 
-                                        ? 'bg-green-500 text-white' 
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                            >
-                                Có hiệu lực
-                            </button>
-                            <button
-                                onClick={() => setSelectedStatus('pending')}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
-                                    ${selectedStatus === 'pending' 
-                                        ? 'bg-yellow-500 text-white' 
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                            >
-                                Chờ xác nhận
-                            </button>
-                            <button
-                                onClick={() => setSelectedStatus('returned')}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
-                                    ${selectedStatus === 'returned' 
-                                        ? 'bg-red-500 text-white' 
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                            >
-                                Đã trả
-                            </button>
-                            <button
-                                onClick={() => setSelectedStatus('cancelled')}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
-                                    ${selectedStatus === 'cancelled' 
-                                        ? 'bg-gray-500 text-white' 
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                            >
-                                Đã hủy
-                            </button>
-                            <button
-                                onClick={() => setSelectedStatus('used')}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 
-                                    ${selectedStatus === 'used' 
-                                        ? 'bg-gray-500 text-white' 
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                            >
-                                Đã sử dụng
-                            </button>
+                    {/* Statistics */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div className="bg-gray-800/50 backdrop-blur-sm border border-blue-500/30 rounded-xl p-4 text-center">
+                            <div className="text-2xl font-bold text-blue-400">{tickets.length}</div>
+                            <div className="text-blue-300 text-sm">Tổng vé</div>
+                        </div>
+                        <div className="bg-gray-800/50 backdrop-blur-sm border border-green-500/30 rounded-xl p-4 text-center">
+                            <div className="text-2xl font-bold text-green-400">
+                                {tickets.filter(t => t.status === 'active').length}
+                            </div>
+                            <div className="text-green-300 text-sm">Có hiệu lực</div>
+                        </div>
+                        <div className="bg-gray-800/50 backdrop-blur-sm border border-yellow-500/30 rounded-xl p-4 text-center">
+                            <div className="text-2xl font-bold text-yellow-400">
+                                {tickets.filter(t => t.status === 'pending').length}
+                            </div>
+                            <div className="text-yellow-300 text-sm">Chờ xác nhận</div>
+                        </div>
+                        <div className="bg-gray-800/50 backdrop-blur-sm border border-purple-500/30 rounded-xl p-4 text-center">
+                            <div className="text-2xl font-bold text-purple-400">
+                                {tickets.filter(t => t.status === 'used').length}
+                            </div>
+                            <div className="text-purple-300 text-sm">Đã sử dụng</div>
                         </div>
                     </div>
-                </div>
 
-                {tickets.length === 0 ? (
-                    <div className="text-center py-16">
-                        <div className="mb-4">
-                            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
+                    {/* Filter Bar */}
+                    <div className="bg-gray-800/50 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-6 mb-8">
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center">
+                                <FaTicketAlt className="text-blue-400 mr-3 text-xl" />
+                                <span className="text-blue-200 font-medium">Lọc theo trạng thái:</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {[
+                                    { key: 'all', label: 'Tất cả', icon: '🎫' },
+                                    { key: 'active', label: 'Có hiệu lực', icon: '✅' },
+                                    { key: 'pending', label: 'Chờ xác nhận', icon: '⏳' },
+                                    { key: 'returned', label: 'Đã trả', icon: '↩️' },
+                                    { key: 'cancelled', label: 'Đã hủy', icon: '❌' },
+                                    { key: 'used', label: 'Đã sử dụng', icon: '🎭' }
+                                ].map(filter => (
+                                    <button
+                                        key={filter.key}
+                                        onClick={() => setSelectedStatus(filter.key)}
+                                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105 ${
+                                            selectedStatus === filter.key 
+                                                ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/25' 
+                                                : 'bg-gray-700/50 text-blue-200 hover:bg-gray-600/50 border border-blue-500/30'
+                                        }`}
+                                    >
+                                        <span className="mr-2">{filter.icon}</span>
+                                        {filter.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có vé nào</h3>
-                        <p className="text-gray-500">Bạn chưa mua vé cho sự kiện nào. Hãy khám phá các sự kiện thú vị!</p>
                     </div>
-                ) : (
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {filteredTickets.map(ticket => {
-                            const dateTime = formatDateTime(ticket.event?.startDate);
-                            const isNewTicket = newTickets.includes(ticket._id);
-                            return (
-                                <div 
-                                    key={ticket._id} 
-                                    className={`bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer transform hover:-translate-y-1 ${
-                                        ticket.status === 'returned' ? 'opacity-60' : ''
-                                    } ${isNewTicket ? 'ring-2 ring-blue-500 animate-pulse' : ''}`}
-                                    onClick={() => setSelectedTicket(ticket)}
-                                >
-                                    {/* Ticket Header */}
-                                    <div className="relative">
-                                        <img 
-                                            src={ticket.event?.images?.[0] || 'https://via.placeholder.com/400x200'} 
-                                            alt="Event" 
-                                            className="w-full h-48 object-cover"
-                                        />
-                                        <div className="absolute top-4 right-4">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(ticket.status)}`}>
-                                                {getStatusText(ticket.status)}
-                                            </span>
-                                        </div>
-                                        
-                                        {/* Highlight for new tickets */}
-                                        {isNewTicket && (
-                                            <div className="absolute top-4 left-4">
-                                                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                                    Vé mới
+
+                    {tickets.length === 0 ? (
+                        <div className="text-center py-16">
+                            <div className="bg-gray-800/50 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-12 max-w-md mx-auto">
+                                <div className="text-6xl mb-6">🎫</div>
+                                <h3 className="text-2xl font-bold text-blue-200 mb-4">Chưa có vé nào</h3>
+                                <p className="text-blue-300/80 mb-6">
+                                    Bạn chưa mua vé cho sự kiện nào. Hãy khám phá các sự kiện thú vị!
+                                </p>
+                                <button className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-blue-500/25">
+                                    🎪 Khám phá sự kiện
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                            {filteredTickets.map(ticket => {
+                                const dateTime = formatDateTime(ticket.event?.startDate);
+                                const isNewTicket = newTickets.includes(ticket._id);
+                                return (
+                                    <div 
+                                        key={ticket._id} 
+                                        className={`group bg-gray-800/50 backdrop-blur-sm border border-blue-500/20 rounded-2xl overflow-hidden hover:border-blue-400/40 hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-300 transform hover:scale-105 cursor-pointer ${
+                                            ticket.status === 'returned' ? 'opacity-60' : ''
+                                        } ${isNewTicket ? 'ring-2 ring-blue-500 animate-pulse' : ''}`}
+                                        onClick={() => setSelectedTicket(ticket)}
+                                    >
+                                        {/* Ticket Header */}
+                                        <div className="relative">
+                                            <img 
+                                                src={
+                                                    (() => {
+                                                        // Handle old format: event.images = {logo: "url", banner: "url"}
+                                                        if (ticket.event?.images && typeof ticket.event.images === 'object' && !Array.isArray(ticket.event.images)) {
+                                                            const imageUrl = ticket.event.images.banner || ticket.event.images.logo;
+                                                            if (imageUrl) {
+                                                                return imageUrl.startsWith('http') 
+                                                                    ? imageUrl 
+                                                                    : `http://localhost:5001${imageUrl}`;
+                                                            }
+                                                        }
+                                                        
+                                                        // Handle new format: event.images = ["/uploads/events/filename.jpg"]
+                                                        if (ticket.event?.images && Array.isArray(ticket.event.images) && ticket.event.images.length > 0) {
+                                                            const imageUrl = ticket.event.images[0];
+                                                            return imageUrl.startsWith('http') 
+                                                                ? imageUrl 
+                                                                : `http://localhost:5001${imageUrl}`;
+                                                        }
+                                                        
+                                                        // Fallback to default image
+                                                        return 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
+                                                    })()
+                                                }
+                                                alt="Event" 
+                                                className="w-full h-64 md:h-72 lg:h-80 object-cover group-hover:scale-110 transition-transform duration-300"
+                                                onError={(e) => {
+                                                    e.target.src = 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
+                                                }}
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                            
+                                            {/* Status Badge */}
+                                            <div className="absolute top-4 right-4">
+                                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(ticket.status)} shadow-lg`}>
+                                                    {getStatusText(ticket.status)}
                                                 </span>
                                             </div>
-                                        )}
-                                        
-                                        {/* Perforated edge effect */}
-                                        <div 
-                                            className="absolute bottom-0 left-0 right-0 h-6 bg-white" 
-                                            style={{
-                                                clipPath: 'polygon(0% 0%, 5% 100%, 10% 0%, 15% 100%, 20% 0%, 25% 100%, 30% 0%, 35% 100%, 40% 0%, 45% 100%, 50% 0%, 55% 100%, 60% 0%, 65% 100%, 70% 0%, 75% 100%, 80% 0%, 85% 100%, 90% 0%, 95% 100%, 100% 0%)'
-                                            }}
-                                        />
-                                    </div>
-
-                                    {/* Ticket Body */}
-                                    <div className="p-6">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="flex-1">
-                                                <h2 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
-                                                    {ticket.event?.title}
-                                                </h2>
-                                                <div className="space-y-1 text-sm text-gray-600">
-                                                    <p className="flex items-center">
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                        </svg>
-                                                        {dateTime.date}
-                                                    </p>
-                                                    <p className="flex items-center">
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                        {dateTime.time}
-                                                    </p>
-                                                    <p className="flex items-center">
-                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                        </svg>
-                                                        {ticket.event?.venue || 'Chưa xác định'}
-                                                    </p>
-                                                </div>
-                                            </div>
                                             
-                                            {/* Mini QR Code */}
+                                            {/* New Ticket Badge */}
+                                            {isNewTicket && (
+                                                <div className="absolute top-4 left-4">
+                                                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg">
+                                                        ✨ Vé mới
+                                                    </span>
+                                                </div>
+                                            )}
+                                            
+                                            {/* QR Code Preview */}
                                             {qrCodes[ticket._id] && (
-                                                <div className="ml-4">
-                                                    <img 
-                                                        src={qrCodes[ticket._id]} 
-                                                        alt="QR Code" 
-                                                        className="w-16 h-16 border rounded"
-                                                    />
+                                                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                    <div className="bg-white/90 backdrop-blur-sm rounded-lg p-2">
+                                                        <img 
+                                                            src={qrCodes[ticket._id]} 
+                                                            alt="QR Code" 
+                                                            className="w-12 h-12"
+                                                        />
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
 
-                                        {/* Seat Information */}
-                                        {ticket.seatNumber && (
-                                            <div className="bg-blue-50 rounded-lg p-3 mb-4">
-                                                <div className="flex items-center text-blue-800">
-                                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                                                    </svg>
-                                                    <span className="font-semibold">
-                                                        {ticket.section} - Ghế {ticket.seatNumber}
-                                                    </span>
+                                        {/* Ticket Body */}
+                                        <div className="p-6">
+                                            <div className="mb-4">
+                                                <h2 className="text-xl font-bold text-blue-200 mb-3 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
+                                                    {ticket.event?.title}
+                                                </h2>
+                                                
+                                                <div className="space-y-2 text-sm text-blue-300/80">
+                                                    {dateTime.date !== 'Chưa có ngày' && (
+                                                        <div className="flex items-center">
+                                                            <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
+                                                                <FaCalendarAlt className="text-blue-400 text-xs" />
+                                                            </div>
+                                                            <span className="line-clamp-1">{dateTime.date}</span>
+                                                        </div>
+                                                    )}
+                                                    {dateTime.time !== 'Chưa có giờ' && (
+                                                        <div className="flex items-center">
+                                                            <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
+                                                                <FaClock className="text-blue-400 text-xs" />
+                                                            </div>
+                                                            <span>{dateTime.time}</span>
+                                                        </div>
+                                                    )}
+                                                    {ticket.event?.location?.venueName && (
+                                                        <div className="flex items-center">
+                                                            <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
+                                                                <FaMapMarkerAlt className="text-blue-400 text-xs" />
+                                                            </div>
+                                                            <span className="line-clamp-1">
+                                                                {ticket.event.location.type === 'online' 
+                                                                    ? '🌐 Trực tuyến'
+                                                                    : ticket.event.location.venueName
+                                                                }
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
-                                        )}
 
-                                        {/* Price */}
-                                        <div className="flex justify-between items-center mb-4">
-                                            <span className="text-2xl font-bold text-green-600">
-                                                {ticket.price.toLocaleString()} VNĐ
-                                            </span>
-                                            <span className="text-xs text-gray-500">
-                                                #{ticket._id.slice(-8)}
-                                            </span>
-                                        </div>
+                                            {/* Seat Information */}
+                                            {ticket.seatNumber && (
+                                                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 mb-4">
+                                                    <div className="flex items-center text-blue-300">
+                                                        <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
+                                                            <FaTicketAlt className="text-blue-400 text-xs" />
+                                                        </div>
+                                                        <span className="font-semibold">
+                                                            {ticket.section} - Ghế {ticket.seatNumber}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
 
-                                        {/* Actions */}
-                                        {ticket.status === 'active' && canReturnTicket(ticket) && (
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openReturnModal(ticket);
-                                                }}
-                                                className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
-                                            >
-                                                Trả vé (Phí 25%)
-                                            </button>
-                                        )}
-                                        {ticket.status === 'active' && !canReturnTicket(ticket) && (
-                                            <div className="text-center text-sm text-gray-500 py-2">
-                                                Đã quá hạn trả vé (dưới 24 tiếng trước sự kiện)
+                                            {/* Price and Actions */}
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <span className="text-2xl font-bold text-green-400">
+                                                        {ticket.price.toLocaleString()} VNĐ
+                                                    </span>
+                                                    <div className="text-xs text-blue-300/60">
+                                                        #{ticket._id.slice(-8)}
+                                                    </div>
+                                                </div>
+                                                
+                                                {ticket.status === 'active' && canReturnTicket(ticket) && (
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openReturnModal(ticket);
+                                                        }}
+                                                        className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-red-500/25"
+                                                    >
+                                                        Trả vé
+                                                    </button>
+                                                )}
+                                                {ticket.status === 'active' && !canReturnTicket(ticket) && (
+                                                    <div className="text-center text-xs text-yellow-300 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2">
+                                                        ⏰ Đã quá hạn trả vé
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Return Ticket Modal */}
             {showReturnModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-2xl max-w-md w-full">
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-gray-800/90 backdrop-blur-sm border border-blue-500/30 rounded-2xl max-w-md w-full shadow-2xl shadow-blue-500/20">
                         <div className="p-6">
-                            <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-yellow-100 rounded-full">
-                                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z" />
-                                </svg>
+                            <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-yellow-500/20 rounded-full border border-yellow-500/30">
+                                <FaExclamationTriangle className="w-8 h-8 text-yellow-400" />
                             </div>
                             
-                            <h3 className="text-xl font-bold text-gray-900 text-center mb-4">
+                            <h3 className="text-xl font-bold text-blue-200 text-center mb-4">
                                 Xác nhận trả vé
                             </h3>
                             
                             <div className="mb-6">
-                                <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                                    <h4 className="font-semibold text-gray-900 mb-2">{showReturnModal.event?.title}</h4>
-                                    <div className="text-sm text-gray-600 space-y-1">
+                                <div className="bg-gray-700/50 border border-blue-500/30 rounded-xl p-4 mb-4">
+                                    <h4 className="font-semibold text-blue-200 mb-2">{showReturnModal.event?.title}</h4>
+                                    <div className="text-sm text-blue-300/80 space-y-1">
                                         <p>📅 {formatDateTime(showReturnModal.event?.startDate).date}</p>
                                         <p>🕐 {formatDateTime(showReturnModal.event?.startDate).time}</p>
                                         {showReturnModal.seatNumber && (
@@ -428,30 +482,30 @@ const MyTicketsPage = () => {
                                     </div>
                                 </div>
                                 
-                                <div className="border-l-4 border-yellow-400 bg-yellow-50 p-4 mb-4">
+                                <div className="border-l-4 border-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-4">
                                     <div className="text-sm">
-                                        <h5 className="font-semibold text-yellow-800 mb-2">Thông tin hoàn tiền:</h5>
-                                        <div className="space-y-1 text-yellow-700">
+                                        <h5 className="font-semibold text-yellow-300 mb-2">Thông tin hoàn tiền:</h5>
+                                        <div className="space-y-1 text-yellow-200">
                                             <div className="flex justify-between">
                                                 <span>Giá gốc:</span>
                                                 <span className="font-semibold">{showReturnModal.price.toLocaleString()} VNĐ</span>
                                             </div>
                                             <div className="flex justify-between">
                                                 <span>Phí xử lý (25%):</span>
-                                                <span className="font-semibold text-red-600">-{calculateRefund(showReturnModal.price).feeAmount.toLocaleString()} VNĐ</span>
+                                                <span className="font-semibold text-red-400">-{calculateRefund(showReturnModal.price).feeAmount.toLocaleString()} VNĐ</span>
                                             </div>
-                                            <div className="border-t border-yellow-300 pt-1 mt-2">
+                                            <div className="border-t border-yellow-500/30 pt-1 mt-2">
                                                 <div className="flex justify-between">
                                                     <span className="font-semibold">Số tiền hoàn:</span>
-                                                    <span className="font-bold text-green-600">{calculateRefund(showReturnModal.price).refundAmount.toLocaleString()} VNĐ</span>
+                                                    <span className="font-bold text-green-400">{calculateRefund(showReturnModal.price).refundAmount.toLocaleString()} VNĐ</span>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                    <p className="text-sm text-blue-800">
+                                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                                    <p className="text-sm text-blue-300">
                                         💡 <strong>Lưu ý:</strong> Số tiền hoàn sẽ được thêm vào ví điện tử của bạn và có thể sử dụng cho các giao dịch tiếp theo.
                                     </p>
                                 </div>
@@ -461,21 +515,18 @@ const MyTicketsPage = () => {
                                 <button 
                                     onClick={() => setShowReturnModal(null)}
                                     disabled={isReturning}
-                                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50"
+                                    className="flex-1 bg-gray-700/50 hover:bg-gray-600/50 text-blue-200 font-semibold py-3 px-4 rounded-xl border border-blue-500/30 transition-all duration-300 disabled:opacity-50"
                                 >
                                     Hủy
                                 </button>
                                 <button 
                                     onClick={() => handleReturnTicket(showReturnModal._id)}
                                     disabled={isReturning}
-                                    className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center justify-center"
+                                    className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-red-500/25"
                                 >
                                     {isReturning ? (
                                         <>
-                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
+                                            <div className="animate-spin -ml-1 mr-2 h-4 w-4 text-white border-2 border-white border-t-transparent rounded-full"></div>
                                             Đang xử lý...
                                         </>
                                     ) : (
@@ -490,84 +541,112 @@ const MyTicketsPage = () => {
 
             {/* Ticket Detail Modal */}
             {selectedTicket && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-2xl max-w-md w-full max-h-screen overflow-y-auto">
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-gray-800/90 backdrop-blur-sm border border-blue-500/30 rounded-2xl max-w-md w-full max-h-screen overflow-y-auto shadow-2xl shadow-blue-500/20">
                         {/* Modal Header */}
                         <div className="relative">
                             <img 
-                                src={selectedTicket.event?.images?.[0] || 'https://via.placeholder.com/400x200'} 
+                                src={
+                                    (() => {
+                                        // Handle old format: event.images = {logo: "url", banner: "url"}
+                                        if (selectedTicket.event?.images && typeof selectedTicket.event.images === 'object' && !Array.isArray(selectedTicket.event.images)) {
+                                            const imageUrl = selectedTicket.event.images.banner || selectedTicket.event.images.logo;
+                                            if (imageUrl) {
+                                                return imageUrl.startsWith('http') 
+                                                    ? imageUrl 
+                                                    : `http://localhost:5001${imageUrl}`;
+                                            }
+                                        }
+                                        
+                                        // Handle new format: event.images = ["/uploads/events/filename.jpg"]
+                                        if (selectedTicket.event?.images && Array.isArray(selectedTicket.event.images) && selectedTicket.event.images.length > 0) {
+                                            const imageUrl = selectedTicket.event.images[0];
+                                            return imageUrl.startsWith('http') 
+                                                ? imageUrl 
+                                                : `http://localhost:5001${imageUrl}`;
+                                        }
+                                        
+                                        // Fallback to default image
+                                        return 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
+                                    })()
+                                }
                                 alt="Event" 
-                                className="w-full h-48 object-cover rounded-t-2xl"
+                                className="w-full h-64 md:h-72 object-cover rounded-t-2xl"
+                                onError={(e) => {
+                                    e.target.src = 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
+                                }}
                             />
                             <button 
                                 onClick={() => setSelectedTicket(null)}
-                                className="absolute top-4 right-4 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-70"
+                                className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm text-white rounded-full p-2 hover:bg-black/70 transition-all duration-300"
                             >
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
+                                <FaTimes className="w-5 h-5" />
                             </button>
                         </div>
 
                         <div className="p-6">
                             {/* Event Title */}
-                            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                            <h2 className="text-2xl font-bold text-blue-200 mb-4">
                                 {selectedTicket.event?.title}
                             </h2>
 
                             {/* QR Code */}
                             {qrCodes[selectedTicket._id] && (
                                 <div className="text-center mb-6">
-                                    <img 
-                                        src={qrCodes[selectedTicket._id]} 
-                                        alt="QR Code" 
-                                        className="w-32 h-32 mx-auto border rounded-lg"
-                                    />
-                                    <p className="text-sm text-gray-500 mt-2">Quét mã QR tại cổng vào</p>
+                                    <div className="bg-white/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-4 inline-block">
+                                        <img 
+                                            src={qrCodes[selectedTicket._id]} 
+                                            alt="QR Code" 
+                                            className="w-32 h-32 mx-auto"
+                                        />
+                                    </div>
+                                    <p className="text-sm text-blue-300/80 mt-2">Quét mã QR tại cổng vào</p>
                                 </div>
                             )}
 
                             {/* Ticket Details */}
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ngày</label>
-                                        <p className="text-sm font-medium">{formatDateTime(selectedTicket.event?.startDate).date}</p>
+                                    <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                        <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Ngày</label>
+                                        <p className="text-sm font-medium text-blue-200">{formatDateTime(selectedTicket.event?.startDate).date}</p>
                                     </div>
-                                    <div>
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Giờ</label>
-                                        <p className="text-sm font-medium">{formatDateTime(selectedTicket.event?.startDate).time}</p>
+                                    <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                        <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Giờ</label>
+                                        <p className="text-sm font-medium text-blue-200">{formatDateTime(selectedTicket.event?.startDate).time}</p>
                                     </div>
                                 </div>
 
-                                <div>
-                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Địa điểm</label>
-                                    <p className="text-sm font-medium">{selectedTicket.event?.venue || 'Chưa xác định'}</p>
+                                <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                    <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Địa điểm</label>
+                                    <p className="text-sm font-medium text-blue-200">
+                                        {selectedTicket.event?.location?.venueName || selectedTicket.event?.venue || 'Chưa xác định'}
+                                    </p>
                                 </div>
 
                                 {selectedTicket.seatNumber && (
-                                    <div>
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ghế ngồi</label>
-                                        <p className="text-sm font-medium">{selectedTicket.section} - Ghế {selectedTicket.seatNumber}</p>
+                                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                                        <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Ghế ngồi</label>
+                                        <p className="text-sm font-medium text-blue-200">{selectedTicket.section} - Ghế {selectedTicket.seatNumber}</p>
                                     </div>
                                 )}
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Giá vé</label>
-                                        <p className="text-lg font-bold text-green-600">{selectedTicket.price.toLocaleString()} VNĐ</p>
+                                    <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                        <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Giá vé</label>
+                                        <p className="text-lg font-bold text-green-400">{selectedTicket.price.toLocaleString()} VNĐ</p>
                                     </div>
-                                    <div>
-                                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Trạng thái</label>
+                                    <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                        <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Trạng thái</label>
                                         <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedTicket.status)}`}>
                                             {getStatusText(selectedTicket.status)}
                                         </span>
                                     </div>
                                 </div>
 
-                                <div>
-                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Mã vé</label>
-                                    <p className="text-sm font-mono bg-gray-100 p-2 rounded">#{selectedTicket._id}</p>
+                                <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                    <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Mã vé</label>
+                                    <p className="text-sm font-mono bg-gray-800/50 p-2 rounded-lg text-blue-200 border border-blue-500/20">#{selectedTicket._id}</p>
                                 </div>
                             </div>
 
@@ -579,14 +658,14 @@ const MyTicketsPage = () => {
                                             setSelectedTicket(null);
                                             openReturnModal(selectedTicket);
                                         }}
-                                        className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+                                        className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 shadow-lg hover:shadow-red-500/25"
                                     >
                                         Trả vé (Phí 25%)
                                     </button>
                                 )}
                                 <button 
                                     onClick={() => setSelectedTicket(null)}
-                                    className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-4 rounded-lg transition-colors duration-200"
+                                    className="w-full bg-gray-700/50 hover:bg-gray-600/50 text-blue-200 font-semibold py-3 px-4 rounded-xl border border-blue-500/30 transition-all duration-300"
                                 >
                                     Đóng
                                 </button>
