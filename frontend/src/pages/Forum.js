@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FaPlus, FaTimes, FaSearch, FaFilter, FaTrendingUp, FaFire, FaClock, FaUsers } from 'react-icons/fa';
 import PostCard from '../components/forum/PostCard';
 import CreatePostModal from '../components/forum/CreatePostModal';
+import { toast } from 'react-toastify';
 
 const Forum = () => {
   const { user } = useAuth();
@@ -161,11 +162,20 @@ const Forum = () => {
       console.log('Sending request to create post...');
       const response = await postAPI.createPost(formDataToSend);
       console.log('Post created successfully:', response.data);
-      setPosts([response.data.data, ...posts]);
+      
+      // Không thêm bài viết mới vào danh sách bài viết hiện tại
+      // vì bài viết mới sẽ có status = 'pending' và sẽ không hiển thị
+      // trong getPosts cho đến khi được duyệt
+      
       setShowCreateForm(false);
       setFormData({ title: '', content: '', tags: '', images: [] });
       setImagePreview([]);
-      setSuccessMessage('Post created successfully!');
+      setSuccessMessage('Bài viết đã được tạo thành công! Bài viết sẽ được hiển thị sau khi được duyệt.');
+      
+      toast.success('Bài viết đã được tạo và sẽ được hiển thị sau khi quản trị viên duyệt', {
+        position: "top-center",
+        autoClose: 5000
+      });
     } catch (err) {
       console.error('Error creating post:', err);
       console.error('Error response:', err.response);
@@ -343,6 +353,18 @@ const Forum = () => {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Thông báo về việc bài viết cần được duyệt */}
+        <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 text-blue-700 rounded-lg flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div>
+            <p className="font-medium">Lưu ý:</p>
+            <p className="text-sm">Bài viết mới sẽ được hiển thị sau khi được quản trị viên duyệt. Cảm ơn bạn đã chia sẻ!</p>
+          </div>
+        </div>
 
         {error && (
           <motion.div

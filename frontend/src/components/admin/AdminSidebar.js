@@ -7,7 +7,6 @@ import {
     FaCalendarCheck,
     FaExclamationTriangle,
     FaFileAlt,
-    FaBullhorn,
     FaDollarSign,
     FaUserTie,
     FaCreditCard,
@@ -54,13 +53,7 @@ const AdminSidebar = () => {
             name: 'Bài viết',
             path: '/admin/posts',
             icon: FaFileAlt,
-            description: 'Kiểm duyệt bài viết'
-        },
-        {
-            name: 'Báo cáo vi phạm',
-            path: '/admin/violations',
-            icon: FaBullhorn,
-            description: 'Xử lý vi phạm'
+            description: 'Quản lý tất cả bài đăng'
         },
         {
             name: 'Doanh thu',

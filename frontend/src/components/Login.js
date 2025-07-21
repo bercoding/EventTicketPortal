@@ -37,12 +37,26 @@ const Login = () => {
         try {
             const response = await login(formData.email, formData.password);
             if (response.success) {
-                await refreshUser();
-                navigate(returnUrl);
+                // Đăng nhập thành công, kiểm tra người dùng
+                const userInfo = await refreshUser();
+                
+                // Nếu người dùng bị ban, chuyển đến trang banned
+                if (userInfo.user && userInfo.user.status === 'banned') {
+                    console.log('🚫 User is banned, redirecting to banned page');
+                    navigate('/banned', {
+                        state: {
+                            banReason: userInfo.user.banReason || 'Vi phạm điều khoản sử dụng'
+                        }
+                    });
+                } else {
+                    // Người dùng không bị ban, chuyển đến trang chính
+                    navigate(returnUrl);
+                }
             } else {
                 setLoginError(response.error || 'Đăng nhập thất bại');
             }
         } catch (error) {
+            console.error('Login error:', error);
             setLoginError(error.message || 'Đăng nhập thất bại');
         }
         setLoading(false);

@@ -32,8 +32,18 @@ export const AuthProvider = ({ children }) => {
                 console.log('👤 User check response:', response);
                 
                 if (response.success && response.data) {
-                    console.log('✅ Setting user:', response.data.email, response.data.id);
-                    setUser(response.data);
+                    // Kiểm tra nếu tài khoản bị ban - vẫn đăng nhập được nhưng lưu thông tin về trạng thái ban
+                    if (response.data.status === 'banned') {
+                        console.log('🚫 User is banned, but allowing login with banned flag:', response.data.banReason);
+                        setUser({
+                            ...response.data,
+                            isBanned: true, // Thêm trường isBanned để dễ kiểm tra
+                            banReason: response.data.banReason || 'Vi phạm điều khoản sử dụng'
+                        });
+                    } else {
+                        console.log('✅ Setting user:', response.data.email, response.data.id);
+                        setUser(response.data);
+                    }
                 } else {
                     console.log('❌ Invalid user data in response, clearing token', response);
                     localStorage.removeItem('token');
@@ -41,17 +51,15 @@ export const AuthProvider = ({ children }) => {
                 }
             } catch (error) {
                 console.error('❌ Token validation failed:', error);
-                // Kiểm tra chi tiết lỗi để xử lý phù hợp
+                // Vẫn xử lý lỗi khác bình thường
                 if (error.response && error.response.status === 401) {
                     console.log('🔒 Token expired or invalid, clearing token');
+                    localStorage.removeItem('token');
+                    setUser(null);
                 } else {
                     console.log('🔄 Network or server error, keeping token for retry');
                     // Giữ token nếu là lỗi mạng tạm thời
-                    setLoading(false);
-                    return;
                 }
-                localStorage.removeItem('token');
-                setUser(null);
             }
         } catch (error) {
             console.error('❌ Error checking user:', error);
