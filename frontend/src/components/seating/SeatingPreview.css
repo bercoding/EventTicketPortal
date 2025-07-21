@@ -2,8 +2,8 @@
   position: relative;
   width: 100%;
   height: 700px;
-  background-color: #f5f5f5;
-  border: 1px solid #ddd;
+  background-color: #f0f8ff;
+  border: 1px solid #bae6fd;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -13,7 +13,7 @@
   height: 100%;
   min-height: 400px;
   position: relative;
-  background-color: #1a1e2e;
+  background-color: #f0f8ff;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -21,7 +21,7 @@
 .seating-svg {
   width: 100%;
   height: 100%;
-  background-color: #1a1e2e;
+  background-color: #f0f8ff;
 }
 
 /* Fix for venue objects visibility */
@@ -77,13 +77,15 @@
 .seating-legend {
   margin-top: 15px;
   padding: 10px;
-  border-radius: 5px;
-  background-color: #f8f9fa;
+  border-radius: 8px;
+  background-color: #ffffff;
+  border: 1px solid #bae6fd;
 }
 
 .legend-title {
   font-weight: bold;
   margin-bottom: 5px;
+  color: #0c4a6e;
 }
 
 .legend-items {
@@ -111,20 +113,20 @@
   justify-content: center;
   align-items: center;
   font-size: 18px;
-  color: #777;
+  color: #64748b;
 }
 
 /* Stage styling */
 .stage {
   position: absolute;
-  background: linear-gradient(to bottom, #4f46e5, #1e40af);
-  border-radius: 5px;
+  background: linear-gradient(to bottom, #0ea5e9, #0284c7);
+  border-radius: 8px;
   display: flex;
   justify-content: center;
   align-items: center;
   color: white;
   font-weight: bold;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 8px rgba(14, 165, 233, 0.3);
   z-index: 10;
 }
 
@@ -139,7 +141,7 @@
   transform: translateX(-50%);
   font-size: 14px;
   font-weight: bold;
-  color: #333;
+  color: #0c4a6e;
   text-align: center;
   z-index: 5;
 }
@@ -149,7 +151,7 @@
   position: absolute;
   font-size: 12px;
   font-weight: bold;
-  color: #555;
+  color: #075985;
 }
 
 /* Seat styling */
@@ -168,33 +170,33 @@
 }
 
 .seat.available {
-  background-color: #22c55e;
+  background-color: #10b981;
   color: white;
-  border: 1px solid #16a34a;
+  border: 1px solid #059669;
 }
 
 .seat.sold {
-  background-color: #f87171;
+  background-color: #ef4444;
   color: white;
-  border: 1px solid #ef4444;
+  border: 1px solid #dc2626;
 }
 
 .seat.reserved {
-  background-color: #facc15;
+  background-color: #f59e0b;
   color: #333;
-  border: 1px solid #eab308;
+  border: 1px solid #d97706;
 }
 
 .seat.selected {
-  background-color: #3b82f6;
+  background-color: #0ea5e9;
   color: white;
-  border: 2px solid #2563eb;
+  border: 2px solid #0284c7;
   transform: translate(-50%, -50%) scale(1.1);
   z-index: 15;
 }
 
 .seat.hovered {
-  background-color: #93c5fd;
+  background-color: #7dd3fc;
   transform: translate(-50%, -50%) scale(1.1);
   z-index: 15;
 }
@@ -205,15 +207,16 @@
   flex-direction: column;
   margin-top: 20px;
   padding: 16px;
-  background: #f8f9fa;
+  background: #ffffff;
   border-radius: 8px;
+  border: 1px solid #bae6fd;
 }
 
 .legend-title {
   margin: 0 0 12px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #374151;
+  color: #0c4a6e;
 }
 
 .legend-items {
@@ -227,15 +230,7 @@
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #333;
-}
-
-.color-box {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  border: 1px solid rgba(0,0,0,0.1);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  color: #0c4a6e;
 }
 
 /* Legacy legend styles - keeping for backward compatibility */

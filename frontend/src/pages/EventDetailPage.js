@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaCalendarAlt, FaMapMarkerAlt, FaTicketAlt, FaClock, FaUsers, FaInfoCircle } from 'react-icons/fa';
+import { FaCalendarAlt, FaMapMarkerAlt, FaTicketAlt, FaClock, FaUsers, FaInfoCircle, FaMoon, FaMagic, FaStar, FaHeart, FaShare, FaArrowLeft } from 'react-icons/fa';
 import { eventAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { getEventPlaceholder, handleImageError } from '../utils/imageHelpers';
@@ -25,13 +25,19 @@ const EventDetailPage = () => {
                 console.log('🔍 EventDetailPage: Fetching event with ID:', id);
                 const response = await eventAPI.getEventById(id);
                 
+                console.log('📊 EventDetailPage: Full response:', response);
+                
                 if (response.data?.success) {
                     console.log('✅ EventDetailPage: Event loaded successfully:', response.data.data.title);
                     setEvent(response.data.data);
                 } else if (response.success && response.data) {
                     console.log('🔄 EventDetailPage: Using direct response structure');
                     setEvent(response.data);
+                } else if (response.data) {
+                    console.log('🔄 EventDetailPage: Using response.data directly');
+                    setEvent(response.data);
                 } else {
+                    console.log('❌ EventDetailPage: No valid data found in response');
                     toast.error("Không tìm thấy sự kiện hoặc có lỗi xảy ra.");
                     navigate('/events');
                 }
@@ -104,12 +110,36 @@ const EventDetailPage = () => {
         }).format(minPrice);
     };
 
+    // Helper function to get event image
+    const getEventImage = (event) => {
+        if (event.images && Array.isArray(event.images) && event.images.length > 0) {
+            return `http://localhost:5001${event.images[0]}`;
+        } else if (event.images && typeof event.images === 'object' && !Array.isArray(event.images)) {
+            return event.images.banner || event.images.logo;
+        } else if (event.image) {
+            return event.image;
+        } else if (event.eventImage) {
+            return event.eventImage;
+        }
+        return "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80";
+    };
+
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-screen bg-gray-50">
-                <div className="flex flex-col items-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                    <p className="mt-4 text-lg text-gray-600">Đang tải thông tin sự kiện...</p>
+            <div className="min-h-screen bg-black relative overflow-hidden">
+                {/* Sparkling Background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_50%)]"></div>
+                    <div className="absolute top-20 left-20 w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                    <div className="absolute top-40 right-32 w-1 h-1 bg-blue-300 rounded-full animate-pulse delay-1000"></div>
+                    <div className="absolute bottom-32 left-1/4 w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse delay-500"></div>
+                </div>
+
+                <div className="relative z-10 flex justify-center items-center h-screen">
+                    <div className="flex flex-col items-center">
+                        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-400"></div>
+                        <p className="mt-6 text-xl text-blue-300">Đang tải thông tin sự kiện...</p>
+                    </div>
                 </div>
             </div>
         );
@@ -117,129 +147,140 @@ const EventDetailPage = () => {
 
     if (!event) {
         return (
-            <div className="text-center p-10 bg-gray-50 min-h-screen flex items-center justify-center">
-                <div>
-                    <h2 className="text-2xl font-bold text-red-500 mb-4">Không thể tải sự kiện</h2>
-                    <button 
-                        onClick={() => navigate('/events')} 
-                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        Quay lại danh sách sự kiện
-                    </button>
+            <div className="min-h-screen bg-black relative overflow-hidden">
+                {/* Sparkling Background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_50%)]"></div>
+                </div>
+
+                <div className="relative z-10 text-center p-10 min-h-screen flex items-center justify-center">
+                    <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl p-8 border border-blue-500/30">
+                        <h2 className="text-3xl font-bold text-red-400 mb-6">Không thể tải sự kiện</h2>
+                        <button 
+                            onClick={() => navigate('/events')} 
+                            className="px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 shadow-lg hover:shadow-blue-500/25"
+                        >
+                            Quay lại danh sách sự kiện
+                        </button>
+                    </div>
                 </div>
             </div>
         );
     }
     
     return (
-        <div className="bg-gray-50 min-h-screen">
-            <div className="max-w-7xl mx-auto px-4 py-8">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Column - Main Content */}
-                    <div className="lg:col-span-2 space-y-6">
-                        {/* Event Banner */}
-                        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                            <div className="relative h-80 md:h-96">
-                                <img 
-                                    src={
-                                        event.images && typeof event.images === 'object' && !Array.isArray(event.images) 
-                                            ? (event.images.banner || event.images.logo || getEventPlaceholder())
-                                            : (event.images?.[0] ? `http://localhost:5001${event.images[0]}` : getEventPlaceholder())
-                                    } 
-                                    alt={event.title} 
-                                    className="w-full h-full object-cover" 
-                                    onError={(e) => handleImageError(e, 'event')} 
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                                <div className="absolute bottom-6 left-6 right-6">
-                                    <h1 className="text-3xl md:text-4xl font-bold text-white mb-2" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
-                                        {event.title}
-                                    </h1>
-                                    {event.organizers && event.organizers.length > 0 && (
-                                        <p className="text-lg text-gray-200">
-                                            Tổ chức bởi {event.organizers.map(o => o.fullName || o.username).join(', ')}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+        <div className="min-h-screen bg-black relative overflow-hidden">
+            {/* Sparkling Background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_50%)]"></div>
+                <div className="absolute top-20 left-20 w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                <div className="absolute top-40 right-32 w-1 h-1 bg-blue-300 rounded-full animate-pulse delay-1000"></div>
+                <div className="absolute bottom-32 left-1/4 w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse delay-500"></div>
+                <div className="absolute top-1/2 right-1/4 w-1 h-1 bg-blue-400 rounded-full animate-pulse delay-1500"></div>
+                <div className="absolute top-1/3 left-1/3 w-1 h-1 bg-cyan-400 rounded-full animate-pulse delay-2000"></div>
+            </div>
 
-                        {/* Event Description */}
-                        <div className="bg-white rounded-2xl shadow-lg p-6">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-                                <FaInfoCircle className="text-blue-600 mr-3" />
-                                Giới thiệu
-                            </h2>
-                            <div className="prose max-w-none text-gray-700 leading-relaxed">
-                                {event.description ? (
-                                    <div dangerouslySetInnerHTML={{ __html: event.description }} />
-                                ) : (
-                                    <p>Chưa có mô tả chi tiết cho sự kiện này.</p>
-                                )}
-                            </div>
-                        </div>
+            <div className="relative z-10">
+                {/* Back Button */}
+                <div className="absolute top-6 left-6 z-20">
+                    <button
+                        onClick={() => navigate('/events')}
+                        className="bg-gray-900/50 backdrop-blur-sm text-blue-300 p-3 rounded-xl border border-blue-500/30 hover:bg-gray-800/70 hover:text-blue-200 transition-all duration-300"
+                    >
+                        <FaArrowLeft className="text-xl" />
+                    </button>
+                </div>
 
-                        {/* Venue Information */}
-                        <div className="bg-white rounded-2xl shadow-lg p-6">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-                                <FaMapMarkerAlt className="text-red-500 mr-3" />
-                                Địa điểm tổ chức
-                            </h2>
-                            <div className="space-y-3">
-                                <div>
-                                    <h3 className="font-semibold text-lg text-gray-800">
-                                        {event.location?.venueName || 'Chưa xác định địa điểm'}
-                                    </h3>
-                                    <p className="text-gray-600">
-                                        {event.location?.address}
-                                        {event.location?.ward ? `, ${event.location.ward}` : ''}
-                                        {event.location?.district ? `, ${event.location.district}` : ''}
-                                        {event.location?.city ? `, ${event.location.city}` : ''}
-                                        {event.location?.country ? `, ${event.location.country}` : ''}
-                                    </p>
-                                </div>
+                {/* Hero Section with Full Image */}
+                <div className="relative h-screen">
+                    <img 
+                        src={getEventImage(event)}
+                        alt={event.title} 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                            e.target.src = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80";
+                        }}
+                    />
+                    
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
+                    
+                    {/* Event Info Overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 p-8">
+                        <div className="max-w-7xl mx-auto">
+                            <div className="flex items-center mb-4">
+                                <FaMoon className="text-blue-400 mr-3 text-2xl" />
+                                <span className="bg-gradient-to-r from-blue-300 to-cyan-300 bg-clip-text text-transparent text-2xl font-bold">
+                                    {event.category || 'Sự kiện'}
+                                </span>
+                            </div>
+                            
+                            <h1 className="text-5xl md:text-7xl font-bold text-blue-200 mb-6" style={{ textShadow: '3px 3px 6px rgba(0,0,0,0.8)' }}>
+                                {event.title}
+                            </h1>
+                            
+                            {event.organizers && event.organizers.length > 0 && (
+                                <p className="text-xl text-blue-300 mb-6">
+                                    Tổ chức bởi {event.organizers.map(o => o.fullName || o.username).join(', ')}
+                                </p>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-wrap gap-4 mb-8">
+                                <button
+                                    onClick={handleBookNow}
+                                    className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-blue-500/25 flex items-center"
+                                >
+                                    <FaTicketAlt className="mr-3 text-xl" />
+                                    Đặt vé ngay
+                                </button>
+                                
+                                <button className="bg-gray-900/50 backdrop-blur-sm text-blue-300 font-bold py-4 px-6 rounded-xl border border-blue-500/30 hover:bg-gray-800/70 transition-all duration-300 flex items-center">
+                                    <FaHeart className="mr-3" />
+                                    Yêu thích
+                                </button>
+                                
+                                <button className="bg-gray-900/50 backdrop-blur-sm text-blue-300 font-bold py-4 px-6 rounded-xl border border-blue-500/30 hover:bg-gray-800/70 transition-all duration-300 flex items-center">
+                                    <FaShare className="mr-3" />
+                                    Chia sẻ
+                                </button>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Right Column - Booking Info */}
-                    <div className="lg:col-span-1">
-                        <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-8">
-                            {/* Event Title & Category */}
-                            <div className="mb-6">
-                                <h2 className="text-xl font-bold text-gray-800 mb-2">
-                                    {event.title}
+                {/* Content Section */}
+                <div className="max-w-7xl mx-auto px-4 py-16">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                        {/* Left Column - Main Content */}
+                        <div className="lg:col-span-2 space-y-8">
+                            {/* Event Description */}
+                            <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl border border-blue-500/30 p-8">
+                                <h2 className="text-3xl font-bold text-blue-200 mb-6 flex items-center">
+                                    <FaInfoCircle className="text-blue-400 mr-4 text-2xl" />
+                                    Giới thiệu
                                 </h2>
-                                {event.category && (
-                                    <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                                        {event.category}
-                                    </span>
-                                )}
+                                <div className="prose prose-invert max-w-none text-blue-300 leading-relaxed">
+                                    {event.description ? (
+                                        <div dangerouslySetInnerHTML={{ __html: event.description }} />
+                                    ) : (
+                                        <p className="text-blue-300/80">Chưa có mô tả chi tiết cho sự kiện này.</p>
+                                    )}
+                                </div>
                             </div>
 
-                            {/* Event Details */}
-                            <div className="space-y-4 mb-6">
-                                <div className="flex items-start">
-                                    <FaCalendarAlt className="text-blue-600 mr-3 mt-1 flex-shrink-0" />
+                            {/* Venue Information */}
+                            <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl border border-blue-500/30 p-8">
+                                <h2 className="text-3xl font-bold text-blue-200 mb-6 flex items-center">
+                                    <FaMapMarkerAlt className="text-blue-400 mr-4 text-2xl" />
+                                    Địa điểm tổ chức
+                                </h2>
+                                <div className="space-y-4">
                                     <div>
-                                        <p className="font-semibold text-gray-800">Thời gian</p>
-                                        <p className="text-gray-600">
-                                            {formatDate(event.startDate)}
-                                        </p>
-                                        <p className="text-gray-600 text-sm">
-                                            {formatTime(event.startDate)} - {formatTime(event.endDate)}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-start">
-                                    <FaMapMarkerAlt className="text-red-500 mr-3 mt-1 flex-shrink-0" />
-                                    <div>
-                                        <p className="font-semibold text-gray-800">Địa điểm</p>
-                                        <p className="text-gray-600">
-                                            {event.location?.venueName || 'Chưa xác định'}
-                                        </p>
-                                        <p className="text-gray-500 text-sm">
+                                        <h3 className="font-semibold text-xl text-blue-200 mb-2">
+                                            {event.location?.venueName || 'Chưa xác định địa điểm'}
+                                        </h3>
+                                        <p className="text-blue-300/80 text-lg">
                                             {event.location?.address}
                                             {event.location?.ward ? `, ${event.location.ward}` : ''}
                                             {event.location?.district ? `, ${event.location.district}` : ''}
@@ -248,42 +289,86 @@ const EventDetailPage = () => {
                                         </p>
                                     </div>
                                 </div>
+                            </div>
 
-                                {event.ticketTypes && event.ticketTypes.length > 0 && (
-                                    <div className="flex items-start">
-                                        <FaTicketAlt className="text-green-600 mr-3 mt-1 flex-shrink-0" />
+                            {/* Reviews Section */}
+                            <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl border border-blue-500/30 p-8">
+                                <ReviewSection eventId={id} />
+                            </div>
+                        </div>
+
+                        {/* Right Column - Booking Info */}
+                        <div className="lg:col-span-1">
+                            <div className="bg-gray-900/50 backdrop-blur-sm rounded-2xl border border-blue-500/30 p-8 sticky top-8">
+                                {/* Event Category */}
+                                <div className="mb-6">
+                                    <span className="inline-block px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-full text-sm font-bold">
+                                        {event.category || 'Sự kiện'}
+                                    </span>
+                                </div>
+
+                                {/* Event Details */}
+                                <div className="space-y-6 mb-8">
+                                    <div className="flex items-center text-blue-300">
+                                        <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mr-4">
+                                            <FaCalendarAlt className="text-blue-400 text-xl" />
+                                        </div>
                                         <div>
-                                            <p className="font-semibold text-gray-800">Giá vé</p>
-                                            <p className="text-lg font-bold text-green-600">
-                                                Từ {getMinPrice()}
+                                            <p className="text-blue-300/80 text-sm">Ngày diễn ra</p>
+                                            <p className="text-blue-200 font-semibold">{formatDate(event.startDate)}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center text-blue-300">
+                                        <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mr-4">
+                                            <FaClock className="text-blue-400 text-xl" />
+                                        </div>
+                                        <div>
+                                            <p className="text-blue-300/80 text-sm">Thời gian</p>
+                                            <p className="text-blue-200 font-semibold">{formatTime(event.startDate)}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center text-blue-300">
+                                        <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mr-4">
+                                            <FaMapMarkerAlt className="text-blue-400 text-xl" />
+                                        </div>
+                                        <div>
+                                            <p className="text-blue-300/80 text-sm">Địa điểm</p>
+                                            <p className="text-blue-200 font-semibold line-clamp-2">
+                                                {event.location?.venueName || 'Chưa xác định'}
                                             </p>
                                         </div>
                                     </div>
-                                )}
-                            </div>
 
-                            {/* Action Button */}
-                            <button
-                                onClick={handleBookNow}
-                                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transform transition-all duration-300 flex items-center justify-center text-lg"
-                            >
-                                <FaTicketAlt className="mr-3"/>
-                                Mua vé ngay
-                            </button>
+                                    {event.capacity && (
+                                        <div className="flex items-center text-blue-300">
+                                            <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mr-4">
+                                                <FaUsers className="text-blue-400 text-xl" />
+                                            </div>
+                                            <div>
+                                                <p className="text-blue-300/80 text-sm">Sức chứa</p>
+                                                <p className="text-blue-200 font-semibold">{event.capacity} chỗ</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
 
-                            {/* Additional Info */}
-                            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                                <div className="flex items-center text-sm text-gray-600 mb-2">
-                                    <FaUsers className="mr-2" />
-                                    <span>Sự kiện được tổ chức bởi {event.organizers?.[0]?.fullName || 'Đối tác'}</span>
+                                {/* Price */}
+                                <div className="mb-8 p-6 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-xl border border-blue-500/30">
+                                    <p className="text-blue-300/80 text-sm mb-2">Giá vé từ</p>
+                                    <p className="text-3xl font-bold text-blue-200">{getMinPrice()}</p>
                                 </div>
-                                <div className="flex items-center text-sm text-gray-600">
-                                    <FaClock className="mr-2" />
-                                    <span>Cập nhật lần cuối: {new Date().toLocaleDateString('vi-VN')}</span>
-                                </div>
+
+                                {/* Book Now Button */}
+                                <button
+                                    onClick={handleBookNow}
+                                    className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-blue-500/25 flex items-center justify-center text-lg"
+                                >
+                                    <FaTicketAlt className="mr-3 text-xl" />
+                                    Đặt vé ngay
+                                </button>
                             </div>
-                             {/* Event Description */}
-                             <ReviewSection eventId={id} />
                         </div>
                     </div>
                 </div>

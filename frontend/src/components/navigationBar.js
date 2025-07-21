@@ -54,7 +54,7 @@ const NavigationBar = () => {
   };
 
   return (
-    <nav className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
+    <nav className="bg-gradient-to-r from-pastel-500 to-pastel-600 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo và tên trang */}
@@ -147,7 +147,7 @@ const NavigationBar = () => {
                           className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
                           onClick={() => setIsDropdownOpen(false)}
                         >
-                          <FontAwesomeIcon icon={faUser} className="mr-3 text-blue-500" />
+                          <FontAwesomeIcon icon={faUser} className="mr-3 text-pastel-500" />
                           Thông tin cá nhân
                         </Link>
                         {(user.role === 'event_owner' || user.role === 'owner') && (
@@ -193,7 +193,7 @@ const NavigationBar = () => {
                 </Link>
                 <Link
                   to="/register"
-                  className="bg-white text-blue-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition-all duration-200 hover:scale-105 shadow-md"
+                  className="bg-white text-pastel-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-pure-100 transition-all duration-200 hover:scale-105 shadow-md"
                 >
                   Đăng ký
                 </Link>

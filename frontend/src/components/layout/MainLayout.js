@@ -1,10 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import NavigationBar from '../navigationBar'; // Đảm bảo đường dẫn đúng
 
 const MainLayout = ({ children }) => {
-    // Tham chiếu đến NavBar
-    const navbarRef = useRef(null);
-    
     // Kiểm tra và xử lý navbar trùng lặp
     useEffect(() => {
         const allNavbars = document.querySelectorAll('.navigation-bar');
@@ -18,7 +15,7 @@ const MainLayout = ({ children }) => {
 
     return (
         <div className="flex flex-col min-h-screen">
-            <NavigationBar ref={navbarRef} className="navigation-bar" />
+            <NavigationBar className="navigation-bar" />
             <main className="flex-grow container mx-auto pt-0"> 
                 {/* pt-0 nếu navbar đã có padding, hoặc điều chỉnh padding ở đây */}
                 {/* Container và mx-auto có thể tùy chỉnh nếu trang con đã có */}
