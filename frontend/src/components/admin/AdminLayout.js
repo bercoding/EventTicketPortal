@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { FaTachometerAlt, FaUsers, FaCalendarCheck, FaExclamationTriangle, FaFileAlt, FaBullhorn, FaDollarSign, FaUserTie } from 'react-icons/fa';
+import { FaTachometerAlt, FaUsers, FaCalendarCheck, FaExclamationTriangle, FaFileAlt, FaDollarSign, FaUserTie } from 'react-icons/fa';
 import { adminAPI } from '../../services/api';
 import AdminSidebar from './AdminSidebar';
 
@@ -66,15 +66,8 @@ const AdminLayout = () => {
             name: 'Quản lý Posts',
             path: '/admin/posts',
             icon: FaFileAlt,
-            description: 'Kiểm duyệt bài viết',
+            description: 'Quản lý tất cả bài đăng',
             countKey: 'pendingPosts'
-        },
-        {
-            name: 'Báo cáo vi phạm',
-            path: '/admin/violations',
-            icon: FaBullhorn,
-            description: 'Xử lý vi phạm',
-            countKey: 'pendingReports'
         },
         {
             name: 'Báo cáo doanh thu',

@@ -54,13 +54,30 @@ const createPost = [
 
 // Get all posts
 const getPosts = asyncHandler(async (req, res) => {
-  const posts = await Post.find()
+  const { userId, eventId, tag } = req.query;
+  
+  // Lọc theo các điều kiện từ query và chỉ lấy bài đã được duyệt
+  const filter = { status: 'approved' };
+  
+  // Thêm các điều kiện lọc khác nếu có
+  if (userId) filter.userId = userId;
+  if (eventId) filter.eventId = eventId;
+  if (tag) filter.tags = { $in: [tag] };
+  
+  console.log('🔍 Getting posts with filter:', filter);
+  
+  const posts = await Post.find(filter)
     .populate('userId', 'username fullName avatar email')
     .populate('eventId', 'title')
+    .sort({ createdAt: -1 }) // Sắp xếp mới nhất lên đầu
     .lean();
+    
   if (!posts) {
     return res.status(200).json({ success: true, data: [] }); // Trả về mảng rỗng nếu không có post
   }
+  
+  console.log(`📊 Found ${posts.length} approved posts`);
+  
   res.status(200).json({
     success: true,
     data: posts
@@ -73,10 +90,25 @@ const getPostById = asyncHandler(async (req, res) => {
     .populate('userId', 'username fullName avatar email')
     .populate('eventId', 'title')
     .lean();
+    
   if (!post) {
     res.status(404);
     throw new Error('Post not found');
   }
+  
+  // Kiểm tra quyền truy cập: 
+  // - Cho phép xem nếu bài viết đã được duyệt
+  // - Hoặc nếu người dùng hiện tại là tác giả của bài viết
+  // - Hoặc nếu người dùng là admin
+  const isAdmin = req.user && req.user.role === 'admin';
+  const isAuthor = req.user && req.user.id && post.userId && req.user.id.toString() === post.userId._id.toString();
+  const isApproved = post.status === 'approved';
+  
+  if (!isApproved && !isAuthor && !isAdmin) {
+    res.status(403);
+    throw new Error('Bài viết này chưa được phê duyệt');
+  }
+  
   res.status(200).json({
     success: true,
     data: post

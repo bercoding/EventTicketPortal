@@ -20,14 +20,12 @@ exports.protect = async (req, res, next) => {
             return res.status(401).json({ message: 'Người dùng không tồn tại' });
         }
         
-        // Kiểm tra user có bị ban không
-        if (user.isBanned) {
-            return res.status(403).json({ 
-                success: false,
-                message: 'Tài khoản của bạn đã bị khóa',
-                banned: true,
-                banReason: user.banReason || 'Vi phạm điều khoản sử dụng'
-            });
+        // Nếu user bị banned, không chặn mà thêm thông tin banned vào request
+        if (user.status === 'banned') {
+            req.user = user;
+            req.isBanned = true;
+            req.banReason = user.banReason || 'Vi phạm điều khoản sử dụng';
+            return next();
         }
         
         req.user = user;

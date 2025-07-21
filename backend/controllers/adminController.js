@@ -50,9 +50,9 @@ exports.banUser = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       userId,
       { 
-        isBanned: true,
+        status: 'banned',
         banReason: reason,
-        bannedAt: new Date(),
+        banDate: new Date(),
         bannedBy: req.user.id
       },
       { new: true }
@@ -71,14 +71,15 @@ exports.banUser = async (req, res) => {
 // Unban user
 exports.unbanUser = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { id } = req.params;
     
     const user = await User.findByIdAndUpdate(
-      userId,
+      id,
       { 
-        isBanned: false,
+        status: 'active',
         banReason: null,
-        bannedAt: null,
+        banDate: null,
+        banExpiry: null,
         bannedBy: null
       },
       { new: true }
@@ -182,12 +183,19 @@ exports.getEvents = async (req, res) => {
 // Get all complaints
 exports.getComplaints = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, category, priority } = req.query;
+    const { page = 1, limit = 10, status, category, priority, subject } = req.query;
     const filter = {};
     
     if (status) filter.status = status;
     if (category) filter.category = category;
     if (priority) filter.priority = priority;
+    
+    // Thêm lọc theo subject cho kháng cáo ban
+    if (subject) {
+      filter.subject = { $regex: subject, $options: 'i' };
+    }
+    
+    console.log('🔍 Complaints filter:', filter);
     
     const complaints = await Complaint.find(filter)
       .populate('user', 'username email fullName')
@@ -200,6 +208,8 @@ exports.getComplaints = async (req, res) => {
     
     const total = await Complaint.countDocuments(filter);
     
+    console.log(`📊 Found ${complaints.length}/${total} complaints`);
+    
     res.json({
       complaints,
       totalPages: Math.ceil(total / limit),
@@ -207,6 +217,7 @@ exports.getComplaints = async (req, res) => {
       total
     });
   } catch (error) {
+    console.error('❌ Error fetching complaints:', error);
     res.status(500).json({ message: 'Error fetching complaints', error: error.message });
   }
 };
@@ -214,11 +225,13 @@ exports.getComplaints = async (req, res) => {
 // Resolve user complaints
 exports.resolveComplaint = async (req, res) => {
   try {
-    const { complaintId } = req.params;
+    const { id } = req.params;
     const { resolution, note } = req.body;
     
+    console.log('🔧 Resolving complaint:', id, 'with resolution:', resolution);
+    
     const complaint = await Complaint.findByIdAndUpdate(
-      complaintId,
+      id,
       { 
         status: 'resolved',
         resolution,
@@ -234,8 +247,11 @@ exports.resolveComplaint = async (req, res) => {
     .populate('resolvedBy', 'username email fullName');
     
     if (!complaint) {
+      console.log('❌ Complaint not found:', id);
       return res.status(404).json({ message: 'Complaint not found' });
     }
+    
+    console.log('✅ Complaint resolved successfully:', id);
     
     res.json({ message: 'Complaint resolved successfully', complaint });
   } catch (error) {
@@ -246,27 +262,57 @@ exports.resolveComplaint = async (req, res) => {
 // Get all posts for moderation
 exports.getPosts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status } = req.query;
+    console.log('🔍 Getting admin posts with query:', req.query);
+    const { page = 1, limit = 10, status, search } = req.query;
     const filter = {};
     
-    if (status) filter.moderationStatus = status;
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
     
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } },
+        { tags: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    console.log('🔍 Using filter:', filter);
+    
+    // Populate author thay vì author từ userId
     const posts = await Post.find(filter)
-      .populate('author', 'username email fullName')
-      .populate('moderatedBy', 'username email fullName')
+      .populate({
+        path: 'userId',
+        select: 'username email fullName',
+        model: 'User',
+        as: 'author'
+      })
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+    
+    // Map lại kết quả để cấu trúc phù hợp với frontend
+    const mappedPosts = posts.map(post => {
+      return {
+        ...post.toObject(),
+        author: post.userId,
+        _id: post._id
+      };
+    });
     
     const total = await Post.countDocuments(filter);
     
+    console.log(`📊 Found ${mappedPosts.length}/${total} posts`);
+    
     res.json({
-      posts,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
+      posts: mappedPosts,
+      totalPages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page),
       total
     });
   } catch (error) {
+    console.error('❌ Error fetching posts:', error);
     res.status(500).json({ message: 'Error fetching posts', error: error.message });
   }
 };
@@ -274,26 +320,34 @@ exports.getPosts = async (req, res) => {
 // Moderate posts
 exports.moderatePost = async (req, res) => {
   try {
-    const { postId } = req.params;
-    const { action, reason } = req.body; // action: 'approve', 'reject', 'flag'
+    const { id } = req.params;
+    const { status, reason } = req.body; // status: 'approved', 'rejected', 'pending'
+    
+    console.log(`🔍 Moderating post ${id} with status: ${status}, reason: ${reason}`);
     
     const post = await Post.findByIdAndUpdate(
-      postId,
+      id,
       { 
-        moderationStatus: action,
+        status: status,
         moderationReason: reason,
         moderatedAt: new Date(),
         moderatedBy: req.user.id
       },
       { new: true }
-    ).populate('author', 'username email fullName');
+    ).populate('userId', 'username email fullName');
     
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
     
-    res.json({ message: 'Post moderated successfully', post });
+    const mappedPost = {
+      ...post.toObject(),
+      author: post.userId
+    };
+    
+    res.json({ message: 'Post moderated successfully', post: mappedPost });
   } catch (error) {
+    console.error('❌ Error moderating post:', error);
     res.status(500).json({ message: 'Error moderating post', error: error.message });
   }
 };
@@ -301,9 +355,11 @@ exports.moderatePost = async (req, res) => {
 // Delete posts
 exports.deletePost = async (req, res) => {
   try {
-    const { postId } = req.params;
+    const { id } = req.params;
     
-    const post = await Post.findByIdAndDelete(postId);
+    console.log(`🗑️ Deleting post with ID: ${id}`);
+    
+    const post = await Post.findByIdAndDelete(id);
     
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
@@ -311,6 +367,7 @@ exports.deletePost = async (req, res) => {
     
     res.json({ message: 'Post deleted successfully' });
   } catch (error) {
+    console.error('❌ Error deleting post:', error);
     res.status(500).json({ message: 'Error deleting post', error: error.message });
   }
 };
@@ -380,13 +437,17 @@ exports.getRevenue = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
+    console.log('📊 Fetching revenue from', startDate, 'to', endDate);
+    
     const matchStage = {
-      status: 'completed',
+      status: { $in: ['active', 'cancelled', 'returned'] },  // Tính vé đã bán (active), đã hủy (cancelled) và đã hoàn trả (returned)
       createdAt: {
         $gte: new Date(startDate || '2020-01-01'),
         $lte: new Date(endDate || new Date())
       }
     };
+    
+    console.log('🔍 Using match criteria:', JSON.stringify(matchStage));
     
     const revenue = await Ticket.aggregate([
       { $match: matchStage },

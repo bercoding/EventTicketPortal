@@ -53,8 +53,8 @@ const UserManagement = () => {
         const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             user.email.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesFilter = filterStatus === 'all' || 
-                            (filterStatus === 'banned' && user.isBanned) ||
-                            (filterStatus === 'active' && !user.isBanned);
+                            (filterStatus === 'banned' && user.status === 'banned') ||
+                            (filterStatus === 'active' && user.status === 'active');
         return matchesSearch && matchesFilter;
     });
 
@@ -151,13 +151,13 @@ const UserManagement = () => {
 
                                     {/* Status Badge */}
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                        user.isBanned ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                                        user.status === 'banned' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
                                     }`}>
-                                        {user.isBanned ? '🚫 Banned' : '✅ Active'}
+                                        {user.status === 'banned' ? '🚫 Banned' : '✅ Active'}
                                     </span>
 
                                     {/* Actions */}
-                                    {user.isBanned ? (
+                                    {user.status === 'banned' ? (
                                         <button
                                             onClick={() => handleUnbanUser(user._id)}
                                             className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-lg text-green-700 bg-green-100 hover:bg-green-200 transition-colors"
