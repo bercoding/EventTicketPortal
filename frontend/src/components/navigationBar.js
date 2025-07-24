@@ -56,33 +56,33 @@ const NavigationBar = () => {
   return (
     <nav className="bg-gradient-to-r from-pastel-500 to-pastel-600 text-white shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex items-center justify-between h-14 md:h-14 gap-2">
           {/* Logo và tên trang */}
-          <div className="flex items-center">
+          <div className="flex items-center h-full">
             <Link to="/" className="flex items-center space-x-2">
               <span className="text-2xl font-bold">EventHub</span>
             </Link>
           </div>
 
           {/* Menu điều hướng */}
-          <div className="hidden md:flex items-center space-x-6">
-            <Link to="/events" className="hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105">
+          <div className="hidden md:flex items-center h-full space-x-6">
+            <Link to="/events" className="hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105 flex items-center h-full">
               Sự kiện
             </Link>
-            <Link to="/forum" className="hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105">
+            <Link to="/forum" className="hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105 flex items-center h-full">
               Diễn đàn
             </Link>
             {user && (
               <>
-                <Link to="/my-tickets" className="flex items-center hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105">
+                <Link to="/my-tickets" className="flex items-center hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105 h-full">
                   <FontAwesomeIcon icon={faTicketAlt} className="mr-1.5" />
                   Vé của tôi
                 </Link>
-                <Link to="/chat" className="flex items-center hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105">
+                <Link to="/chat" className="flex items-center hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105 h-full">
                   <FontAwesomeIcon icon={faComments} className="mr-1.5" />
                   Tin nhắn
                 </Link>
-                <Link to="/friends" className="flex items-center hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105">
+                <Link to="/friends" className="flex items-center hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105 h-full">
                   <FontAwesomeIcon icon={faUsers} className="mr-1.5" />
                   Bạn bè
                 </Link>
@@ -90,7 +90,7 @@ const NavigationBar = () => {
                 {user.role === 'event_owner' && (
                   <Link 
                     to="/event-templates" 
-                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 shadow-md flex items-center"
+                    className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm font-medium transition-all duration-200 hover:scale-105 shadow flex items-center h-full"
                   >
                     <FontAwesomeIcon icon={faPlus} className="mr-1.5" />
                     Tạo sự kiện
@@ -101,32 +101,32 @@ const NavigationBar = () => {
           </div>
 
           {/* User menu */}
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative flex items-center h-full" ref={dropdownRef}>
             {user ? (
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-4 h-full">
                 {/* Owner request status */}
                 {user.role === 'user' && ownerRequestStatus === 'none' && (
                   <Link
                     to="/become-owner"
-                    className="bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 shadow-md"
+                    className="bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 shadow-md flex items-center h-full"
                   >
                     Trở thành đối tác
                   </Link>
                 )}
 
                 {user.role === 'user' && ownerRequestStatus === 'pending' && (
-                  <span className="bg-gray-500 text-white px-3 py-2 rounded-lg text-sm font-medium">
+                  <span className="bg-gray-500 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center h-full">
                     Đang chờ duyệt
                   </span>
                 )}
 
                 {/* Profile dropdown */}
-                <div className="relative inline-block text-left">
+                <div className="relative inline-block text-left h-full">
                   <button
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="flex items-center space-x-2 hover:text-gray-200 focus:outline-none"
+                    className="flex items-center space-x-2 hover:text-gray-200 focus:outline-none h-full"
                   >
-                    <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white">
+                    <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white flex items-center justify-center">
                       <img 
                         className="w-full h-full object-cover" 
                         src={user.avatar || '/images/placeholder-avatar.svg'} 
@@ -184,16 +184,16 @@ const NavigationBar = () => {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-4 h-full">
                 <Link
                   to="/login"
-                  className="hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105"
+                  className="hover:text-gray-200 text-sm font-medium transition-all duration-200 hover:scale-105 flex items-center h-full"
                 >
                   Đăng nhập
                 </Link>
                 <Link
                   to="/register"
-                  className="bg-white text-pastel-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-pure-100 transition-all duration-200 hover:scale-105 shadow-md"
+                  className="bg-white text-pastel-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-pure-100 transition-all duration-200 hover:scale-105 shadow-md flex items-center h-full"
                 >
                   Đăng ký
                 </Link>

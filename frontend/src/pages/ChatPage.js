@@ -95,12 +95,12 @@ const ChatPage = () => {
 
     if (!user) {
         return (
-            <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-                <div className="text-center bg-white p-8 rounded-2xl shadow-xl max-w-md">
+            <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-[#0a192f] to-[#101820]">
+                <div className="text-center bg-[#101820] p-8 rounded-2xl shadow-xl max-w-md border border-[#22304a]">
                     <div className="text-6xl mb-4">🔒</div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Cần đăng nhập</h2>
-                    <p className="text-gray-600 mb-6">Vui lòng đăng nhập để sử dụng chức năng chat.</p>
-                    <a href="/login" className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-purple-700 transition-all duration-300 shadow-lg">
+                    <h2 className="text-2xl font-bold text-gray-100 mb-4">Cần đăng nhập</h2>
+                    <p className="text-gray-400 mb-6">Vui lòng đăng nhập để sử dụng chức năng chat.</p>
+                    <a href="/login" className="bg-gradient-to-r from-blue-800 to-indigo-900 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-900 hover:to-indigo-950 transition-all duration-300 shadow-lg">
                         Đăng nhập ngay
                     </a>
                 </div>
@@ -119,21 +119,22 @@ const ChatPage = () => {
     const isChatAreaActive = !!activeChatPartner;
 
     return (
-        <div className="flex h-[calc(100vh-80px)] bg-gray-100 rounded-lg overflow-hidden shadow-xl my-0 md:my-0">
-            <div className={`w-full md:w-[320px] bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out ${isChatAreaActive ? 'hidden md:flex' : 'flex'}`}>
-                <div className="p-4 border-b border-gray-200">
+        <div className="flex h-[calc(100vh-80px)] bg-gradient-to-br from-[#0a192f] to-[#101820] rounded-lg overflow-hidden shadow-xl my-0 md:my-0">
+            <div className={`w-full md:w-[320px] bg-[#101820] border-r border-[#22304a] flex flex-col transition-all duration-300 ease-in-out ${isChatAreaActive ? 'hidden md:flex' : 'flex'}`}>
+                <div className="p-4 border-b border-[#22304a]">
                     <div className="flex justify-between items-center mb-3">
-                        <h2 className="text-xl font-bold text-gray-800">Tin nhắn</h2>
+                        <h2 className="text-xl font-bold text-gray-100">Tin nhắn</h2>
                         <div className="flex items-center">
                             <div className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                            <span className={`text-xs ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
+                            <span className={`text-xs ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
                                 {isConnected ? 'Đã kết nối' : 'Mất kết nối'}
                             </span>
                         </div>
                     </div>
                     <UserSearch onSelectUser={handleStartNewConversation} currentUser={user} />
                 </div>
-                <div className="overflow-y-auto flex-grow custom-scrollbar py-2">
+                {/* Danh sách hội thoại */}
+                <div className="flex-1 overflow-y-auto bg-[#16213a]">
                     {conversations.length > 0 ? conversations.map((convo) => {
                         const otherParticipant = convo.participants.find(p => p._id !== user._id);
                         if (!otherParticipant) return null;
@@ -145,35 +146,30 @@ const ChatPage = () => {
                             <div
                                 key={convo._id}
                                 onClick={() => handleSelectConversation(convo._id)}
-                                className={`flex items-center px-4 py-3 hover:bg-gray-100 cursor-pointer transition-colors duration-150 ease-in-out ${isActive ? 'bg-green-50 border-l-4 border-green-500' : 'border-l-4 border-transparent'}`}
+                                className={`flex items-center px-4 py-3 hover:bg-[#22304a] cursor-pointer transition-colors duration-150 ease-in-out ${isActive ? 'bg-blue-900/40 border-l-4 border-blue-500' : 'border-l-4 border-transparent'}`}
                             >
                                 <img 
                                     src={otherParticipant.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(otherParticipant.username)}&background=random&color=fff&font-size=0.5`}
                                     alt={otherParticipant.username} 
                                     className="w-11 h-11 rounded-full mr-3 object-cover flex-shrink-0"
                                 />
-                                <div className="flex-grow overflow-hidden">
-                                    <p className={`font-semibold truncate ${isActive ? 'text-green-600' : 'text-gray-700'}`}>
-                                        {otherParticipant.username}
-                                    </p>
-                                    <p className={`text-sm truncate ${isActive ? 'text-gray-700' : 'text-gray-500'}`}>
-                                        {lastMsgSender}{lastMsgContent}
-                                    </p>
+                                <div className="flex-1 min-w-0">
+                                    <div className="font-semibold text-gray-100 truncate">{otherParticipant.username}</div>
+                                    <div className="text-xs text-gray-400 truncate">{lastMsgSender}{lastMsgContent}</div>
                                 </div>
                             </div>
                         );
                     }) : (
-                         <p className="p-4 text-gray-500 text-center mt-6">Không có cuộc trò chuyện nào. Hãy tìm bạn bè để bắt đầu!</p>
+                        <div className="text-gray-400 text-center py-8">Không có hội thoại nào</div>
                     )}
                 </div>
             </div>
-
-            <div className={`w-full md:flex-1 flex flex-col bg-gray-50 ${!isChatAreaActive ? 'hidden md:flex' : 'flex'}`}>
+            <div className={`w-full md:flex-1 flex flex-col bg-[#16213a] ${!isChatAreaActive ? 'hidden md:flex' : 'flex'}`}>
                 {isChatAreaActive ? (
                     <>
-                        <div className="p-3 border-b border-gray-200 bg-white flex items-center justify-between shadow-sm">
+                        <div className="p-3 border-b border-[#22304a] bg-[#101820] flex items-center justify-between shadow-sm">
                             <div className="flex items-center">
-                                <button onClick={handleBackToConversations} className="md:hidden mr-2 p-2 rounded-full hover:bg-gray-100 text-gray-600">
+                                <button onClick={handleBackToConversations} className="md:hidden mr-2 p-2 rounded-full hover:bg-[#22304a] text-gray-300">
                                     <FontAwesomeIcon icon={faArrowLeft} />
                                 </button>
                                 <img 
@@ -182,17 +178,16 @@ const ChatPage = () => {
                                     className="w-10 h-10 rounded-full mr-3 object-cover"
                                 />
                                 <div>
-                                    <h3 className="text-md font-semibold text-gray-800">
+                                    <h3 className="text-md font-semibold text-gray-100">
                                         {activeChatPartner.username}
                                     </h3>
                                 </div>
                             </div>
-                            <button className="p-2 rounded-full hover:bg-gray-100 text-gray-500">
+                            <button className="p-2 rounded-full hover:bg-[#22304a] text-gray-400">
                                 <FontAwesomeIcon icon={faEllipsisV} />
                             </button>
                         </div>
-
-                        <div ref={messagesEndRef} className="flex-grow overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar bg-gradient-to-br from-gray-50 to-gray-100">
+                        <div ref={messagesEndRef} className="flex-1 overflow-y-auto px-4 py-6 space-y-4 bg-[#16213a]">
                             {messagesToDisplay.map((msg) => {
                                 const isSender = msg.senderId?._id === user._id;
                                 const senderName = isSender ? 'Bạn' : msg.senderId?.username;
@@ -206,10 +201,10 @@ const ChatPage = () => {
                                                 className="w-7 h-7 rounded-full mr-2 mb-1 object-cover flex-shrink-0 self-start mt-1"
                                             />
                                         )}
-                                        <div className={`max-w-[65%] md:max-w-[60%] p-2.5 px-3.5 rounded-2xl shadow-sm relative ${isSender ? 'bg-green-500 text-white rounded-br-md' : 'bg-white text-gray-700 rounded-bl-md'}`}>
-                                            {!isSender && <p className="text-xs font-semibold mb-0.5 text-green-600">{senderName}</p>}
+                                        <div className={`max-w-xs md:max-w-md rounded-2xl px-4 py-2 shadow-md ${isSender ? 'bg-blue-700 text-white ml-8' : 'bg-[#22304a] text-gray-100 mr-8'}`}>
+                                            {!isSender && <p className="text-xs font-semibold mb-0.5 text-green-400">{senderName}</p>}
                                             <p className="text-sm break-words whitespace-pre-wrap">{msg.content}</p>
-                                            <p className={`text-xs mt-1 ${isSender ? 'text-green-100 opacity-70' : 'text-gray-400'} text-right`}>
+                                            <p className={`text-xs mt-1 ${isSender ? 'text-blue-200 opacity-70' : 'text-gray-400'} text-right`}>
                                                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </p>
                                         </div>
@@ -223,42 +218,33 @@ const ChatPage = () => {
                                     </div>
                                 );
                             })}
-                            {messagesToDisplay.length === 0 && (
-                                <div className="text-center text-gray-500 pt-10 flex flex-col items-center">
-                                    <FontAwesomeIcon icon={faUserCircle} size="3x" className="text-gray-300 mb-3"/>
-                                    <p>Chưa có tin nhắn nào.</p>
-                                    <p className="text-sm">{currentConversationId ? "Hãy bắt đầu cuộc trò chuyện!" : (newRecipientInfo ? `Gửi tin nhắn cho ${newRecipientInfo.username}.` : "")}</p>
-                                </div>
-                            )}
                         </div>
-
-                        <div className="p-3 md:p-4 border-t border-gray-200 bg-white flex items-center space-x-3">
+                        <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-4 border-t border-[#22304a] bg-[#101820]">
                             <input
                                 type="text"
                                 value={newMessageContent}
-                                onKeyPress={(e) => { if (e.key === 'Enter' && !e.shiftKey) { handleSendMessage(e); }}}
-                                onChange={(e) => setNewMessageContent(e.target.value)}
-                                placeholder={activeChatPartner ? `Nhắn tin tới ${activeChatPartner.username}...` : "..."}
-                                className="flex-grow p-3 px-4 border-none bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
-                                disabled={!activeChatPartner}
+                                onChange={e => setNewMessageContent(e.target.value)}
+                                placeholder="Nhập tin nhắn..."
+                                className="flex-1 px-4 py-3 rounded-xl bg-[#16213a] text-gray-100 border border-[#22304a] focus:ring-2 focus:ring-blue-700 focus:border-transparent placeholder-gray-400 outline-none"
+                                autoComplete="off"
                             />
                             <button
                                 onClick={handleSendMessage}
                                 type="button"
                                 disabled={!newMessageContent.trim() || !activeChatPartner}
-                                className="bg-green-500 hover:bg-green-600 text-white font-semibold p-3 w-12 h-12 flex items-center justify-center rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-1"
+                                className="bg-blue-700 hover:bg-blue-800 text-white font-semibold p-3 w-12 h-12 flex items-center justify-center rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
                             >
                                 <FontAwesomeIcon icon={faPaperPlane} />
                             </button>
-                        </div>
+                        </form>
                     </>
                 ) : (
-                    <div className="flex-grow flex flex-col items-center justify-center bg-white p-6 text-center">
-                        <svg className="w-16 h-16 text-gray-300 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1">
+                    <div className="flex-grow flex flex-col items-center justify-center bg-[#101820] p-6 text-center">
+                        <svg className="w-16 h-16 text-gray-700 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                         </svg>
-                        <h3 className="text-xl font-semibold text-gray-700 mb-2">Trò chuyện chưa bắt đầu</h3>
-                        <p className="text-gray-500 max-w-xs">Chọn một người bạn từ danh sách bên trái hoặc tìm kiếm để bắt đầu một cuộc hội thoại mới.</p>
+                        <h3 className="text-xl font-semibold text-gray-200 mb-2">Trò chuyện chưa bắt đầu</h3>
+                        <p className="text-gray-400 max-w-xs">Chọn một người bạn từ danh sách bên trái hoặc tìm kiếm để bắt đầu một cuộc hội thoại mới.</p>
                     </div>
                 )}
             </div>

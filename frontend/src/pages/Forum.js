@@ -50,8 +50,6 @@ const Forum = () => {
   // Filter and sort posts
   useEffect(() => {
     let filtered = [...posts];
-
-    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(post => 
         post.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -59,15 +57,11 @@ const Forum = () => {
         post.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
-
-    // Apply tag filter
     if (filterTag) {
       filtered = filtered.filter(post => 
         post.tags?.some(tag => tag.toLowerCase() === filterTag.toLowerCase())
       );
     }
-
-    // Apply sorting
     switch (sortBy) {
       case 'popular':
         filtered.sort((a, b) => (b.likesCount || b.likes?.length || 0) - (a.likesCount || a.likes?.length || 0));
@@ -84,7 +78,6 @@ const Forum = () => {
         filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         break;
     }
-
     setFilteredPosts(filtered);
   }, [posts, searchTerm, sortBy, filterTag]);
 
@@ -101,11 +94,9 @@ const Forum = () => {
     const fetchPosts = async () => {
       try {
         const response = await postAPI.getPosts();
-        console.log('Fetched posts:', response.data.data);
         setPosts(response.data.data);
       } catch (err) {
         setError('Không thể tải bài viết');
-        console.error('Error fetching posts:', err);
       } finally {
         setLoading(false);
       }
@@ -119,13 +110,11 @@ const Forum = () => {
       setError('Cannot upload more than 10 images');
       return;
     }
-    // Nếu không chọn file mới, giữ preview ảnh cũ
     if (files.length === 0 && isEdit && oldImages.length > 0) {
       setImagePreview(oldImages);
       setEditFormData((prev) => ({ ...prev, images: [] }));
       return;
     }
-    // Create preview URLs cho file mới
     const previews = files.map(file => URL.createObjectURL(file));
     setImagePreview(previews);
     if (isEdit) {
@@ -139,46 +128,24 @@ const Forum = () => {
     e.preventDefault();
     setIsCreating(true);
     setError(null);
-    
-    console.log('Creating post with data:', formData);
-    console.log('Images to upload:', formData.images);
-    
     const formDataToSend = new FormData();
     formDataToSend.append('title', formData.title);
     formDataToSend.append('content', formData.content);
     formDataToSend.append('tags', formData.tags);
-    
     formData.images.forEach((file, index) => {
-      console.log(`Appending image ${index}:`, file);
       formDataToSend.append('images', file);
     });
-
-    // Log FormData contents
-    for (let pair of formDataToSend.entries()) {
-      console.log(pair[0] + ': ' + pair[1]);
-    }
-
     try {
-      console.log('Sending request to create post...');
       const response = await postAPI.createPost(formDataToSend);
-      console.log('Post created successfully:', response.data);
-      
-      // Không thêm bài viết mới vào danh sách bài viết hiện tại
-      // vì bài viết mới sẽ có status = 'pending' và sẽ không hiển thị
-      // trong getPosts cho đến khi được duyệt
-      
       setShowCreateForm(false);
       setFormData({ title: '', content: '', tags: '', images: [] });
       setImagePreview([]);
       setSuccessMessage('Bài viết đã được tạo thành công! Bài viết sẽ được hiển thị sau khi được duyệt.');
-      
       toast.success('Bài viết đã được tạo và sẽ được hiển thị sau khi quản trị viên duyệt', {
         position: "top-center",
         autoClose: 5000
       });
     } catch (err) {
-      console.error('Error creating post:', err);
-      console.error('Error response:', err.response);
       setError(err.response?.data?.message || 'Failed to create post');
     } finally {
       setIsCreating(false);
@@ -205,13 +172,11 @@ const Forum = () => {
     formDataToSend.append('title', editFormData.title);
     formDataToSend.append('content', editFormData.content);
     formDataToSend.append('tags', editFormData.tags);
-    
     if (editFormData.images && editFormData.images.length > 0) {
       editFormData.images.forEach((file) => {
         formDataToSend.append('images', file);
       });
     }
-
     try {
       const response = await postAPI.updatePost(editPostId, formDataToSend);
       setPosts(posts.map(post => (post._id === editPostId ? response.data.data : post)));
@@ -254,107 +219,100 @@ const Forum = () => {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#0a192f] to-[#101820]">
       <div className="text-center">
         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600 font-medium">Đang tải diễn đàn...</p>
+        <p className="text-gray-200 font-medium">Đang tải diễn đàn...</p>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-[#0a192f] to-[#101820] px-4 md:px-8">
       {/* Hero Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4">
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-3 rounded-xl">
-                <FaUsers className="text-white text-2xl" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                  Diễn Đàn Cộng Đồng
-                </h1>
-                <p className="text-gray-500 mt-1">Chia sẻ, thảo luận và kết nối với cộng đồng</p>
-              </div>
+      <div className="bg-[#101820] shadow-sm border-b border-[#22304a] px-0 md:px-0">
+        <div className="max-w-6xl mx-auto px-0 md:px-0 py-6">
+          <div className="flex items-center space-x-4">
+            <div className="bg-gradient-to-r from-blue-800 to-indigo-900 p-3 rounded-xl">
+              <FaUsers className="text-white text-2xl" />
             </div>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#e0e7ef] to-[#bfc9d9] bg-clip-text text-transparent">
+                Diễn Đàn Cộng Đồng
+              </h1>
+              <p className="text-gray-400 mt-1">Chia sẻ, thảo luận và kết nối với cộng đồng</p>
+            </div>
+          </div>
           {user && (
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowCreateForm(true)}
-                className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+              className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-800 to-indigo-900 text-white rounded-xl hover:from-blue-900 hover:to-indigo-950 transition-all duration-300 shadow-lg hover:shadow-xl"
             >
               <FaPlus className="mr-2" />
               Tạo bài viết mới
             </motion.button>
           )}
         </div>
-
-          {/* Search and Filter Bar */}
-          <div className="flex flex-col lg:flex-row gap-4 items-center">
-            <div className="relative flex-1 max-w-md">
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Tìm kiếm bài viết..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-              />
-            </div>
-
-            <div className="flex gap-3 items-center">
-              {/* Sort Options */}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-              >
-                <option value="newest">🕒 Mới nhất</option>
-                <option value="popular">❤️ Phổ biến</option>
-                <option value="trending">🔥 Thịnh hành</option>
-              </select>
-
-              {/* Tag Filter */}
-              <select
-                value={filterTag}
-                onChange={(e) => setFilterTag(e.target.value)}
-                className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-              >
-                <option value="">🏷️ Tất cả chủ đề</option>
-                {allTags.map(tag => (
-                  <option key={tag} value={tag}>#{tag}</option>
-                ))}
-              </select>
-            </div>
+        {/* Search and Filter Bar */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4">
+          <div className="relative flex-1 max-w-md">
+            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm bài viết..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-[#22304a] rounded-xl focus:ring-2 focus:ring-blue-700 focus:border-transparent transition-all duration-300 bg-[#16213a] text-gray-100 placeholder-gray-400"
+            />
           </div>
-
-          {/* Stats Bar */}
-          <div className="flex gap-6 mt-6 text-sm text-gray-600">
-            <div className="flex items-center gap-2">
-              <FaClock className="text-blue-500" />
-              <span>{posts.length} bài viết</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <FaFire className="text-orange-500" />
-              <span>{filteredPosts.length} kết quả</span>
-            </div>
-            {searchTerm && (
-              <div className="flex items-center gap-2">
-                <FaSearch className="text-green-500" />
-                <span>Tìm kiếm: "{searchTerm}"</span>
-              </div>
-            )}
+          <div className="flex gap-3 items-center">
+            {/* Sort Options */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-3 border border-[#22304a] rounded-xl focus:ring-2 focus:ring-blue-700 focus:border-transparent bg-[#16213a] text-gray-100"
+            >
+              <option value="newest">🕒 Mới nhất</option>
+              <option value="popular">❤️ Phổ biến</option>
+              <option value="trending">🔥 Thịnh hành</option>
+            </select>
+            {/* Tag Filter */}
+            <select
+              value={filterTag}
+              onChange={(e) => setFilterTag(e.target.value)}
+              className="px-4 py-3 border border-[#22304a] rounded-xl focus:ring-2 focus:ring-blue-700 focus:border-transparent bg-[#16213a] text-gray-100"
+            >
+              <option value="">🏷️ Tất cả chủ đề</option>
+              {allTags.map(tag => (
+                <option key={tag} value={tag}>#{tag}</option>
+              ))}
+            </select>
           </div>
         </div>
+        {/* Stats Bar */}
+        <div className="flex items-center gap-6 mt-4 text-gray-300">
+          <div className="flex items-center gap-2">
+            <FaClock className="text-blue-400" />
+            <span>{posts.length} bài viết</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FaFire className="text-orange-400" />
+            <span>{filteredPosts.length} kết quả</span>
+          </div>
+          {searchTerm && (
+            <div className="flex items-center gap-2">
+              <FaSearch className="text-green-400" />
+              <span>Tìm kiếm: "{searchTerm}"</span>
+            </div>
+          )}
+        </div>
       </div>
-
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-0 md:px-0 py-8">
         {/* Thông báo về việc bài viết cần được duyệt */}
-        <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-500 text-blue-700 rounded-lg flex items-center space-x-3">
+        <div className="mb-6 p-4 bg-[#16213a] border-l-4 border-blue-700 text-blue-200 rounded-lg flex items-center space-x-3">
           <div className="flex-shrink-0">
             <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
