@@ -802,3 +802,63 @@ exports.getDashboardStats = async (req, res) => {
     res.status(500).json({ message: 'Error fetching dashboard stats', error: error.message });
   }
 };
+
+// API debug để tạo khiếu nại test đầy đủ thông tin
+exports.createTestComplaint = async (req, res) => {
+  try {
+    const testEmail = 'thantdgoku@gmail.com';
+    const testComplaint = new Complaint({
+      user: '64ff7978d0bdf7ed717156fb', // ID user mặc định
+      subject: 'Kháng cáo tài khoản bị ban TEST',
+      description: `Đây là khiếu nại test tự động tạo để kiểm tra hiển thị.
+      
+Email cần mở khóa: ${testEmail}
+      
+Vui lòng mở khóa tài khoản của tôi. Tôi cam kết không vi phạm quy định nữa.`,
+      category: 'user_behavior',
+      priority: 'high',
+      status: 'pending'
+    });
+
+    await testComplaint.save();
+    
+    console.log('✅ Đã tạo khiếu nại test:', testComplaint._id);
+
+    // Tìm kiếm user với email test
+    const user = await User.findOne({ email: testEmail });
+    
+    if (user) {
+      console.log('✅ Đã tìm thấy user tương ứng:', user.username);
+      
+      // Đảm bảo user có trạng thái banned để test
+      if (user.status !== 'banned') {
+        console.log('⚠️ User không trong trạng thái banned, đang cập nhật...');
+        user.status = 'banned';
+        user.banReason = 'Banned for testing purposes';
+        user.banDate = new Date();
+        user.banExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 ngày
+        await user.save();
+      }
+    } else {
+      console.log('❌ Không tìm thấy user với email:', testEmail);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Đã tạo khiếu nại test thành công',
+      complaint: {
+        id: testComplaint._id,
+        subject: testComplaint.subject,
+        description: testComplaint.description,
+        extractedEmail: testEmail
+      }
+    });
+  } catch (error) {
+    console.error('❌ Lỗi khi tạo khiếu nại test:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Lỗi khi tạo khiếu nại test', 
+      error: error.message 
+    });
+  }
+};

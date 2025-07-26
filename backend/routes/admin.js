@@ -122,6 +122,9 @@ router.get('/public/debug/events', async (req, res) => {
   }
 });
 
+// Debug route để tạo khiếu nại test
+router.get('/debug/create-test-complaint', adminController.createTestComplaint);
+
 // Dashboard stats
 router.get('/dashboard/stats', adminController.getDashboardStats);
 
