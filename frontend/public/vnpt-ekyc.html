@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VNPT eKYC - Xác thực căn cước công dân</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0f4c81;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+        }
+        .button {
+            background-color: #0f4c81;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: block;
+            margin: 20px auto;
+            width: 250px;
+            text-align: center;
+        }
+        .button:hover {
+            background-color: #0c3c65;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+    <!-- VNPT eKYC SDK dependencies -->
+    <script src="https://sdk.ekyc.vnptit.vn/ekyc-web/lottie/bodymovin.js"></script>
+    <script src="https://sdk.ekyc.vnptit.vn/ekyc-web/lottie/VNPTBrowserSDKApp.js"></script>
+    <script src="https://sdk.ekyc.vnptit.vn/ekyc-web/lottie/jsQR.js"></script>
+    <link rel="stylesheet" href="https://sdk.ekyc.vnptit.vn/ekyc-web/ekyc-web-sdk-2.1.0.css">
+    <script src="https://sdk.ekyc.vnptit.vn/ekyc-web/ekyc-web-sdk-2.1.0.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Xác thực căn cước công dân</h1>
+        <p style="text-align: center;">Vui lòng thực hiện theo các bước hướng dẫn để xác thực CCCD</p>
+        
+        <div id="ekyc_sdk_intergrated"></div>
+        
+        <div class="result" id="result" style="display: none;">
+            <h3>Kết quả xác thực:</h3>
+            <pre id="result_content"></pre>
+            <button id="save_result" class="button">Lưu kết quả và đóng</button>
+        </div>
+    </div>
+
+    <script>
+        // VNPT eKYC SDK configuration
+        const TOKEN_KEY = "d5007736-d581-4850-b0de-251efa3c"; // Demo token - nên lấy từ .env
+        const TOKEN_ID = "0d2e6999-3f49-42c6-8334-40710a8ec"; // Demo token - nên lấy từ .env
+        const AUTHORIZION = btoa(`${TOKEN_ID}:${TOKEN_KEY}`);
+        
+        // Khởi tạo EKYC SDK
+        var ekycsdk = new EKYC_SDK({
+            element: 'ekyc_sdk_intergrated',
+            tokenKey: TOKEN_KEY,
+            tokenID: TOKEN_ID,
+            authorization: AUTHORIZION,
+            FLOW_TYPE: "DOCUMENT", // Loại luồng: DOCUMENT
+            TYPE_DOCUMENT: -1, // Loại giấy tờ: CCCD (-1)
+            maskEnabled: false,
+            language: "vi",
+        });
+        
+        // Khởi tạo SDK và xử lý kết quả
+        ekycsdk.init(function(res) {
+            console.log("eKYC SDK result:", res);
+            
+            // Hiển thị kết quả
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('result_content').innerText = JSON.stringify(res, null, 2);
+            
+            // Xử lý nút lưu kết quả
+            document.getElementById('save_result').addEventListener('click', function() {
+                // Gửi kết quả đến backend để lưu vào DB
+                fetch('/api/users/save-id-verification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': localStorage.getItem('token') // Lấy token từ localStorage
+                    },
+                    body: JSON.stringify(res)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Lưu kết quả xác thực:', data);
+                    if (data.success) {
+                        // Quay lại trang trước với thông báo thành công
+                        window.opener.postMessage({ type: 'id_verification_success', data: data }, '*');
+                        setTimeout(() => window.close(), 1000); // Đóng cửa sổ sau 1s
+                    } else {
+                        alert('Lỗi khi lưu kết quả: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Lỗi khi gửi kết quả đến server:', error);
+                    alert('Lỗi khi gửi kết quả đến server: ' + error.message);
+                });
+            });
+        });
+    </script>
+</body>
+</html> 

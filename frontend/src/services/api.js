@@ -494,6 +494,21 @@ export const userProfileAPI = {
       throw error.response?.data || error;
     }
   },
+
+  // Verify ID Card
+  verifyIdCard: async (formData) => {
+    try {
+      const response = await api.post('/users/verify-id-card', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Verify ID card failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
 };
 
 // Booking API

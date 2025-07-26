@@ -5,6 +5,7 @@ const Complaint = require('../models/Complaint');
 const ViolationReport = require('../models/ViolationReport');
 const OwnerRequest = require('../models/OwnerRequest');
 const Ticket = require('../models/Ticket');
+const Notification = require('../models/Notification'); // Import Notification model
 
 // Get all users with pagination and filters
 exports.getUsers = async (req, res) => {
@@ -113,6 +114,25 @@ exports.approveEvent = async (req, res) => {
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
+
+    // --- Create Notification for each organizer ---
+    if (event.organizers && event.organizers.length > 0) {
+        const io = req.app.get('io');
+        for (const organizer of event.organizers) {
+            const notification = await Notification.create({
+                userId: organizer._id,
+                type: 'event_approved',
+                title: 'Sự kiện đã được duyệt',
+                message: `Sự kiện "<strong>${event.title}</strong>" của bạn đã được duyệt và hiện đã được công khai.`,
+                relatedTo: {
+                  type: 'event',
+                  id: event._id
+                }
+            });
+            // --- Emit socket event ---
+            io.to(organizer._id.toString()).emit('new_notification', notification);
+        }
+    }
     
     res.json({ message: 'Event approved successfully', event });
   } catch (error) {
@@ -163,6 +183,8 @@ exports.getEvents = async (req, res) => {
     
     const events = await Event.find(filter)
       .populate('organizers', 'username email fullName')
+      .populate('ticketTypes') // Thêm dòng này để lấy thông tin vé
+      .populate('location.venue', 'name address') // Thêm dòng này để lấy thông tin địa điểm
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -344,6 +366,29 @@ exports.moderatePost = async (req, res) => {
       ...post.toObject(),
       author: post.userId
     };
+
+    // --- Gửi notification khi duyệt bài viết ---
+    if (status === 'approved' && post.userId) {
+      const Notification = require('../models/Notification');
+      const notification = await Notification.create({
+        userId: post.userId._id || post.userId,
+        type: 'post_approved',
+        title: 'Bài viết đã được duyệt',
+        message: `Bài viết của bạn "${post.title || ''}" đã được duyệt và hiển thị trên diễn đàn.`,
+        relatedTo: {
+          type: 'post',
+          id: post._id
+        }
+      });
+      // Emit socket event nếu có socket.io
+      const io = req.app.get('io');
+      if (io) {
+        io.to(post.userId._id ? post.userId._id.toString() : post.userId.toString()).emit('new_notification', notification);
+        // Emit cho tất cả client để forum realtime
+        io.emit('post_approved', { postId: post._id });
+      }
+    }
+    // --- End notification ---
     
     res.json({ message: 'Post moderated successfully', post: mappedPost });
   } catch (error) {
@@ -543,18 +588,40 @@ exports.approveOwnerRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const request = await OwnerRequest.findById(id)
-      .populate('user', 'username email fullName');
+      .populate('user', 'username email fullName idVerification');
+      
     if (!request) {
       return res.status(404).json({ message: 'Request not found' });
     }
+    
+    // Kiểm tra xác thực CCCD của người dùng
+    const user = await User.findById(request.user._id);
+    if (!user.idVerification || !user.idVerification.verified) {
+      return res.status(400).json({ 
+        message: 'Người dùng chưa xác thực CCCD',
+        idVerificationStatus: user.idVerification || { verified: false },
+        requiredAction: 'verify_id_card'
+      });
+    }
+    
     // Update request status
     request.status = 'approved';
     request.approvedAt = new Date();
     request.approvedBy = req.user.id;
     await request.save();
+    
     // Update user role to event_owner
     await User.findByIdAndUpdate(request.user._id, { role: 'event_owner' });
-    res.json({ message: 'Owner request approved successfully', request });
+    
+    res.json({ 
+      message: 'Owner request approved successfully', 
+      request,
+      idVerification: {
+        verified: true,
+        idNumber: user.idVerification.idNumber,
+        name: user.idVerification.idFullName
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error approving owner request', error: error.message });
   }
