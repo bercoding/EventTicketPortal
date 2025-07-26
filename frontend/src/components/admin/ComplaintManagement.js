@@ -347,7 +347,13 @@ const ComplaintManagement = () => {
         if (response.data.success && response.data.users && response.data.users.length > 0) {
           // Lấy người dùng đầu tiên tìm thấy
           setFoundUser(response.data.users[0]);
-          toast.success(`Tìm thấy người dùng: ${response.data.users[0].username}`);
+          
+          // Thông báo dựa vào trạng thái tài khoản
+          if (response.data.users[0].status === 'banned') {
+            toast.success(`Tìm thấy người dùng: ${response.data.users[0].username} (Đang bị khóa)`);
+          } else {
+            toast.info(`Tìm thấy người dùng: ${response.data.users[0].username} (Đang hoạt động - không bị khóa)`);
+          }
         } else {
           setFoundUser(null);
           toast.error('Không tìm thấy thông tin người dùng');
@@ -659,9 +665,17 @@ const ComplaintManagement = () => {
                                             <p><span className="font-semibold">ID:</span> {foundUser._id}</p>
                                             <p><span className="font-semibold">Username:</span> {foundUser.username}</p>
                                             <p><span className="font-semibold">Email:</span> {foundUser.email}</p>
-                                            <p><span className="font-semibold">Trạng thái:</span> <span className={foundUser.status === 'banned' ? 'text-red-500 font-bold' : 'text-green-500'}>{foundUser.status}</span></p>
+                                            <p>
+                                              <span className="font-semibold">Trạng thái:</span> 
+                                              {foundUser.status === 'banned' ? (
+                                                <span className="text-red-500 font-bold"> Đang bị khóa</span>
+                                              ) : (
+                                                <span className="text-green-500 font-bold"> Đang hoạt động (không bị khóa)</span>
+                                              )}
+                                            </p>
                                         </div>
                                         
+                                        {/* Nếu đang bị khóa thì hiển thị nút mở khóa */}
                                         {foundUser.status === 'banned' && (
                                             <button 
                                                 onClick={unbanFoundUser}
@@ -675,6 +689,54 @@ const ComplaintManagement = () => {
                                                     </svg>
                                                 ) : null}
                                                 Mở khóa người dùng này
+                                            </button>
+                                        )}
+                                        
+                                        {/* Nếu không bị khóa thì hiển thị nút đánh dấu giải quyết */}
+                                        {foundUser.status !== 'banned' && (
+                                            <button 
+                                                onClick={async () => {
+                                                    try {
+                                                        setIsSubmitting(true);
+                                                        const token = localStorage.getItem('token');
+                                                        
+                                                        // Đánh dấu khiếu nại đã được giải quyết
+                                                        await axios.post(
+                                                            `${API_URL}/admin/complaints/${selectedComplaint._id}/resolve`,
+                                                            { 
+                                                                resolution: 'Đã xác nhận tài khoản không bị khóa. Khiếu nại đã được giải quyết.' 
+                                                            },
+                                                            {
+                                                                headers: {
+                                                                    'Authorization': `Bearer ${token}`,
+                                                                    'Content-Type': 'application/json'
+                                                                }
+                                                            }
+                                                        );
+                                                        
+                                                        toast.success('Đã đánh dấu khiếu nại đã được giải quyết');
+                                                        closeModal();
+                                                        fetchComplaints();
+                                                    } catch (error) {
+                                                        console.error('❌ Lỗi:', error);
+                                                        toast.error('Không thể đánh dấu khiếu nại đã được giải quyết');
+                                                    } finally {
+                                                        setIsSubmitting(false);
+                                                    }
+                                                }}
+                                                className="mt-2 w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 disabled:opacity-50"
+                                                disabled={isSubmitting}
+                                            >
+                                                {isSubmitting ? (
+                                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                ) : (
+                                                    <>
+                                                        <FaPaperPlane className="mr-1.5" /> Đánh dấu đã giải quyết (tài khoản không bị khóa)
+                                                    </>
+                                                )}
                                             </button>
                                         )}
                                     </div>
