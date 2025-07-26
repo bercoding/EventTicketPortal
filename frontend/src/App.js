@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Toaster } from 'react-hot-toast'; // Import Toaster
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
@@ -27,6 +28,7 @@ import MyTicketsPage from './pages/MyTicketsPage';
 import EventDetailPage from './pages/EventDetailPage';
 import BookingPage from './pages/BookingPage';
 import Forum from './pages/Forum';
+import PostDetail from './components/forum/PostDetail'; // Import trang chi tiết mới
 import EventTemplateSelection from './pages/event/EventTemplateSelection';
 import CreateEvent from './pages/event/CreateEvent';
 import CreateEventWithSeating from './pages/event/CreateEventWithSeating';
@@ -41,9 +43,8 @@ import POSConfirmation from './pages/POSConfirmation';
 
 import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './components/admin/AdminDashboard';
-import EventManagement from './components/admin/EventManagement';
-import ComplaintManagement from './components/admin/ComplaintManagement';
 import AdminEventManagement from './components/admin/AdminEventManagement';
+import ComplaintManagement from './components/admin/ComplaintManagement';
 import PostManagement from './components/admin/PostManagement';
 import ViolationReports from './components/admin/ViolationReports';
 import RevenueReport from './components/admin/RevenueReport';
@@ -57,9 +58,11 @@ import OwnerRevenue from './components/owner/OwnerRevenue';
 import OwnerCustomers from './components/owner/OwnerCustomers';
 import OwnerFeedback from './components/owner/OwnerFeedback';
 import OwnerRules from './components/owner/OwnerRules';
+import OwnerStatistics from './components/owner/OwnerStatistics';
 import SimpleTicketBooking from './pages/SimpleTicketBooking';
 import { FriendPage } from './pages/friend';
 import { useAuth } from './context/AuthContext';
+import ChatBox from './components/ChatBox';
 
 // Global Navigation Monitor Component
 const NavigationMonitor = () => {
@@ -119,6 +122,7 @@ const App = () => {
             <AuthProvider>
                 <SocketProvider>
                     <Router>
+                        <Toaster position="top-right" reverseOrder={false} />
                         <ToastContainer
                             position="top-right"
                             autoClose={5000}
@@ -157,6 +161,7 @@ const App = () => {
                                             <Route path="/chat" element={<MainLayout><ChatPage /></MainLayout>} />
                                             <Route path="/friends" element={<MainLayout><FriendPage /></MainLayout>} />
                                             <Route path="/forum" element={<MainLayout><Forum /></MainLayout>} />
+                                            <Route path="/forum/post/:id" element={<MainLayout><PostDetail /></MainLayout>} /> {/* Thêm route mới */}
                                             <Route path="/event-templates" element={<MainLayout><EventTemplateSelection /></MainLayout>} />
                                             <Route path="/create-event" element={<MainLayout><CreateEvent /></MainLayout>} />
                                             <Route path="/create-event-with-seating" element={<MainLayout><CreateEventWithSeating /></MainLayout>} />
@@ -179,12 +184,15 @@ const App = () => {
                                             <Route path="/owner" element={<PrivateRoute roles={['owner', 'event_owner']}><OwnerLayout /></PrivateRoute>}>
                                                 <Route index element={<OwnerDashboard />} />
                                             </Route>
+                                            
+                                            {/* Owner Statistics - Independent Route */}
+                                            <Route path="/owner/statistics" element={<PrivateRoute roles={['owner', 'event_owner']}><OwnerStatistics /></PrivateRoute>} />
 
                                             {/* Admin Routes */}
                                             <Route path="/admin" element={<PrivateRoute roles={['admin']}><AdminLayout /></PrivateRoute>}>
                                                 <Route index element={<AdminDashboard />} />
                                                 <Route path="users" element={<UserManagement />} />
-                                                <Route path="events" element={<EventManagement />} />
+                                                <Route path="events" element={<AdminEventManagement />} />
                                                 <Route path="featured-events" element={<AdminEventManagement />} />
                                                 <Route path="complaints" element={<ComplaintManagement />} />
                                                 <Route path="posts" element={<PostManagement />} />
@@ -199,6 +207,7 @@ const App = () => {
                             } />
                         </Routes>
                         <NavigationMonitor />
+                        <ChatBox />
                     </Router>
                 </SocketProvider>
             </AuthProvider>

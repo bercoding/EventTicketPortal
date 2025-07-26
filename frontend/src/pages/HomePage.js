@@ -166,6 +166,17 @@ const HomePage = () => {
         };
 
         const startDateFormatted = safeFormatDate(event.startDate);
+        const startTimeFormatted = event.startDate ? new Date(event.startDate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null;
+        let locationDisplay = null;
+        if (event.location) {
+          if (event.location.type === 'online') {
+            locationDisplay = '🌐 Trực tuyến';
+          } else if (event.location.venueName) {
+            locationDisplay = event.location.venueName;
+          } else {
+            locationDisplay = event.location.address || 'Chưa xác định địa điểm';
+          }
+        }
         const priceDisplay = safeGetPrice(event.ticketTypes);
 
         return (
@@ -195,11 +206,18 @@ const HomePage = () => {
                         {priceDisplay}
                     </div>
 
-                    {/* Ngày tháng */}
-                    {startDateFormatted && (
-                        <div className="card-date">
-                            {startDateFormatted}
-                        </div>
+                    {/* Ngày & Giờ */}
+                    {(startDateFormatted || startTimeFormatted) && (
+                      <div className="card-date-time">
+                        <span>{startDateFormatted}</span>
+                        {startTimeFormatted && <span> • {startTimeFormatted}</span>}
+                      </div>
+                    )}
+                    {/* Địa điểm */}
+                    {locationDisplay && (
+                      <div className="card-location">
+                        {locationDisplay}
+                      </div>
                     )}
 
                     {/* Nút đặt vé - luôn ở cuối */}

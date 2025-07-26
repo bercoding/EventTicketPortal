@@ -20,10 +20,13 @@ const venueRoutes = require('./routes/venue'); // Add missing import
 const socketHandler = require('./socket/socketHandler'); // Sẽ tạo file này sau
 const contentRoutes = require('./routes/contentRoutes');
 const friendRoutes = require('./routes/friend'); // Sửa tham chiếu đúng tên file
+const notificationRouter = require('./routes/notification'); // Import notification routes
+const chatboxRouter = require('./routes/chatbox'); // Import chatbox routes
 
 const mongoose = require('mongoose');
 const cron = require('node-cron');
 const { cancelExpiredTickets } = require('./services/ticketService');
+
 
 const app = express();
 const server = http.createServer(app); // Tạo HTTP server từ Express app
@@ -65,6 +68,9 @@ app.use('/api/tickets', ticketRoutes); // Sử dụng ticketRoutes
 app.use('/api/bookings', bookingRoutes); // Sử dụng bookingRoutes
 app.use('/api/payments', require('./routes/payment')); // Sử dụng paymentRoutes
 app.use('/api/content', contentRoutes);
+app.use('/api/notifications', notificationRouter); // Sử dụng notification routes
+app.use('/api/chatbox', chatboxRouter); // Sử dụng chatbox routes
+app.use('/api/owner', require('./routes/owner')); // Sử dụng owner routes
 
 app.use(express.static('public', {
   maxAge: '1d',

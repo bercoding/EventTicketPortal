@@ -7,6 +7,7 @@ import ImageViewer from './ImageViewer';
 import CommentSection from './CommentSection';
 import { postAPI } from '../../services/api';
 
+// PostCard: Card bai viet
 const PostCard = ({
   post,
   user,
@@ -16,6 +17,7 @@ const PostCard = ({
   onDelete,
   onReport
 }) => {
+  // khoi tao state
   const [selectedImage, setSelectedImage] = useState(null);
   const [showViewer, setShowViewer] = useState(false);
   const [commentCount, setCommentCount] = useState(post.commentsCount || 0);
@@ -30,6 +32,7 @@ const PostCard = ({
   const [isLiking, setIsLiking] = useState(false);
   const optionsRef = useRef(null);
 
+  // fetch so luong comment khi mount
   useEffect(() => {
     const fetchCommentCount = async () => {
       try {
@@ -43,8 +46,8 @@ const PostCard = ({
     fetchCommentCount();
   }, [post._id]);
 
+  // kiem tra user da like chua va cap nhat likeCount
   useEffect(() => {
-    // Kiểm tra user đã like chưa
     if (user && post.likes) {
       setIsLiked(post.likes.some(like => {
         const likeUserId = like.userId?._id || like.userId;
@@ -56,44 +59,37 @@ const PostCard = ({
     setLikeCount(post.likesCount || post.likes?.length || 0);
   }, [post.likes, post.likesCount, user]);
 
+  // xu ly click anh de mo ImageViewer
   const handleImageClick = (image) => {
     setSelectedImage(image);
     setShowViewer(true);
   };
 
+  // dong ImageViewer
   const handleCloseViewer = () => {
     setShowViewer(false);
     setSelectedImage(null);
   };
 
+  // xu ly like bai viet
   const handleLike = async () => {
     if (!user || isLiking) return;
-    
     setIsLiking(true);
-    
-    // Optimistic update
+    // optimistic update
     const previousLikeState = isLiked;
     const previousLikeCount = likeCount;
-    
     setIsLiked(!isLiked);
     setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
-    
     try {
-      console.log('Sending like request for post:', post._id);
       const res = await postAPI.likePost(post._id);
-      console.log('Like response:', res.data);
-      
       if (res.data.success) {
         setIsLiked(res.data.liked);
         setLikeCount(res.data.likesCount);
       } else {
-        // Revert optimistic update if failed
         setIsLiked(previousLikeState);
         setLikeCount(previousLikeCount);
       }
     } catch (err) {
-      console.error('Error liking post:', err);
-      // Revert optimistic update
       setIsLiked(previousLikeState);
       setLikeCount(previousLikeCount);
     } finally {
@@ -101,6 +97,7 @@ const PostCard = ({
     }
   };
 
+  // hien modal danh sach nguoi da like
   const handleShowLikers = async () => {
     setLikersModalOpen(true);
     setLoadingLikers(true);
@@ -116,6 +113,7 @@ const PostCard = ({
     }
   };
 
+  // mo/thu comment section
   const handleShowComments = () => {
     setShowComments((prev) => {
       const next = !prev;
@@ -126,6 +124,7 @@ const PostCard = ({
     });
   };
 
+  // cap nhat danh sach nguoi da comment
   const handleUpdateCommenters = (comments) => {
     const users = [];
     const userIds = new Set();
@@ -138,6 +137,7 @@ const PostCard = ({
     setCommenters(users);
   };
 
+  // render UI
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

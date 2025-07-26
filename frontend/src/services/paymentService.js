@@ -12,9 +12,9 @@ class PaymentService {
     }
 
     // Xác nhận thanh toán POS (dành cho admin/POS operator)
-    async confirmPOSPayment(confirmData) {
+    async confirmPOSPayment(paymentId) {
         try {
-            const response = await api.post('/payments/confirm-pos-payment', confirmData);
+            const response = await api.put(`/payments/pos/${paymentId}/confirm`);
             return response.data;
         } catch (error) {
             throw error.response?.data || error;

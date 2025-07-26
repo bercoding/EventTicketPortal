@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const Notification = require('../models/Notification'); // Import Notification model
 
 // Get user's friends list
 exports.getFriendsList = async (req, res) => {
@@ -224,6 +225,21 @@ exports.addFriend = async (req, res) => {
     await sender.save();
     await receiver.save();
 
+    // --- Create Notification ---
+    const notification = await Notification.create({
+        userId: receiverId,
+        type: 'friend_request',
+        title: 'Lời mời kết bạn mới',
+        message: `${sender.fullName || sender.username} đã gửi cho bạn một lời mời kết bạn.`,
+        relatedTo: {
+          type: 'user',
+          id: senderId
+        }
+    });
+    // --- Emit socket event ---
+    const io = req.app.get('io');
+    io.to(receiverId.toString()).emit('new_notification', notification);
+
     res.status(200).json({ 
       success: true,
       message: 'Friend request sent successfully' 
@@ -259,6 +275,21 @@ exports.acceptFriendRequest = async (req, res) => {
 
     await user.save();
     await requester.save();
+
+    // --- Create Notification ---
+    const notification = await Notification.create({
+        userId: requesterId,
+        type: 'friend_accept',
+        title: 'Lời mời đã được chấp nhận',
+        message: `${user.fullName || user.username} đã chấp nhận lời mời kết bạn của bạn.`,
+        relatedTo: {
+          type: 'user',
+          id: userId
+        }
+    });
+    // --- Emit socket event ---
+    const io = req.app.get('io');
+    io.to(requesterId.toString()).emit('new_notification', notification);
 
     res.status(200).json({ 
       success: true,

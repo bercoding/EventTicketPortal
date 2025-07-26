@@ -1,4 +1,5 @@
-// src/pages/Forum.js
+
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { postAPI } from '../services/api';
@@ -7,51 +8,54 @@ import { FaPlus, FaTimes, FaSearch, FaFilter, FaTrendingUp, FaFire, FaClock, FaU
 import PostCard from '../components/forum/PostCard';
 import CreatePostModal from '../components/forum/CreatePostModal';
 import { toast } from 'react-toastify';
+import { useSocket } from '../context/SocketContext';
 
 const Forum = () => {
+// khoi tao state
   const { user } = useAuth();
-  const [posts, setPosts] = useState([]);
-  const [filteredPosts, setFilteredPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('newest'); // newest, popular, trending
-  const [filterTag, setFilterTag] = useState('');
-  const [formData, setFormData] = useState({
+  const { socket } = useSocket();
+  const [posts, setPosts] = useState([]); // Danh sách bài viết
+  const [filteredPosts, setFilteredPosts] = useState([]); // Danh sách sau khi filter/search/sort
+  const [loading, setLoading] = useState(true); // Trạng thái loading
+  const [error, setError] = useState(null); // Lỗi
+  const [showCreateForm, setShowCreateForm] = useState(false); // Hiện modal tạo bài viết
+  const [searchTerm, setSearchTerm] = useState(''); // Từ khoá tìm kiếm
+  const [sortBy, setSortBy] = useState('newest'); // Sắp xếp: newest, popular, trending
+  const [filterTag, setFilterTag] = useState(''); // Lọc theo tag
+  const [formData, setFormData] = useState({ // Dữ liệu tạo bài viết
     title: '',
     content: '',
     tags: '',
     images: [],
   });
-  const [editPostId, setEditPostId] = useState(null);
-  const [editPostObj, setEditPostObj] = useState(null); // Lưu post đang edit
-  const [editFormData, setEditFormData] = useState({
+  const [editPostId, setEditPostId] = useState(null); // ID bài viết đang sửa
+  const [editPostObj, setEditPostObj] = useState(null); // Object bài viết đang sửa
+  const [editFormData, setEditFormData] = useState({ // Dữ liệu form sửa bài viết
     title: '',
     content: '',
     tags: '',
     images: [],
   });
-  const [showOptions, setShowOptions] = useState(null);
-  const [imagePreview, setImagePreview] = useState([]);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [deleteModal, setDeleteModal] = useState({ open: false, postId: null });
-  const [allTags, setAllTags] = useState([]);
+  const [showOptions, setShowOptions] = useState(null); // Hiện menu tuỳ chọn bài viết
+  const [imagePreview, setImagePreview] = useState([]); // Preview ảnh khi tạo/sửa
+  const [isCreating, setIsCreating] = useState(false); // Đang tạo bài viết
+  const [isUpdating, setIsUpdating] = useState(false); // Đang cập nhật bài viết
+  const [isDeleting, setIsDeleting] = useState(null); // Đang xoá bài viết (id)
+  const [successMessage, setSuccessMessage] = useState(''); // Thông báo thành công
+  const [deleteModal, setDeleteModal] = useState({ open: false, postId: null }); // Modal xác nhận xoá
+  const [allTags, setAllTags] = useState([]); // Danh sách tag duy nhất
 
-  // Extract all unique tags from posts
+// lay danh sach tag duy nhat tu posts
   useEffect(() => {
     const tags = [...new Set(posts.flatMap(post => post.tags || []))];
     setAllTags(tags);
   }, [posts]);
 
-  // Filter and sort posts
+// filter, search, sort bài viết
   useEffect(() => {
     let filtered = [...posts];
 
-    // Apply search filter
+    // Lọc theo từ khoá
     if (searchTerm) {
       filtered = filtered.filter(post => 
         post.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -60,14 +64,14 @@ const Forum = () => {
       );
     }
 
-    // Apply tag filter
+    // Lọc theo tag
     if (filterTag) {
       filtered = filtered.filter(post => 
         post.tags?.some(tag => tag.toLowerCase() === filterTag.toLowerCase())
       );
     }
 
-    // Apply sorting
+    // Sắp xếp
     switch (sortBy) {
       case 'popular':
         filtered.sort((a, b) => (b.likesCount || b.likes?.length || 0) - (a.likesCount || a.likes?.length || 0));
@@ -88,6 +92,7 @@ const Forum = () => {
     setFilteredPosts(filtered);
   }, [posts, searchTerm, sortBy, filterTag]);
 
+// tu dong an successMessage sau 3s
   useEffect(() => {
     if (successMessage) {
       const timer = setTimeout(() => {
@@ -97,22 +102,33 @@ const Forum = () => {
     }
   }, [successMessage]);
 
+// lay danh sach bai viet tu api
   useEffect(() => {
     const fetchPosts = async () => {
       try {
         const response = await postAPI.getPosts();
-        console.log('Fetched posts:', response.data.data);
         setPosts(response.data.data);
       } catch (err) {
         setError('Không thể tải bài viết');
-        console.error('Error fetching posts:', err);
       } finally {
         setLoading(false);
       }
     };
     fetchPosts();
-  }, []);
 
+    // Lắng nghe socket event post_approved để realtime update
+    if (socket) {
+      const handlePostApproved = () => {
+        fetchPosts();
+      };
+      socket.on('post_approved', handlePostApproved);
+      return () => {
+        socket.off('post_approved', handlePostApproved);
+      };
+    }
+  }, [socket]);
+
+// xu ly chon file anh khi tao/sua bai viet
   const handleFileChange = (e, isEdit = false, oldImages = []) => {
     const files = Array.from(e.target.files);
     if (files.length > 10) {
@@ -135,6 +151,7 @@ const Forum = () => {
     }
   };
 
+// tao bai viet moi
   const handleCreatePost = async (e) => {
     e.preventDefault();
     setIsCreating(true);
@@ -185,6 +202,7 @@ const Forum = () => {
     }
   };
 
+// bat dau sua bai viet
   const startEditPost = (post) => {
     setEditPostId(post._id);
     setEditPostObj(post);
@@ -197,6 +215,7 @@ const Forum = () => {
     setShowOptions(null);
   };
 
+// luu bai viet sau khi sua
   const handleEditPost = async (e) => {
     e.preventDefault();
     setIsUpdating(true);
@@ -227,10 +246,12 @@ const Forum = () => {
     }
   };
 
+// xac nhan xoa bai viet
   const handleDeletePost = (postId) => {
     setDeleteModal({ open: true, postId });
   };
 
+// xac nhan xoa bai viet
   const confirmDeletePost = async () => {
     const postId = deleteModal.postId;
     setIsDeleting(postId);
@@ -248,11 +269,13 @@ const Forum = () => {
     }
   };
 
+// bao cao bai viet
   const handleReportPost = (postId) => {
     setShowOptions(null);
     setError('Report submitted (This feature is under development)');
   };
 
+// loading
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="text-center">

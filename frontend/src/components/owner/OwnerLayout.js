@@ -1,10 +1,10 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import OwnerSidebar from './OwnerSidebar';
 
-const OwnerLayout = ({ children }) => {
+const OwnerLayout = () => {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
 
@@ -13,7 +13,7 @@ const OwnerLayout = ({ children }) => {
         navigate('/login');
     };
 
-    if (!user || user.role !== 'owner') {
+    if (!user || (user.role !== 'owner' && user.role !== 'event_owner')) {
         return null;
     }
 
@@ -36,7 +36,7 @@ const OwnerLayout = ({ children }) => {
                 </header>
                 <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
                     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-                        {children}
+                        <Outlet />
                     </div>
                 </main>
             </div>

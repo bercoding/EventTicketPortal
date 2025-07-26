@@ -420,7 +420,7 @@ const SelectSeatPage = () => {
         console.warn('⚠️ Using default ticket type for seat:', seatToSelect);
       }
       
-      const price = ticketType ? ticketType.price : 0;
+      const price = ticketType && ticketType.price > 0 ? ticketType.price : 100000; // Default price 100k if no price found
       console.log('💲 Ticket price for selected seat:', price);
       
       const enrichedSeat = {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { adminAPI } from '../../services/api';
 import { toast } from 'react-toastify';
+import { useSocket } from '../../context/SocketContext';
 
 const PostManagement = () => {
   const [posts, setPosts] = useState([]);
@@ -13,10 +14,23 @@ const PostManagement = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const { socket } = useSocket();
 
   useEffect(() => {
     fetchPosts();
   }, [filter, currentPage, searchTerm]);
+
+  useEffect(() => {
+    if (socket) {
+      const handleNewPostPending = () => {
+        fetchPosts();
+      };
+      socket.on('new_post_pending', handleNewPostPending);
+      return () => {
+        socket.off('new_post_pending', handleNewPostPending);
+      };
+    }
+  }, [socket, filter, currentPage, searchTerm]);
 
   const fetchPosts = async () => {
     try {

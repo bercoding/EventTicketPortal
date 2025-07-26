@@ -56,7 +56,7 @@ const OwnerSidebar = () => {
         },
         {
             name: 'Thống kê',
-            path: '/owner/analytics',
+            path: '/owner/statistics',
             icon: FaChartLine,
             description: 'Phân tích dữ liệu'
         },

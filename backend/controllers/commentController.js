@@ -1,5 +1,7 @@
 const Comment = require('../models/Comment');
 const asyncHandler = require('express-async-handler');
+const Post = require('../models/Post'); // Import Post model
+const Notification = require('../models/Notification'); // Import Notification model
 
 // Create a new comment
 exports.createComment = asyncHandler(async (req, res) => {
@@ -19,9 +21,55 @@ exports.createComment = asyncHandler(async (req, res) => {
     comment_image: image,
     status: 'approved',
   });
+
+  // --- Create Notification ---
+  if (parentId) {
+    // It's a reply to a comment
+    const parentComment = await Comment.findById(parentId);
+    if (parentComment && parentComment.userID.toString() !== req.user.id) {
+      const notification = await Notification.create({
+        userId: parentComment.userID,
+        type: 'reply_comment',
+        title: 'Có người đã trả lời bình luận của bạn',
+        message: `${req.user.fullName || req.user.username} đã trả lời bình luận của bạn.`,
+        relatedTo: {
+          type: 'post', // Should still link to the post
+          id: postId
+        }
+      });
+      // --- Emit socket event ---
+      const io = req.app.get('io');
+      io.to(parentComment.userID.toString()).emit('new_notification', notification);
+    }
+  } else {
+    // It's a new comment on a post
+    const post = await Post.findById(postId);
+    if (post && post.userId.toString() !== req.user.id) {
+      const notification = await Notification.create({
+        userId: post.userId,
+        type: 'new_comment',
+        title: 'Có người đã bình luận về bài viết của bạn',
+        message: `${req.user.fullName || req.user.username} đã bình luận về bài viết của bạn.`,
+        relatedTo: {
+          type: 'post',
+          id: postId
+        }
+      });
+      // --- Emit socket event ---
+      const io = req.app.get('io');
+      io.to(post.userId.toString()).emit('new_notification', notification);
+    }
+  }
+  // --- End Notification ---
+
   // Nếu là reply thì thêm vào replies của comment cha
   if (parentId) {
     await Comment.findByIdAndUpdate(parentId, { $push: { replies: comment._id } });
+    // Emit event cho realtime reply
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('comment_replied', { parentId, postId });
+    }
   }
   const populated = await Comment.findById(comment._id)
     .populate('userID', 'username fullName avatar')
@@ -146,6 +194,24 @@ exports.toggleLikeComment = asyncHandler(async (req, res) => {
   if (likedIndex === -1) {
     comment.likes.push({ userId });
     liked = true;
+
+    // --- Create Notification ---
+    if (comment.userID.toString() !== userId) {
+      const notification = await Notification.create({
+        userId: comment.userID,
+        type: 'like_comment',
+        title: 'Có người đã thích bình luận của bạn',
+        message: `${req.user.fullName || req.user.username} đã thích bình luận của bạn.`,
+        relatedTo: {
+          type: 'post',
+          id: comment.postId
+        }
+      });
+      // --- Emit socket event ---
+      const io = req.app.get('io');
+      io.to(comment.userID.toString()).emit('new_notification', notification);
+    }
+    // --- End Notification ---
   } else {
     comment.likes.splice(likedIndex, 1);
     liked = false;

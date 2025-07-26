@@ -10,20 +10,74 @@ import {
   faChevronDown,
   faCalendarAlt,
   faCog,
-  faUsers
+  faUsers,
+  faBell, // Thêm icon chuông
+  faChartLine // Thêm icon cho thống kê
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext'; // Import useSocket
+import NotificationDropdown from './notifications/NotificationDropdown'; // Import component
+import { notificationAPI } from '../services/api'; // Import notificationAPI
 
 const NavigationBar = () => {
   const { user, logout, loading } = useAuth();
+  const { lastNotification } = useSocket(); // Lấy lastNotification từ context
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false); // State cho notif dropdown
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifRefreshKey, setNotifRefreshKey] = useState(0); // Key để trigger refresh
   const dropdownRef = useRef(null);
+  const notifDropdownRef = useRef(null); // Ref cho notif dropdown
   const navigate = useNavigate();
+
+  // Chỉ fetch unreadCount, gọn nhẹ hơn
+  const fetchUnreadCount = async () => {
+    if (!user) return;
+    try {
+      const res = await notificationAPI.getNotifications(); // API này đã trả về cả hai
+      setUnreadCount(res.data.unreadCount);
+    } catch (error) {
+      console.error("Failed to fetch unread count:", error);
+    }
+  };
+
+  // Fetch khi component mount và khi có user
+  useEffect(() => {
+    if (user) {
+      fetchUnreadCount();
+    }
+  }, [user]);
+
+  // Trigger refresh khi có thông báo mới từ socket
+  useEffect(() => {
+    if (lastNotification) {
+      fetchUnreadCount(); // Cập nhật lại count
+      setNotifRefreshKey(prevKey => prevKey + 1); // Báo cho dropdown biết để refresh
+    }
+  }, [lastNotification]);
+
+
+  useEffect(() => {
+    // Set up interval to refetch notifications every 30 seconds
+    const intervalId = setInterval(() => {
+        if(user) fetchUnreadCount();
+    }, 30000);
+
+    // Clear interval on component unmount
+    return () => clearInterval(intervalId);
+  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
+      }
+      // Thêm logic cho notif dropdown
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(event.target)) {
+        const bellButton = document.querySelector('[aria-label="Notifications"]');
+        if (bellButton && !bellButton.contains(event.target)) {
+          setIsNotifDropdownOpen(false);
+        }
       }
     };
 
@@ -51,6 +105,13 @@ const NavigationBar = () => {
 
   const closeDropdown = () => {
     setIsDropdownOpen(false);
+  };
+
+  const toggleNotifDropdown = () => {
+    setIsNotifDropdownOpen(prev => !prev);
+    if (!isNotifDropdownOpen) {
+      fetchUnreadCount(); // Cập nhật count khi mở
+    }
   };
 
   return (
@@ -100,10 +161,32 @@ const NavigationBar = () => {
             )}
           </div>
 
-          {/* User menu */}
-          <div className="relative" ref={dropdownRef}>
+          {/* User menu and notifications */}
+          <div className="flex items-center" >
             {user ? (
               <div className="flex items-center space-x-4">
+                {/* Nút chuông thông báo */}
+                <div className="relative" ref={notifDropdownRef}>
+                  <button 
+                    onClick={toggleNotifDropdown}
+                    className="relative text-white hover:text-gray-200 focus:outline-none"
+                    aria-label="Notifications"
+                  >
+                    <FontAwesomeIcon icon={faBell} className="h-6 w-6" />
+                    {/* Badge thông báo */}
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  {isNotifDropdownOpen && <NotificationDropdown 
+                    key={notifRefreshKey} // Dùng key để re-mount component
+                    onClose={() => setIsNotifDropdownOpen(false)} 
+                    onUpdateUnreadCount={fetchUnreadCount} // Truyền hàm để dropdown có thể cập nhật count
+                  />}
+                </div>
+
                 {/* Owner request status */}
                 {user.role === 'user' && ownerRequestStatus === 'none' && (
                   <Link
@@ -121,7 +204,7 @@ const NavigationBar = () => {
                 )}
 
                 {/* Profile dropdown */}
-                <div className="relative inline-block text-left">
+                <div className="relative inline-block text-left" ref={dropdownRef}>
                   <button
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     className="flex items-center space-x-2 hover:text-gray-200 focus:outline-none"
@@ -158,6 +241,16 @@ const NavigationBar = () => {
                           >
                             <FontAwesomeIcon icon={faCalendarAlt} className="mr-3 text-green-500" />
                             Sự kiện của tôi
+                          </Link>
+                        )}
+                        {(user.role === 'event_owner' || user.role === 'owner') && (
+                          <Link
+                            to="/owner/statistics"
+                            className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100"
+                            onClick={() => setIsDropdownOpen(false)}
+                          >
+                            <FontAwesomeIcon icon={faChartLine} className="mr-3 text-blue-500" />
+                            Thống kê
                           </Link>
                         )}
                         {user.role === 'admin' && (

@@ -198,9 +198,9 @@ const AdminEventManagement = () => {
                                                 <div className="flex items-start gap-4">
                                                     {/* Event Image */}
                                                     <div className="flex-shrink-0 w-20 h-20 bg-gray-200 rounded-lg overflow-hidden">
-                                                        {event.images && event.images.length > 0 ? (
+                                                        {event.images && (event.images.logo || event.images.banner) ? (
                                                             <img
-                                                                src={`http://localhost:5001${event.images[0]}`}
+                                                                src={event.images.logo || event.images.banner}
                                                                 alt={event.title}
                                                                 className="w-full h-full object-cover"
                                                             />
@@ -222,10 +222,22 @@ const AdminEventManagement = () => {
                                                         <div className="flex flex-wrap gap-2 mb-3">
                                                             {getStatusBadge(event)}
                                                         </div>
-                                                        <div className="text-xs text-gray-500">
-                                                            <span>📅 {new Date(event.startDate).toLocaleDateString('vi-VN')}</span>
-                                                            <span className="mx-2">•</span>
-                                                            <span>📍 {event.location?.venueName || 'Online'}</span>
+                                                        <div className="text-xs text-gray-500 mb-1">
+                                                            <span>📅 {event.startDate ? new Date(event.startDate).toLocaleString('vi-VN') : 'Chưa xác định'}</span>
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 mb-1">
+                                                            <span>📍 {event.location?.venue?.name || event.location?.venueName || event.location?.address || 'Online'}</span>
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 mb-1">
+                                                            {Array.isArray(event.ticketTypes) && event.ticketTypes.length > 0 ? (
+                                                                <>
+                                                                    <span>💵 Giá vé: {event.ticketTypes.reduce((min, t) => t.price < min ? t.price : min, event.ticketTypes[0].price).toLocaleString('vi-VN')} đ</span>
+                                                                    <span className="mx-2">•</span>
+                                                                    <span>🎟️ Tổng vé: {event.ticketTypes.reduce((sum, t) => sum + (t.totalQuantity || 0), 0)}</span>
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-red-500">Chưa cấu hình vé</span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
