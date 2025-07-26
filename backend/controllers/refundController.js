@@ -172,44 +172,81 @@ exports.createRefundRequest = async (req, res) => {
               
               console.log(`🔄 Updating seat availability for: ${sectionName}, ${rowName}, ${seatNumber}`);
               
-              // Cập nhật trạng thái chỗ ngồi thành available (true)
-              if (event.seatingMap && event.seatingMap.sections) {
-                const sectionIndex = event.seatingMap.sections.findIndex(s => s.name === sectionName);
-                if (sectionIndex !== -1) {
-                  const section = event.seatingMap.sections[sectionIndex];
-                  const rowIndex = section.rows.findIndex(r => r.name === rowName);
-                  
-                  if (rowIndex !== -1) {
-                    const row = section.rows[rowIndex];
-                    const seatIndex = row.seats.findIndex(s => s.number === seatNumber);
-                    
-                    if (seatIndex !== -1) {
-                      // Đánh dấu ghế là available
-                      event.seatingMap.sections[sectionIndex].rows[rowIndex].seats[seatIndex].available = true;
-                      await Event.updateOne(
-                        { _id: event._id },
-                        { $set: { 'seatingMap.sections': event.seatingMap.sections } }
-                      );
-                      console.log(`✅ Seat ${sectionName}-${rowName}-${seatNumber} marked as available`);
-                      
-                      // Cập nhật availableSeats của event
-                      await Event.updateOne(
-                        { _id: event._id },
-                        { $inc: { availableSeats: 1 } }
-                      );
-                      console.log('✅ Increased available seats count');
-                    } else {
-                      console.log(`⚠️ Seat number ${seatNumber} not found in row ${rowName}`);
-                    }
-                  } else {
-                    console.log(`⚠️ Row ${rowName} not found in section ${sectionName}`);
-                  }
-                } else {
-                  console.log(`⚠️ Section ${sectionName} not found in seating map`);
+              // Cách cập nhật trực tiếp hơn - không dựa vào cấu trúc phức tạp
+              await Event.updateOne(
+                { 
+                  _id: event._id,
+                  "seatingMap.sections.name": sectionName,
+                  "seatingMap.sections.rows.name": rowName,
+                  "seatingMap.sections.rows.seats.number": seatNumber
+                },
+                { 
+                  $set: { 
+                    "seatingMap.sections.$[section].rows.$[row].seats.$[seat].available": true,
+                    "seatingMap.sections.$[section].rows.$[row].seats.$[seat].status": "available" 
+                  },
+                  $inc: { availableSeats: 1 }
+                },
+                { 
+                  arrayFilters: [
+                    { "section.name": sectionName },
+                    { "row.name": rowName },
+                    { "seat.number": seatNumber }
+                  ]
                 }
-              } else {
-                console.log('⚠️ No seating map found for this event');
+              );
+
+              console.log(`✅ Direct update for seat ${sectionName}-${rowName}-${seatNumber}`);
+              
+              // Phương pháp thay thế 2: Cập nhật thông qua thao tác trực tiếp trên document
+              const updatedEvent = await Event.findById(event._id);
+              if (updatedEvent && updatedEvent.seatingMap && updatedEvent.seatingMap.sections) {
+                let updated = false;
+                
+                for (const section of updatedEvent.seatingMap.sections) {
+                  if (section.name === sectionName) {
+                    for (const row of section.rows) {
+                      if (row.name === rowName) {
+                        for (const seat of row.seats) {
+                          if (seat.number === seatNumber) {
+                            seat.available = true;
+                            if (seat.status) seat.status = "available";
+                            updated = true;
+                            console.log(`✅ Seat ${sectionName}-${rowName}-${seatNumber} marked as available (method 2)`);
+                            break;
+                          }
+                        }
+                        if (updated) break;
+                      }
+                    }
+                    if (updated) break;
+                  }
+                }
+                
+                if (updated) {
+                  await updatedEvent.save();
+                  console.log('✅ Updated event seating map saved');
+                  
+                  // Đảm bảo tăng availableSeats
+                  if (typeof updatedEvent.availableSeats === 'number') {
+                    updatedEvent.availableSeats += 1;
+                    await updatedEvent.save();
+                    console.log('✅ Increased available seats count');
+                  }
+                }
               }
+              
+              // Phương pháp 3: Cập nhật trực tiếp với toán tử $
+              await Event.updateOne(
+                { _id: event._id },
+                { $inc: { availableSeats: 1 } }
+              );
+              console.log('✅ Increased available seats count (method 3)');
+              
+              // In thông tin ghế để kiểm tra
+              const eventAfterUpdate = await Event.findById(event._id);
+              console.log(`📊 Event available seats after update: ${eventAfterUpdate.availableSeats}`);
+              
             } catch (seatUpdateError) {
               console.error('❌ Error updating seat availability:', seatUpdateError);
               // Không dừng quá trình, tiếp tục xử lý
