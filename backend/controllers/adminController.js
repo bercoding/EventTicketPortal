@@ -140,6 +140,83 @@ exports.unbanUser = async (req, res) => {
   }
 };
 
+// Unban user by email
+exports.unbanUserByEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    
+    console.log('🔓 Đang tìm và mở khóa tài khoản với email:', email);
+    
+    // Tìm user theo email
+    const user = await User.findOne({ email });
+    
+    // Nếu không tìm thấy user
+    if (!user) {
+      console.log('❌ Không tìm thấy user với email:', email);
+      return res.status(404).json({ message: `User with email ${email} not found` });
+    }
+    
+    console.log('✅ Đã tìm thấy user:', user.username, user._id);
+    
+    // Kiểm tra nếu tài khoản đã được kích hoạt
+    if (user.status === 'active') {
+      console.log('⚠️ Tài khoản đã đang hoạt động:', user.email);
+      return res.json({ 
+        message: 'User is already active',
+        user: {
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          status: user.status
+        }
+      });
+    }
+    
+    // Update trạng thái user
+    user.status = 'active';
+    user.banReason = null;
+    user.banDate = null;
+    user.banExpiry = null;
+    user.bannedBy = null;
+    
+    await user.save();
+    
+    console.log('✅ Đã mở khóa tài khoản thành công:', user.email);
+    
+    // Gửi thông báo đến user (nếu có)
+    const io = req.app.get('io');
+    if (io) {
+      // Tạo thông báo
+      const notification = await Notification.create({
+        userId: user._id,
+        type: 'account_unbanned',
+        title: 'Tài khoản của bạn đã được mở khóa',
+        message: 'Kháng cáo của bạn đã được chấp nhận và tài khoản của bạn đã được mở khóa.',
+      });
+      
+      // Gửi thông báo qua socket
+      io.to(user._id.toString()).emit('new_notification', notification);
+    }
+    
+    res.json({ 
+      message: 'User unbanned successfully', 
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        status: user.status
+      } 
+    });
+  } catch (error) {
+    console.error('❌ Error unbanning user by email:', error);
+    res.status(500).json({ message: 'Error unbanning user', error: error.message });
+  }
+};
+
 // Approve event
 exports.approveEvent = async (req, res) => {
   try {
