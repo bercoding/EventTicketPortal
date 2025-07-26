@@ -437,11 +437,25 @@ const MyTicketsPage = () => {
                                                     <button 
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            openReturnModal(ticket);
+                                                            // Vé cần có trường booking để truyền vào form hoàn tiền
+                                                            if (!ticket.booking) {
+                                                                // Nếu không có thông tin booking, lấy ID vé làm ID booking
+                                                                const modifiedTicket = {
+                                                                    ...ticket,
+                                                                    booking: {
+                                                                        _id: ticket._id,
+                                                                        bookingCode: ticket.bookingCode || ticket._id.substring(0, 8),
+                                                                        totalAmount: ticket.price
+                                                                    }
+                                                                };
+                                                                setShowRefundRequestModal(modifiedTicket);
+                                                            } else {
+                                                                setShowRefundRequestModal(ticket);
+                                                            }
                                                         }}
                                                         className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-red-500/25"
                                                     >
-                                                        Trả vé
+                                                        <FaMoneyBillWave className="inline mr-2" /> Yêu cầu hoàn tiền
                                                     </button>
                                                 )}
                                                 {ticket.status === 'active' && !canReturnTicket(ticket) && (
@@ -459,84 +473,11 @@ const MyTicketsPage = () => {
                 </div>
             </div>
 
-            {/* Return Ticket Modal */}
-            {showReturnModal && (
+            {/* Return Ticket Modal - Disabled - Using RefundRequestModal instead */}
+            {false && showReturnModal && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-gray-800/90 backdrop-blur-sm border border-blue-500/30 rounded-2xl max-w-md w-full shadow-2xl shadow-blue-500/20">
-                        <div className="p-6">
-                            <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-yellow-500/20 rounded-full border border-yellow-500/30">
-                                <FaExclamationTriangle className="w-8 h-8 text-yellow-400" />
-                            </div>
-                            
-                            <h3 className="text-xl font-bold text-blue-200 text-center mb-4">
-                                Xác nhận trả vé
-                            </h3>
-                            
-                            <div className="mb-6">
-                                <div className="bg-gray-700/50 border border-blue-500/30 rounded-xl p-4 mb-4">
-                                    <h4 className="font-semibold text-blue-200 mb-2">{showReturnModal.event?.title}</h4>
-                                    <div className="text-sm text-blue-300/80 space-y-1">
-                                        <p>📅 {formatDateTime(showReturnModal.event?.startDate).date}</p>
-                                        <p>🕐 {formatDateTime(showReturnModal.event?.startDate).time}</p>
-                                        {showReturnModal.seatNumber && (
-                                            <p>🪑 {showReturnModal.section} - Ghế {showReturnModal.seatNumber}</p>
-                                        )}
-                                    </div>
-                                </div>
-                                
-                                <div className="border-l-4 border-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-4">
-                                    <div className="text-sm">
-                                        <h5 className="font-semibold text-yellow-300 mb-2">Thông tin hoàn tiền:</h5>
-                                        <div className="space-y-1 text-yellow-200">
-                                            <div className="flex justify-between">
-                                                <span>Giá gốc:</span>
-                                                <span className="font-semibold">{showReturnModal.price.toLocaleString()} VNĐ</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span>Phí xử lý (25%):</span>
-                                                <span className="font-semibold text-red-400">-{calculateRefund(showReturnModal.price).feeAmount.toLocaleString()} VNĐ</span>
-                                            </div>
-                                            <div className="border-t border-yellow-500/30 pt-1 mt-2">
-                                                <div className="flex justify-between">
-                                                    <span className="font-semibold">Số tiền hoàn:</span>
-                                                    <span className="font-bold text-green-400">{calculateRefund(showReturnModal.price).refundAmount.toLocaleString()} VNĐ</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
-                                    <p className="text-sm text-blue-300">
-                                        💡 <strong>Lưu ý:</strong> Số tiền hoàn sẽ được thêm vào ví điện tử của bạn và có thể sử dụng cho các giao dịch tiếp theo.
-                                    </p>
-                                </div>
-                            </div>
-                            
-                            <div className="flex space-x-3">
-                                <button 
-                                    onClick={() => setShowReturnModal(null)}
-                                    disabled={isReturning}
-                                    className="flex-1 bg-gray-700/50 hover:bg-gray-600/50 text-blue-200 font-semibold py-3 px-4 rounded-xl border border-blue-500/30 transition-all duration-300 disabled:opacity-50"
-                                >
-                                    Hủy
-                                </button>
-                                <button 
-                                    onClick={() => handleReturnTicket(showReturnModal._id)}
-                                    disabled={isReturning}
-                                    className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-red-500/25"
-                                >
-                                    {isReturning ? (
-                                        <>
-                                            <div className="animate-spin -ml-1 mr-2 h-4 w-4 text-white border-2 border-white border-t-transparent rounded-full"></div>
-                                            Đang xử lý...
-                                        </>
-                                    ) : (
-                                        'Xác nhận trả vé'
-                                    )}
-                                </button>
-                            </div>
-                        </div>
+                        {/* Modal content hidden */}
                     </div>
                 </div>
             )}
