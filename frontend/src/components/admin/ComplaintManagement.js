@@ -38,6 +38,9 @@ const ComplaintManagement = () => {
     // Thêm biến state để lưu email được trích xuất hoặc tìm thấy
     const [extractedEmail, setExtractedEmail] = useState('');
 
+    // Thêm state cho việc chỉnh sửa email
+    const [editableEmail, setEditableEmail] = useState('');
+
     const fetchComplaints = useCallback(async () => {
         setLoading(true);
         setError('');
@@ -136,7 +139,7 @@ const ComplaintManagement = () => {
         }
     };
 
-    // Sửa hàm openModal để trích xuất email từ nội dung khiếu nại
+    // Sửa hàm openModal để đặt giá trị cho editableEmail
     const openModal = (complaint) => {
       setSelectedComplaint(complaint);
       setIsModalOpen(true);
@@ -156,6 +159,7 @@ const ComplaintManagement = () => {
       }
       
       setExtractedEmail(foundEmail);
+      setEditableEmail(foundEmail); // Khởi tạo trường email có thể chỉnh sửa
       console.log('📧 Email được trích xuất:', foundEmail);
     };
 
@@ -221,25 +225,13 @@ const ComplaintManagement = () => {
       }
 
       try {
-        // Sử dụng email đã được trích xuất hoặc từ người dùng
-        let emailToUnban = extractedEmail;
+        // Sử dụng email đã được chỉnh sửa
+        let emailToUnban = editableEmail;
         
-        // Nếu không có email, yêu cầu nhập thủ công
-        if (!emailToUnban) {
-          const userInput = window.prompt('Vui lòng nhập email người dùng cần mở khóa:');
-          
-          if (!userInput || !userInput.trim()) {
-            toast.warning('Bạn chưa nhập email, hành động đã bị hủy.');
-            return;
-          }
-          
-          emailToUnban = userInput.trim();
-          
-          // Kiểm tra cơ bản nếu input giống email
-          if (!emailToUnban.includes('@')) {
-            toast.error('Email không hợp lệ, vui lòng nhập đúng định dạng email');
-            return;
-          }
+        // Kiểm tra nếu email hợp lệ
+        if (!emailToUnban || !emailToUnban.includes('@')) {
+          toast.error('Email không hợp lệ, vui lòng nhập đúng email cần mở khóa');
+          return;
         }
         
         setIsSubmitting(true);
@@ -260,7 +252,7 @@ const ComplaintManagement = () => {
         
         console.log('✅ Kết quả mở khóa:', unbanResponse.data);
         
-        // Luôn thông báo thành công, không quan trọng tài khoản đã active hay chưa
+        // Luôn thông báo thành công
         toast.success(`Đã mở khóa tài khoản ${emailToUnban} thành công!`);
         
         // Giải quyết khiếu nại
@@ -672,9 +664,19 @@ const ComplaintManagement = () => {
                                 <p className="text-gray-700 mb-2">
                                     <span className="font-medium">Người dùng:</span> {selectedComplaint.user?.username || 'Không có thông tin'}
                                 </p>
-                                <p className="text-gray-700 mb-2">
-                                    <span className="font-medium">Email:</span> {extractedEmail || 'Không tìm thấy email'}
-                                </p>
+                                
+                                {/* Thay thế dòng hiển thị email bằng input field */}
+                                <div className="flex items-center mb-2">
+                                  <span className="font-medium text-gray-700 mr-2">Email:</span>
+                                  <input 
+                                    type="email"
+                                    value={editableEmail}
+                                    onChange={(e) => setEditableEmail(e.target.value)}
+                                    placeholder="Nhập email cần mở khóa"
+                                    className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                                
                                 <p className="text-gray-700 mb-2">
                                     <span className="font-medium">Ngày tạo:</span> {new Date(selectedComplaint.createdAt).toLocaleDateString('vi-VN')}
                                 </p>
