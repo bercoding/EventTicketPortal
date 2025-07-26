@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../services/api';
 import { toast } from 'react-toastify';
-import { FaEye, FaFilter, FaRedo, FaTimes, FaUser, FaTag, FaExclamationCircle, FaPaperPlane, FaUserSlash, FaUnlock, FaShieldAlt, FaKey, FaEdit } from 'react-icons/fa';
+import { FaEye, FaFilter, FaRedo, FaTimes, FaUser, FaTag, FaExclamationCircle, FaPaperPlane, FaUserSlash, FaUnlock, FaShieldAlt, FaKey, FaEdit, FaSearch } from 'react-icons/fa';
 import { ClipLoader } from 'react-spinners';
 import axios from 'axios'; // Added axios import
 import { API_URL } from '../../services/api'; // Added API_URL import
@@ -29,6 +29,9 @@ const ComplaintManagement = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [resolution, setResolution] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Thêm state để lưu trữ thông tin người dùng được tìm thấy
+    const [foundUser, setFoundUser] = useState(null);
 
     const fetchComplaints = useCallback(async () => {
         setLoading(true);
@@ -311,6 +314,109 @@ const ComplaintManagement = () => {
         }
     };
 
+    // Thêm hàm tìm kiếm người dùng
+    const findUserInfo = async () => {
+      if (!selectedComplaint) return;
+
+      try {
+        setIsSubmitting(true);
+        const username = selectedComplaint.user?.username;
+        const email = selectedComplaint.user?.email;
+        const id = selectedComplaint.user?._id || selectedComplaint.user;
+        
+        console.log('🔍 Tìm kiếm người dùng với thông tin:', { id, username, email });
+        
+        // Tạo URL tìm kiếm với các tham số hiện có
+        let searchParams = new URLSearchParams();
+        if (id) searchParams.append('id', id);
+        if (username) searchParams.append('username', username);
+        if (email) searchParams.append('email', email);
+        
+        const token = localStorage.getItem('token');
+        const response = await axios.get(
+          `${API_URL}/admin/debug/find-user?${searchParams.toString()}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        console.log('✅ Kết quả tìm kiếm người dùng:', response.data);
+        
+        if (response.data.success && response.data.users && response.data.users.length > 0) {
+          // Lấy người dùng đầu tiên tìm thấy
+          setFoundUser(response.data.users[0]);
+          toast.success(`Tìm thấy người dùng: ${response.data.users[0].username}`);
+        } else {
+          setFoundUser(null);
+          toast.error('Không tìm thấy thông tin người dùng');
+        }
+      } catch (error) {
+        console.error('❌ Lỗi khi tìm kiếm người dùng:', error);
+        toast.error('Không thể tìm kiếm người dùng');
+        setFoundUser(null);
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    // Hàm thực hiện mở khóa người dùng với ID đã tìm thấy
+    const unbanFoundUser = async () => {
+      if (!foundUser || !foundUser._id) {
+        toast.error('Không có thông tin người dùng để mở khóa');
+        return;
+      }
+      
+      try {
+        setIsSubmitting(true);
+        
+        console.log('🔓 Mở khóa cho người dùng đã tìm thấy:', foundUser);
+        
+        const token = localStorage.getItem('token');
+        const response = await axios.post(
+          `${API_URL}/admin/users/${foundUser._id}/unban`,
+          {},
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        console.log('✅ Kết quả mở khóa:', response.data);
+        toast.success('Đã mở khóa tài khoản thành công');
+        
+        // Giải quyết khiếu nại
+        if (selectedComplaint) {
+          await axios.post(
+            `${API_URL}/admin/complaints/${selectedComplaint._id}/resolve`,
+            { resolution: 'Đã chấp nhận kháng cáo và mở khóa tài khoản.' },
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          toast.success('Đã giải quyết khiếu nại thành công');
+          closeModal();
+          fetchComplaints();
+        }
+      } catch (error) {
+        console.error('❌ Lỗi khi mở khóa:', error);
+        if (error.response?.data) {
+          toast.error(`Không thể mở khóa: ${error.response.data.message || 'Lỗi không xác định'}`);
+        } else {
+          toast.error('Không thể kết nối đến server');
+        }
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -545,6 +651,35 @@ const ComplaintManagement = () => {
                             <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                                 <h4 className="font-medium text-blue-700 mb-2">Hành động nhanh:</h4>
                                 
+                                {/* Hiển thị thông tin người dùng tìm thấy nếu có */}
+                                {foundUser && (
+                                    <div className="mb-3 p-2 bg-green-50 border border-green-300 rounded">
+                                        <h5 className="font-medium text-green-700 mb-1">Đã tìm thấy người dùng:</h5>
+                                        <div className="text-sm">
+                                            <p><span className="font-semibold">ID:</span> {foundUser._id}</p>
+                                            <p><span className="font-semibold">Username:</span> {foundUser.username}</p>
+                                            <p><span className="font-semibold">Email:</span> {foundUser.email}</p>
+                                            <p><span className="font-semibold">Trạng thái:</span> <span className={foundUser.status === 'banned' ? 'text-red-500 font-bold' : 'text-green-500'}>{foundUser.status}</span></p>
+                                        </div>
+                                        
+                                        {foundUser.status === 'banned' && (
+                                            <button 
+                                                onClick={unbanFoundUser}
+                                                disabled={isSubmitting}
+                                                className="mt-2 w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 disabled:opacity-50"
+                                            >
+                                                {isSubmitting ? (
+                                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                ) : null}
+                                                Mở khóa người dùng này
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                                
                                 {/* Debug ID người dùng - hiển thị các ID có thể sử dụng */}
                                 <div className="mb-3 p-2 bg-yellow-50 border border-yellow-300 rounded text-xs">
                                     <p className="font-bold mb-1">Debug - ID người dùng:</p>
@@ -566,6 +701,27 @@ const ComplaintManagement = () => {
                                         )}
                                     </ul>
                                 </div>
+
+                                {/* Nút tìm kiếm người dùng */}
+                                <button 
+                                    onClick={findUserInfo}
+                                    disabled={isSubmitting}
+                                    className="mb-3 w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Đang tìm kiếm...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FaSearch className="mr-1.5" /> Tìm kiếm người dùng từ khiếu nại
+                                        </>
+                                    )}
+                                </button>
                                 
                                 {/* Form đơn giản để unban */}
                                 <div className="mb-4">

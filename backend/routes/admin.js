@@ -4,6 +4,7 @@ const adminController = require('../controllers/adminController');
 const { protect, authorize, requireAdmin } = require('../middleware/auth');
 const Event = require('../models/Event');
 const Complaint = require('../models/Complaint');
+const User = require('../models/User'); // Added User model import
 
 // Endpoint khiếu nại ban - không yêu cầu xác thực
 router.post('/complaints/appeal', async (req, res) => {
@@ -109,6 +110,106 @@ router.get('/public/debug/events', async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Error providing sample events',
+      error: error.message
+    });
+  }
+});
+
+// Thêm route để debug user
+router.get('/debug/find-user', async (req, res) => {
+  try {
+    const { id, username, email } = req.query;
+    
+    console.log('🔍 DEBUG: Tìm kiếm user với:', { id, username, email });
+    
+    let users = [];
+    
+    // Tìm theo ID
+    if (id) {
+      try {
+        if (id.match(/^[0-9a-fA-F]{24}$/)) {
+          const user = await User.findById(id).select('-password');
+          if (user) users.push({ 
+            source: 'id', 
+            _id: user._id, 
+            username: user.username, 
+            email: user.email,
+            status: user.status,
+            role: user.role 
+          });
+        } else {
+          console.log('⚠️ ID không đúng định dạng MongoDB ObjectId:', id);
+        }
+      } catch (err) {
+        console.error('❌ Lỗi khi tìm theo ID:', err);
+      }
+    }
+    
+    // Tìm theo username
+    if (username) {
+      try {
+        const user = await User.findOne({ username }).select('-password');
+        if (user) users.push({ 
+          source: 'username', 
+          _id: user._id, 
+          username: user.username, 
+          email: user.email,
+          status: user.status,
+          role: user.role
+        });
+      } catch (err) {
+        console.error('❌ Lỗi khi tìm theo username:', err);
+      }
+    }
+    
+    // Tìm theo email
+    if (email) {
+      try {
+        const user = await User.findOne({ email }).select('-password');
+        if (user) users.push({ 
+          source: 'email', 
+          _id: user._id, 
+          username: user.username, 
+          email: user.email,
+          status: user.status,
+          role: user.role
+        });
+      } catch (err) {
+        console.error('❌ Lỗi khi tìm theo email:', err);
+      }
+    }
+    
+    // Nếu không có tham số nào, trả về một vài người dùng để kiểm tra
+    if (!id && !username && !email) {
+      try {
+        const sampleUsers = await User.find()
+          .limit(5)
+          .select('-password')
+          .sort({ createdAt: -1 });
+        
+        users = users.concat(sampleUsers.map(user => ({
+          source: 'sample',
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          status: user.status,
+          role: user.role
+        })));
+      } catch (err) {
+        console.error('❌ Lỗi khi lấy mẫu users:', err);
+      }
+    }
+    
+    return res.json({
+      success: true,
+      count: users.length,
+      users
+    });
+  } catch (error) {
+    console.error('❌ DEBUG USER ERROR:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error finding users',
       error: error.message
     });
   }
