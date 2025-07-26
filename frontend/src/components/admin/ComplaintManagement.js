@@ -165,39 +165,30 @@ const ComplaintManagement = () => {
     const handleQuickUnban = async () => {
         try {
             setIsSubmitting(true);
-
-            // Lấy nội dung khiếu nại
-            const description = selectedComplaint?.description || '';
             
-            // Trích xuất email từ nội dung
-            const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-            const emails = description.match(emailRegex) || [];
+            // Lấy thông tin người bị khóa từ trường bannedUser trong model
+            const bannedUserId = selectedComplaint?.bannedUser?._id;
+            let bannedUserInfo = '';
             
-            // Email để mở khóa
-            let emailToUnban = '';
-            
-            if (emails.length > 0) {
-                // Sử dụng email đầu tiên tìm thấy trong nội dung
-                emailToUnban = emails[0];
-                console.log('📧 Đã tìm thấy email trong nội dung:', emailToUnban);
+            // Xác định người dùng cần mở khóa
+            if (bannedUserId && selectedComplaint?.bannedUser) {
+                // Nếu có thông tin người bị ban trong model
+                bannedUserInfo = selectedComplaint.bannedUser.email || selectedComplaint.bannedUser.username || '';
+                console.log('✅ Đã tìm thấy thông tin người bị khóa từ model:', bannedUserInfo);
             } else {
-                // Nếu không tìm thấy, yêu cầu nhập
-                const userInput = prompt('Không tìm thấy email trong nội dung. Vui lòng nhập email cần mở khóa:');
-                if (!userInput || !userInput.trim()) {
-                    toast.warning('Bạn chưa nhập email, hành động đã bị hủy.');
-                    setIsSubmitting(false);
-                    return;
-                }
-                emailToUnban = userInput.trim();
+                // Nếu không có thông tin từ model, hiển thị thông báo
+                toast.warning('Không tìm thấy thông tin người bị khóa trong hệ thống!');
+                setIsSubmitting(false);
+                return;
             }
             
-            console.log('🔓 Đang mở khóa tài khoản với email:', emailToUnban);
+            console.log('🔓 Đang mở khóa tài khoản người dùng:', bannedUserInfo);
             
-            // Gọi API unbanUserByEmail
+            // Gọi API unban user
             const token = localStorage.getItem('token');
             const response = await axios.post(
-                `${API_URL}/admin/users/unban-by-email`,
-                { email: emailToUnban },
+                `${API_URL}/admin/users/${bannedUserId}/unban`,
+                {},
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -207,13 +198,15 @@ const ComplaintManagement = () => {
             );
             
             console.log('✅ Kết quả mở khóa:', response.data);
-            toast.success(`Đã mở khóa tài khoản ${emailToUnban} thành công!`);
+            toast.success(`Đã mở khóa tài khoản ${bannedUserInfo} thành công!`);
             
             // Giải quyết khiếu nại
             if (selectedComplaint?._id) {
                 await axios.post(
                     `${API_URL}/admin/complaints/${selectedComplaint._id}/resolve`,
-                    { resolution: `Đã chấp nhận kháng cáo và mở khóa tài khoản ${emailToUnban}.` },
+                    { 
+                        resolution: `Đã chấp nhận kháng cáo và mở khóa tài khoản ${bannedUserInfo}.` 
+                    },
                     {
                         headers: {
                             'Authorization': `Bearer ${token}`,
@@ -466,63 +459,54 @@ const ComplaintManagement = () => {
                                 <div className="p-4 mb-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                                     <h4 className="text-sm font-semibold text-yellow-700 mb-2">Thông tin người cần mở khóa:</h4>
                                     
-                                    {selectedComplaint.bannedUserInfo ? (
+                                    {selectedComplaint.bannedUser ? (
                                         <div className="space-y-1">
                                             <div className="flex items-center">
                                                 <div className="flex-shrink-0">
-                                                    {selectedComplaint.bannedUserInfo.avatar ? (
+                                                    {selectedComplaint.bannedUser.avatar ? (
                                                         <img 
-                                                            src={selectedComplaint.bannedUserInfo.avatar} 
+                                                            src={selectedComplaint.bannedUser.avatar} 
                                                             alt="Avatar" 
                                                             className="w-10 h-10 rounded-full object-cover"
                                                         />
                                                     ) : (
                                                         <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
                                                             <span className="text-gray-500 font-medium">
-                                                                {selectedComplaint.bannedUserInfo.username?.charAt(0)?.toUpperCase() || '?'}
+                                                                {selectedComplaint.bannedUser.username?.charAt(0)?.toUpperCase() || '?'}
                                                             </span>
                                                         </div>
                                                     )}
                                                 </div>
                                                 <div className="ml-3">
                                                     <p className="text-sm font-medium text-gray-900">
-                                                        {selectedComplaint.bannedUserInfo.username}
-                                                        {selectedComplaint.bannedUserInfo.status === 'banned' ? (
+                                                        {selectedComplaint.bannedUser.username}
+                                                        {selectedComplaint.bannedUser.status === 'banned' ? (
                                                             <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full">Đang bị khóa</span>
                                                         ) : (
                                                             <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">Đang hoạt động</span>
                                                         )}
                                                     </p>
-                                                    <p className="text-sm text-gray-500">{selectedComplaint.bannedUserInfo.email}</p>
+                                                    <p className="text-sm text-gray-500">{selectedComplaint.bannedUser.email}</p>
                                                 </div>
                                             </div>
                                             
-                                            {selectedComplaint.bannedUserInfo.banReason && (
+                                            {selectedComplaint.bannedUser.banReason && (
                                                 <div className="pt-2">
                                                     <p className="text-xs text-gray-500">Lý do khóa tài khoản:</p>
-                                                    <p className="text-sm text-gray-700">{selectedComplaint.bannedUserInfo.banReason}</p>
+                                                    <p className="text-sm text-gray-700">{selectedComplaint.bannedUser.banReason}</p>
                                                 </div>
                                             )}
                                             
-                                            {selectedComplaint.bannedUserInfo.banDate && (
+                                            {selectedComplaint.bannedUser.bannedAt && (
                                                 <p className="text-xs text-gray-500">
-                                                    Thời điểm bị khóa: {new Date(selectedComplaint.bannedUserInfo.banDate).toLocaleDateString('vi-VN')}
+                                                    Thời điểm bị khóa: {new Date(selectedComplaint.bannedUser.bannedAt).toLocaleDateString('vi-VN')}
                                                 </p>
                                             )}
                                         </div>
-                                    ) : selectedComplaint.extractedEmail ? (
-                                        <div>
-                                            <p className="text-sm text-gray-700">
-                                                <span className="font-medium">Email cần mở khóa:</span> {selectedComplaint.extractedEmail}
-                                            </p>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                                (Email đã được trích xuất từ nội dung khiếu nại)
-                                            </p>
-                                        </div>
                                     ) : (
                                         <p className="text-sm text-red-600 italic">
-                                            Không tìm thấy thông tin email trong nội dung khiếu nại.
-                                            Vui lòng đọc nội dung để xác định tài khoản cần mở khóa.
+                                            Không tìm thấy thông tin người bị khóa trong hệ thống.
+                                            Vui lòng kiểm tra lại dữ liệu hoặc cập nhật thông tin người bị khóa.
                                         </p>
                                     )}
                                 </div>

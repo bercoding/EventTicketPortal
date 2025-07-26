@@ -98,6 +98,38 @@ exports.unbanUser = async (req, res) => {
   }
 };
 
+// Unban user by email
+exports.unbanUserByEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    
+    const user = await User.findOneAndUpdate(
+      { email },
+      { 
+        status: 'active',
+        banReason: null,
+        banDate: null,
+        banExpiry: null,
+        bannedBy: null
+      },
+      { new: true }
+    ).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found with this email' });
+    }
+    
+    res.json({ message: 'User unbanned successfully', user });
+  } catch (error) {
+    console.error('Error unban user by email:', error);
+    res.status(500).json({ message: 'Error unbanning user', error: error.message });
+  }
+};
+
 // Approve event
 exports.approveEvent = async (req, res) => {
   try {
@@ -243,6 +275,7 @@ exports.getComplaints = async (req, res) => {
     
     const complaints = await Complaint.find(filter)
       .populate('user', 'username email fullName avatar')
+      .populate('bannedUser', 'username email status avatar banReason bannedAt') // Populate bannedUser
       .populate('relatedEvent', 'title')
       .populate('relatedUser', 'username email fullName')
       .populate('resolvedBy', 'username email fullName')
@@ -254,7 +287,7 @@ exports.getComplaints = async (req, res) => {
     
     console.log(`📊 Found ${complaints.length}/${total} complaints`);
     
-    // Bổ sung thông tin người dùng bị ban từ nội dung khiếu nại
+    // Xử lý các complaint kháng cáo ban chưa có thông tin người bị ban
     const processedComplaints = await Promise.all(complaints.map(async (complaint, index) => {
       console.log(`🔄 Đang xử lý khiếu nại #${index+1}: ${complaint._id}`);
       
@@ -262,63 +295,41 @@ exports.getComplaints = async (req, res) => {
         // Chuyển Mongoose document sang plain object
         const complaintObj = complaint.toObject ? complaint.toObject() : JSON.parse(JSON.stringify(complaint));
         
-        // Kiểm tra xem có phải là kháng cáo ban không
+        // Kiểm tra xem có phải là kháng cáo ban không và chưa có bannedUser
         const isBanAppeal = 
           complaint.subject?.toLowerCase().includes('kháng cáo') || 
           complaint.subject?.toLowerCase().includes('ban') ||
           complaint.subject?.toLowerCase().includes('khóa') ||
           complaint.category === 'user_behavior';
         
-        if (isBanAppeal) {
-          console.log(`📝 Đây là kháng cáo ban: ${complaint._id}`);
+        if (isBanAppeal && !complaint.bannedUser) {
+          console.log(`📝 Đây là kháng cáo ban nhưng chưa có thông tin bannedUser: ${complaint._id}`);
           
-          // In ra mô tả khiếu nại để debug
-          console.log(`📋 Mô tả khiếu nại: ${complaint.description?.substring(0, 100)}...`);
-          
-          // Trích xuất email từ nội dung - pattern cẩn thận hơn
+          // Trích xuất email từ nội dung
           const description = complaint.description || '';
           const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
           const emails = description.match(emailRegex);
           
-          console.log(`🔍 Các email tìm thấy trong nội dung:`, emails);
-          
           if (emails && emails.length > 0) {
             const extractedEmail = emails[0];
-            console.log(`📧 Đã trích xuất email từ khiếu nại ${complaint._id}:`, extractedEmail);
+            console.log(`📧 Tìm thấy email trong nội dung:`, extractedEmail);
             
             // Tìm user bị ban dựa trên email
             const bannedUser = await User.findOne({ email: extractedEmail })
-              .select('username email status banReason banDate banExpiry avatar');
+              .select('username email status banReason bannedAt avatar');
             
             if (bannedUser) {
               console.log(`👤 Đã tìm thấy user ${bannedUser.username} (${bannedUser.status})`);
-              complaintObj.bannedUserInfo = bannedUser.toObject ? bannedUser.toObject() : JSON.parse(JSON.stringify(bannedUser));
-            } else {
-              console.log(`❌ Không tìm thấy user với email ${extractedEmail}`);
-            }
-            
-            complaintObj.extractedEmail = extractedEmail;
-          } else {
-            console.log(`⚠️ Không thể trích xuất email từ khiếu nại ${complaint._id}`);
-            
-            // Thử kiểm tra trong subject
-            const subject = complaint.subject || '';
-            const subjectEmails = subject.match(emailRegex);
-            
-            if (subjectEmails && subjectEmails.length > 0) {
-              const extractedEmail = subjectEmails[0];
-              console.log(`📧 Đã trích xuất email từ tiêu đề khiếu nại:`, extractedEmail);
-              complaintObj.extractedEmail = extractedEmail;
               
-              // Tìm user bị ban dựa trên email trong subject
-              const bannedUser = await User.findOne({ email: extractedEmail })
-                .select('username email status banReason banDate banExpiry avatar');
-                
-              if (bannedUser) {
-                console.log(`👤 Đã tìm thấy user ${bannedUser.username} (${bannedUser.status})`);
-                complaintObj.bannedUserInfo = bannedUser.toObject ? bannedUser.toObject() : JSON.parse(JSON.stringify(bannedUser));
-              }
+              // Cập nhật trường bannedUser trong complaint
+              await Complaint.findByIdAndUpdate(complaint._id, {
+                bannedUser: bannedUser._id
+              });
+              
+              complaintObj.bannedUser = bannedUser.toObject ? bannedUser.toObject() : JSON.parse(JSON.stringify(bannedUser));
             }
+          } else {
+            console.log(`❌ Không tìm thấy email trong nội dung khiếu nại ${complaint._id}`);
           }
         }
         
@@ -373,6 +384,7 @@ exports.resolveComplaint = async (req, res) => {
       { new: true }
     )
     .populate('user', 'username email fullName')
+    .populate('bannedUser', 'username email status') // Thêm populate bannedUser
     .populate('relatedEvent', 'title')
     .populate('relatedUser', 'username email fullName')
     .populate('resolvedBy', 'username email fullName');

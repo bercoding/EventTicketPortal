@@ -132,6 +132,7 @@ router.get('/dashboard/stats', adminController.getDashboardStats);
 router.get('/users', adminController.getUsers);
 router.post('/users/:id/ban', adminController.banUser);
 router.post('/users/:id/unban', adminController.unbanUser);
+router.post('/users/unban-by-email', adminController.unbanUserByEmail);
 
 // Event management
 router.get('/events', adminController.getEvents);
