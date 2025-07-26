@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const BannedUser = ({ banReason }) => {
     const navigate = useNavigate();
@@ -9,9 +10,19 @@ const BannedUser = ({ banReason }) => {
     const [appealSent, setAppealSent] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [emailInput, setEmailInput] = useState('');
+    const [emailError, setEmailError] = useState('');
+    const { user } = useAuth();
     
     // Lấy banReason từ location.state nếu không có từ props
     const banReasonText = banReason || location.state?.banReason || 'Vi phạm điều khoản sử dụng';
+
+    // Tự động điền email từ thông tin người dùng đã đăng nhập
+    useEffect(() => {
+        if (user && user.email) {
+            setEmailInput(user.email);
+        }
+    }, [user]);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
@@ -22,18 +33,47 @@ const BannedUser = ({ banReason }) => {
         }
     };
     
+    const validateEmail = (email) => {
+        const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        return re.test(email);
+    };
+    
     const handleAppealSubmit = async (e) => {
         e.preventDefault();
-        if (!appealText.trim()) return;
+        
+        // Kiểm tra nội dung khiếu nại
+        if (!appealText.trim()) {
+            setError('Vui lòng nhập nội dung kháng cáo');
+            return;
+        }
+        
+        // Kiểm tra email
+        if (!emailInput.trim()) {
+            setEmailError('Vui lòng nhập địa chỉ email của bạn');
+            return;
+        }
+        
+        if (!validateEmail(emailInput)) {
+            setEmailError('Địa chỉ email không hợp lệ');
+            return;
+        }
+        
+        // Kiểm tra nếu email đã được đề cập trong nội dung khiếu nại
+        if (!appealText.includes(emailInput)) {
+            // Tự động thêm email vào cuối nội dung nếu chưa có
+            setAppealText(appealText.trim() + `\n\nEmail cần mở khóa: ${emailInput}`);
+        }
         
         setLoading(true);
         setError('');
+        setEmailError('');
         
         try {
             // Sửa đường dẫn API endpoint
             await api.post('/admin/complaints/appeal', { 
-                reason: appealText,
-                type: 'ban_appeal'
+                reason: appealText.includes(emailInput) ? appealText : `${appealText}\n\nEmail cần mở khóa: ${emailInput}`,
+                type: 'ban_appeal',
+                email: emailInput // Thêm email vào payload API
             });
             
             // Gửi thành công
@@ -97,14 +137,43 @@ const BannedUser = ({ banReason }) => {
                                 <p className="text-xs text-blue-700 mb-4">
                                     Nếu bạn cho rằng việc khóa tài khoản là không đúng, 
                                     vui lòng cung cấp chi tiết để giải thích tại sao bạn nên được mở khóa tài khoản.
-                                    Khiếu nại của bạn sẽ được gửi đến quản trị viên xem xét.
+                                    <strong className="block mt-1">Quan trọng: Hãy cung cấp địa chỉ email chính xác của tài khoản bị khóa để chúng tôi có thể xử lý yêu cầu.</strong>
                                 </p>
+
+                                {/* Email Input Field */}
+                                <div className="mb-4">
+                                    <label htmlFor="email-input" className="block text-sm font-medium text-blue-800 mb-1">
+                                        Địa chỉ email cần mở khóa: <span className="text-red-600">*</span>
+                                    </label>
+                                    <input
+                                        id="email-input"
+                                        type="email"
+                                        value={emailInput}
+                                        onChange={(e) => {
+                                            setEmailInput(e.target.value);
+                                            if (emailError) setEmailError('');
+                                        }}
+                                        className={`w-full px-3 py-2 border ${emailError ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
+                                        placeholder="example@gmail.com"
+                                    />
+                                    {emailError && (
+                                        <p className="mt-1 text-sm text-red-600">{emailError}</p>
+                                    )}
+                                </div>
+
+                                <label htmlFor="appeal-text" className="block text-sm font-medium text-blue-800 mb-1">
+                                    Nội dung kháng cáo: <span className="text-red-600">*</span>
+                                </label>
                                 <textarea
+                                    id="appeal-text"
                                     value={appealText}
-                                    onChange={(e) => setAppealText(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                    onChange={(e) => {
+                                        setAppealText(e.target.value);
+                                        if (error) setError('');
+                                    }}
+                                    className={`w-full px-3 py-2 border ${error ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
                                     rows={4}
-                                    placeholder="Viết lý do kháng cáo của bạn..."
+                                    placeholder="Viết lý do kháng cáo của bạn. Hãy chắc chắn ghi rõ địa chỉ email của tài khoản bị khóa."
                                 ></textarea>
                                 
                                 {/* Hiển thị lỗi nếu có */}
@@ -117,7 +186,7 @@ const BannedUser = ({ banReason }) => {
                                 <div className="mt-3 flex justify-end">
                                     <button
                                         type="submit"
-                                        disabled={!appealText.trim() || loading}
+                                        disabled={(!appealText.trim() && !emailInput.trim()) || loading}
                                         className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                                     >
                                         {loading ? (

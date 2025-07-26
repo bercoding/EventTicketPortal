@@ -41,88 +41,46 @@ const ComplaintManagement = () => {
     // Thêm state cho việc chỉnh sửa email
     const [editableEmail, setEditableEmail] = useState('');
 
+    // Fetch complaints with proper filtering
     const fetchComplaints = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            // Thêm filter dựa trên tab được chọn
-            let categoryFilter = filters.category;
-            let subjectFilter = '';
-            
+            // Xác định loại filter dựa vào tab đang chọn
+            let type = '';
             if (activeTab === 'ban-appeals') {
-                categoryFilter = 'user_behavior';
-                subjectFilter = 'Kháng cáo'; // Tìm trong subject có từ "Kháng cáo"
-            } else if (activeTab === 'other') {
-                categoryFilter = filters.category || 'payment,event,technical,other';
+                type = 'ban-appeals';
+            } else if (activeTab === 'event-reports') {
+                type = 'event-reports';
             }
             
-            const filterParams = {
-                ...filters,
-                category: categoryFilter,
-                subject: subjectFilter
-            };
-            
-            console.log("🔍 Fetching complaints with filters:", filterParams);
-            const response = await adminAPI.getComplaints(filterParams); 
-            const { data } = response;
-            console.log("📄 Complaints data từ API:", data);
-            
-            // Kiểm tra cấu trúc dữ liệu trả về từ API
-            if (data.complaints && data.complaints.length > 0) {
-                console.log("📋 Mẫu khiếu nại đầu tiên:", data.complaints[0]);
-                console.log("👤 Thuộc tính user:", data.complaints[0].user);
-                
-                // Kiểm tra và phân tích cấu trúc user
-                if (typeof data.complaints[0].user === 'string') {
-                    console.log("⚠️ Chú ý: user là một chuỗi ID, không phải object");
-                } else if (data.complaints[0].user && typeof data.complaints[0].user === 'object') {
-                    console.log("✓ User là một đối tượng:", Object.keys(data.complaints[0].user));
+            // Sử dụng API với các tham số rõ ràng
+            const response = await axios.get(
+                `${API_URL}/admin/complaints?page=${filters.page}&limit=${filters.limit}&status=${filters.status || ''}&type=${type}&search=${searchInput || ''}`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
                 }
+            );
+            
+            console.log('📋 Dữ liệu khiếu nại:', response.data);
+            
+            if (response.data.complaints) {
+                setComplaints(response.data.complaints);
+                setPagination({
+                    currentPage: response.data.currentPage,
+                    totalPages: response.data.totalPages,
+                    total: response.data.total
+                });
             }
-            
-            // Lọc thêm cho tab kháng cáo ban (nếu cần)
-            let filteredComplaints = data.complaints || [];
-            
-            if (activeTab === 'ban-appeals') {
-                filteredComplaints = filteredComplaints.filter(
-                    complaint => 
-                        complaint.subject?.toLowerCase().includes('kháng cáo') || 
-                        complaint.subject?.toLowerCase().includes('ban') || 
-                        complaint.description?.toLowerCase().includes('ban') ||
-                        complaint.description?.toLowerCase().includes('khóa tài khoản')
-                );
-                console.log("🔒 Ban appeals filtered:", filteredComplaints.length);
-            }
-            
-            // Bổ sung thêm dữ liệu cho filteredComplaints nếu cần
-            const processedComplaints = filteredComplaints.map(complaint => {
-                // Nếu user là string, tạo đối tượng user với _id
-                if (complaint.user && typeof complaint.user === 'string') {
-                    return {
-                        ...complaint,
-                        processedUser: {
-                            _id: complaint.user
-                        }
-                    };
-                }
-                return complaint;
-            });
-            
-            setComplaints(processedComplaints);
-            setPagination({
-                currentPage: data.currentPage,
-                totalPages: data.totalPages,
-                total: activeTab === 'ban-appeals' ? filteredComplaints.length : data.total
-            });
-        } catch (err) {
-            const message = err.response?.data?.message || 'Error fetching complaints';
-            setError(message);
-            toast.error(message);
+        } catch (error) {
+            console.error('❌ Lỗi khi tải danh sách khiếu nại:', error);
+            toast.error('Không thể tải danh sách khiếu nại');
         } finally {
             setLoading(false);
-            setIsSubmitting(false);
         }
-    }, [filters, activeTab]);
+    }, [filters, activeTab, searchInput]);
 
     useEffect(() => {
         fetchComplaints();
@@ -668,45 +626,55 @@ const ComplaintManagement = () => {
                                     <span className="font-medium">Người gửi khiếu nại:</span> {selectedComplaint.user?.username || 'Không có thông tin'}
                                 </p>
                                 
-                                {/* Hiển thị thông tin người bị ban từ backend */}
-                                {selectedComplaint.bannedUser ? (
-                                    <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                                        <p className="text-gray-700 font-medium mb-1">Thông tin người bị khóa:</p>
-                                        <p className="text-gray-700">
-                                            <span className="font-medium">Username:</span> {selectedComplaint.bannedUser.username}
-                                        </p>
-                                        <p className="text-gray-700">
-                                            <span className="font-medium">Email:</span> {selectedComplaint.bannedUser.email}
-                                        </p>
-                                        <p className="text-gray-700">
-                                            <span className="font-medium">Trạng thái:</span> 
-                                            {selectedComplaint.bannedUser.status === 'banned' ? (
-                                                <span className="text-red-500 font-semibold"> Đang bị khóa</span>
-                                            ) : (
-                                                <span className="text-green-500 font-semibold"> Đang hoạt động</span>
-                                            )}
-                                        </p>
-                                        {selectedComplaint.bannedUser.banReason && (
-                                            <p className="text-gray-700">
-                                                <span className="font-medium">Lý do khóa:</span> {selectedComplaint.bannedUser.banReason}
+                                {/* Email cần mở khóa - Luôn hiển thị bất kể có thông tin từ backend hay không */}
+                                <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                                    <h4 className="font-medium text-gray-700 mb-2">Thông tin người bị khóa:</h4>
+                                    
+                                    {selectedComplaint.bannedUser ? (
+                                        <>
+                                            {/* Nếu có thông tin người dùng bị ban từ backend */}
+                                            <p className="text-gray-700 mb-1">
+                                                <span className="font-medium">Username:</span> {selectedComplaint.bannedUser.username}
                                             </p>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <>
-                                        {/* Hiển thị trường để nhập email */}
-                                        <div className="flex items-center mb-2">
-                                            <span className="font-medium text-gray-700 mr-2">Email cần mở khóa:</span>
-                                            <input 
-                                                type="email"
-                                                value={editableEmail}
-                                                onChange={(e) => setEditableEmail(e.target.value)}
-                                                placeholder="Nhập email cần mở khóa"
-                                                className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
-                                        </div>
-                                    </>
-                                )}
+                                            <p className="text-gray-700 mb-1">
+                                                <span className="font-medium">Email:</span> {selectedComplaint.bannedUser.email}
+                                            </p>
+                                            <p className="text-gray-700 mb-1">
+                                                <span className="font-medium">Trạng thái:</span> 
+                                                {selectedComplaint.bannedUser.status === 'banned' ? (
+                                                    <span className="text-red-500 font-semibold"> Đang bị khóa</span>
+                                                ) : (
+                                                    <span className="text-green-500 font-semibold"> Đang hoạt động</span>
+                                                )}
+                                            </p>
+                                            {selectedComplaint.bannedUser.banReason && (
+                                                <p className="text-gray-700">
+                                                    <span className="font-medium">Lý do khóa:</span> {selectedComplaint.bannedUser.banReason}
+                                                </p>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            {/* Nếu không có thông tin từ backend */}
+                                            <p className="text-gray-500 italic">
+                                                Hệ thống chưa xác định được thông tin người bị khóa.
+                                            </p>
+                                            <div className="mt-2">
+                                                <label htmlFor="manual-email" className="block text-sm font-medium text-gray-700 mb-1">
+                                                    Email cần mở khóa:
+                                                </label>
+                                                <input 
+                                                    id="manual-email"
+                                                    type="email"
+                                                    value={editableEmail}
+                                                    onChange={(e) => setEditableEmail(e.target.value)}
+                                                    placeholder="Nhập email cần mở khóa"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                                 
                                 <p className="text-gray-700 mb-2">
                                     <span className="font-medium">Ngày tạo:</span> {new Date(selectedComplaint.createdAt).toLocaleDateString('vi-VN')}
@@ -756,23 +724,40 @@ const ComplaintManagement = () => {
                                 </div>
                             </div>
                         )}
-
-                        <form onSubmit={handleResolveComplaint} className="mt-6">
+                        
+                        {/* Form giải quyết khiếu nại */}
+                        <div className="mt-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Giải thích cách giải quyết khiếu nại:
+                            </label>
                             <textarea
-                                id="resolution"
                                 value={resolution}
                                 onChange={(e) => setResolution(e.target.value)}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 rows="4"
-                                placeholder="Giải thích cách giải quyết khiếu nại..."
-                                required
-                            />
-                            <div className="mt-6 flex justify-end">
-                                <button type="submit" disabled={isSubmitting} className="flex items-center justify-center px-6 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 disabled:bg-indigo-300">
-                                    {isSubmitting ? <ClipLoader size={20} color={"#fff"} /> : <><FaPaperPlane className="mr-2" /> Đánh dấu đã giải quyết</>}
+                                placeholder="Nhập giải thích cách bạn đã giải quyết khiếu nại này..."
+                            ></textarea>
+                            
+                            <div className="mt-4 flex justify-end">
+                                <button
+                                    onClick={() => handleResolveComplaint(selectedComplaint._id)}
+                                    disabled={isSubmitting || !resolution.trim()}
+                                    className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Đang xử lý...
+                                        </>
+                                    ) : (
+                                        'Đánh dấu đã giải quyết'
+                                    )}
                                 </button>
                             </div>
-                        </form>
+                        </div>
                     </div>
                 </div>
             )}
