@@ -73,154 +73,26 @@ exports.banUser = async (req, res) => {
 exports.unbanUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { username, email } = req.body; // Thêm tham số để hỗ trợ tìm kiếm theo username/email
     
-    console.log('🔓 Đang xử lý unban cho ID/username/email:', id, username, email);
+    const user = await User.findByIdAndUpdate(
+      id,
+      { 
+        status: 'active',
+        banReason: null,
+        banDate: null,
+        banExpiry: null,
+        bannedBy: null
+      },
+      { new: true }
+    ).select('-password');
     
-    let user;
-    
-    // Tìm theo ID nếu có giá trị hợp lệ
-    if (id && id.match(/^[0-9a-fA-F]{24}$/)) {
-      console.log('🔍 Tìm user theo ID:', id);
-      user = await User.findById(id);
-    }
-    
-    // Nếu không tìm thấy theo ID, thử tìm theo username
-    if (!user && username) {
-      console.log('🔍 Tìm user theo username:', username);
-      user = await User.findOne({ username });
-    }
-    
-    // Nếu vẫn không tìm thấy, thử tìm theo email
-    if (!user && email) {
-      console.log('🔍 Tìm user theo email:', email);
-      user = await User.findOne({ email });
-    }
-    
-    // Nếu không tìm thấy user
     if (!user) {
-      console.log('❌ Không tìm thấy user với ID/username/email:', id, username, email);
       return res.status(404).json({ message: 'User not found' });
     }
     
-    console.log('✅ Đã tìm thấy user:', user.username, user._id);
-    
-    // Chỉ update nếu user đang bị ban
-    if (user.status !== 'banned') {
-      console.log('⚠️ User không trong trạng thái banned:', user.status);
-      return res.status(400).json({ 
-        message: 'User is not banned',
-        currentStatus: user.status
-      });
-    }
-    
-    // Update trạng thái user
-    user.status = 'active';
-    user.banReason = null;
-    user.banDate = null;
-    user.banExpiry = null;
-    user.bannedBy = null;
-    
-    await user.save();
-    
-    console.log('✅ Đã mở khóa user thành công:', user.username);
-    
-    res.json({ 
-      message: 'User unbanned successfully', 
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        status: user.status
-      } 
-    });
+    res.json({ message: 'User unbanned successfully', user });
   } catch (error) {
-    console.error('❌ Error unbanning user:', error);
     res.status(500).json({ message: 'Error unbanning user', error: error.message });
-  }
-};
-
-// Unban user by email
-exports.unbanUserByEmail = async (req, res) => {
-  try {
-    const { email } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
-    }
-    
-    console.log('🔓 Đang tìm và mở khóa tài khoản với email:', email);
-    
-    // Tìm user theo email
-    const user = await User.findOne({ email });
-    
-    // Nếu không tìm thấy user
-    if (!user) {
-      console.log('❌ Không tìm thấy user với email:', email);
-      return res.status(404).json({ message: `User with email ${email} not found` });
-    }
-    
-    console.log('✅ Đã tìm thấy user:', user.username, user._id, 'Status:', user.status);
-    
-    // Kiểm tra nếu tài khoản đã được kích hoạt
-    if (user.status === 'active') {
-      console.log('ℹ️ Tài khoản đã đang hoạt động:', user.email);
-      // Trả về thành công ngay cả khi tài khoản đã active
-      return res.json({ 
-        success: true,
-        message: 'User is already active',
-        user: {
-          _id: user._id,
-          username: user.username,
-          email: user.email,
-          status: user.status
-        }
-      });
-    }
-    
-    // Update trạng thái user nếu đang bị khóa
-    user.status = 'active';
-    user.banReason = null;
-    user.banDate = null;
-    user.banExpiry = null;
-    user.bannedBy = null;
-    
-    await user.save();
-    
-    console.log('✅ Đã mở khóa tài khoản thành công:', user.email);
-    
-    // Gửi thông báo đến user (nếu có)
-    const io = req.app.get('io');
-    if (io) {
-      // Tạo thông báo
-      const notification = await Notification.create({
-        userId: user._id,
-        type: 'account_unbanned',
-        title: 'Tài khoản của bạn đã được mở khóa',
-        message: 'Kháng cáo của bạn đã được chấp nhận và tài khoản của bạn đã được mở khóa.',
-      });
-      
-      // Gửi thông báo qua socket
-      io.to(user._id.toString()).emit('new_notification', notification);
-    }
-    
-    res.json({ 
-      success: true,
-      message: 'User unbanned successfully', 
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        status: user.status
-      } 
-    });
-  } catch (error) {
-    console.error('❌ Error unbanning user by email:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Error unbanning user', 
-      error: error.message 
-    });
   }
 };
 
@@ -349,120 +221,79 @@ exports.getEvents = async (req, res) => {
   }
 };
 
-// Get all complaints with pagination and filtering
+// Get all complaints
 exports.getComplaints = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-    const status = req.query.status;
-    const type = req.query.type;
-    const searchTerm = req.query.search;
-
-    console.log('📊 Đang lấy danh sách khiếu nại với tham số:', { page, limit, status, type, searchTerm });
-
-    let query = {};
+    const { page = 1, limit = 10, status, category, priority, subject } = req.query;
+    const filter = {};
     
-    // Add status filter if provided
-    if (status && status !== 'all') {
-      query.status = status;
+    if (status) filter.status = status;
+    if (category) filter.category = category;
+    if (priority) filter.priority = priority;
+    
+    // Thêm lọc theo subject cho kháng cáo ban
+    if (subject) {
+      filter.subject = { $regex: subject, $options: 'i' };
     }
     
-    // Add type filter if provided
-    if (type && type !== 'all') {
-      // Ban appeals filter
-      if (type === 'ban-appeals') {
-        query.$or = [
-          { subject: { $regex: 'kháng cáo', $options: 'i' } },
-          { subject: { $regex: 'ban', $options: 'i' } },
-          { subject: { $regex: 'khóa', $options: 'i' } },
-          { description: { $regex: 'kháng cáo', $options: 'i' } }
-        ];
-      }
-      // Event reports filter
-      else if (type === 'event-reports') {
-        query.$or = [
-          { subject: { $regex: 'sự kiện', $options: 'i' } },
-          { subject: { $regex: 'event', $options: 'i' } }
-        ];
-      }
-      // Other types as needed
-    }
+    console.log('🔍 Complaints filter:', filter);
     
-    // Add search filter if provided
-    if (searchTerm) {
-      query.$or = [
-        { subject: { $regex: searchTerm, $options: 'i' } },
-        { description: { $regex: searchTerm, $options: 'i' } }
-      ];
-    }
-
-    // Count total complaints with filters
-    const totalComplaints = await Complaint.countDocuments(query);
-    
-    // Get complaints with pagination
-    const complaints = await Complaint.find(query)
+    const complaints = await Complaint.find(filter)
+      .populate('user', 'username email fullName avatar')
+      .populate('relatedEvent', 'title')
+      .populate('relatedUser', 'username email fullName')
+      .populate('resolvedBy', 'username email fullName')
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate({
-        path: 'user',
-        select: 'username email avatar status'
-      })
-      .populate({
-        path: 'relatedEvent',
-        select: 'title'
-      })
-      .populate({
-        path: 'relatedUser',
-        select: 'username email status'
-      })
-      .lean();
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+    
+    const total = await Complaint.countDocuments(filter);
+    
+    console.log(`📊 Found ${complaints.length}/${total} complaints`);
+    
+    // Bổ sung thông tin người dùng bị ban từ nội dung khiếu nại
+    const processedComplaints = await Promise.all(complaints.map(async complaint => {
+      const complaintObj = complaint.toObject();
       
-    // Tìm kiếm thêm thông tin người dùng bị ban trong các khiếu nại liên quan đến kháng cáo
-    const enhancedComplaints = await Promise.all(complaints.map(async (complaint) => {
       // Chỉ xử lý cho các khiếu nại liên quan đến kháng cáo ban
-      if (complaint.subject && (
-          complaint.subject.toLowerCase().includes('kháng cáo') || 
-          complaint.subject.toLowerCase().includes('ban') ||
-          complaint.subject.toLowerCase().includes('khóa')
-        )) {
-        
-        // Tìm email trong nội dung
-        const description = complaint.description || '';
+      if (complaint.subject?.includes('Kháng cáo') || complaint.category === 'user_behavior') {
+        // Trích xuất email từ nội dung
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        const emails = description.match(emailRegex) || [];
+        const emails = complaint.description.match(emailRegex);
         
-        if (emails.length > 0) {
-          // Tìm thông tin người dùng qua email
-          const bannedUser = await User.findOne({ email: emails[0] }).lean().select('username email status banReason');
+        if (emails && emails.length > 0) {
+          const extractedEmail = emails[0];
+          console.log(`📧 Đã trích xuất email từ khiếu nại ${complaint._id}:`, extractedEmail);
+          
+          // Tìm user bị ban dựa trên email
+          const bannedUser = await User.findOne({ email: extractedEmail })
+            .select('username email status banReason banDate banExpiry avatar');
+          
           if (bannedUser) {
-            complaint.bannedUser = bannedUser;
+            console.log(`👤 Đã tìm thấy user ${bannedUser.username} (${bannedUser.status})`);
+            complaintObj.bannedUserInfo = bannedUser.toObject();
+          } else {
+            console.log(`❌ Không tìm thấy user với email ${extractedEmail}`);
           }
+          
+          complaintObj.extractedEmail = extractedEmail;
+        } else {
+          console.log(`⚠️ Không thể trích xuất email từ khiếu nại ${complaint._id}`);
         }
       }
       
-      return complaint;
+      return complaintObj;
     }));
-
-    // Calculate total pages
-    const totalPages = Math.ceil(totalComplaints / limit);
-
-    console.log(`✅ Đã tìm thấy ${totalComplaints} khiếu nại, trang ${page}/${totalPages}`);
-
-    // Return complaints with pagination info
+    
     res.json({
-      complaints: enhancedComplaints,
-      pagination: {
-        currentPage: page,
-        totalPages: totalPages,
-        totalItems: totalComplaints,
-        itemsPerPage: limit
-      }
+      complaints: processedComplaints,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
     });
   } catch (error) {
-    console.error('❌ Error getting complaints:', error);
-    res.status(500).json({ message: 'Error getting complaints', error: error.message });
+    console.error('❌ Error fetching complaints:', error);
+    res.status(500).json({ message: 'Error fetching complaints', error: error.message });
   }
 };
 
