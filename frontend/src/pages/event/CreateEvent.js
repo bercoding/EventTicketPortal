@@ -722,71 +722,7 @@ const CreateEvent = () => {
 
           {currentStep === 4 && (
             <div className="space-y-10">
-              {/* payment info */}
-              <FormSection title="Thông tin thanh toán" icon={faMoneyBillWave}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label htmlFor="bankName" className="block text-sm font-medium text-gray-300 mb-2">Tên ngân hàng</label>
-                    <input
-                      type="text"
-                      id="bankName"
-                      name="payment.bankName"
-                      value={formData.payment?.bankName || ''}
-                      onChange={handleChange}
-                      placeholder="Ví dụ: Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)"
-                      className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-300 mb-2">Số tài khoản</label>
-                    <input
-                      type="text"
-                      id="accountNumber"
-                      name="payment.accountNumber"
-                      value={formData.payment?.accountNumber || ''}
-                      onChange={handleChange}
-                      placeholder="Ví dụ: 001100123456789"
-                      className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="accountHolderName" className="block text-sm font-medium text-gray-300 mb-2">Tên chủ tài khoản</label>
-                    <input
-                      type="text"
-                      id="accountHolderName"
-                      name="payment.accountHolderName"
-                      value={formData.payment?.accountHolderName || ''}
-                      onChange={handleChange}
-                      placeholder="Ví dụ: NGUYEN VAN A"
-                      className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="branch" className="block text-sm font-medium text-gray-300 mb-2">Chi nhánh</label>
-                    <input
-                      type="text"
-                      id="branch"
-                      name="payment.branch"
-                      value={formData.payment?.branch || ''}
-                      onChange={handleChange}
-                      placeholder="Ví dụ: Chi nhánh Hà Nội"
-                      className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="swiftBic" className="block text-sm font-medium text-gray-300 mb-2">Mã SWIFT/BIC (nếu có)</label>
-                    <input
-                      type="text"
-                      id="swiftBic"
-                      name="payment.swiftBic"
-                      value={formData.payment?.swiftBic || ''}
-                      onChange={handleChange}
-                      placeholder="Ví dụ: BFTVVNVX"
-                      className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                    />
-                  </div>
-                </div>
-              </FormSection>
+              {/* Thêm nội dung mới ở đây nếu cần */}
             </div>
           )}
 
