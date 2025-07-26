@@ -657,8 +657,23 @@ const MyTicketsPage = () => {
                                 {selectedTicket.status === 'active' && canReturnTicket(selectedTicket) && (
                                     <button 
                                         onClick={() => {
-                                            setSelectedTicket(null);
-                                            setShowRefundRequestModal(selectedTicket);
+                                            // Vé cần có trường booking để truyền vào form hoàn tiền
+                                            if (!selectedTicket.booking) {
+                                                // Nếu không có thông tin booking, lấy ID vé làm ID booking
+                                                const modifiedTicket = {
+                                                    ...selectedTicket,
+                                                    booking: {
+                                                        _id: selectedTicket._id,
+                                                        bookingCode: selectedTicket.bookingCode || selectedTicket._id.substring(0, 8),
+                                                        totalAmount: selectedTicket.price
+                                                    }
+                                                };
+                                                setSelectedTicket(null);
+                                                setShowRefundRequestModal(modifiedTicket);
+                                            } else {
+                                                setSelectedTicket(null);
+                                                setShowRefundRequestModal(selectedTicket);
+                                            }
                                         }}
                                         className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 shadow-lg hover:shadow-red-500/25"
                                     >
