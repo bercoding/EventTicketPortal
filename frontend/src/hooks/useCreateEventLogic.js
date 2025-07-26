@@ -90,10 +90,18 @@ const useCreateEventLogic = (templateInfo = null) => {
 
   // Fetch provinces khi mount
   useEffect(() => {
+    console.log('🌍 Fetching provinces...');
     fetch('https://provinces.open-api.vn/api/p/')
       .then(res => res.json())
-      .then(data => setProvinces(data))
-      .catch(() => setProvinces([]));
+      .then(data => {
+        console.log('🌍 Provinces loaded:', data.length, 'provinces');
+        console.log('🌍 First few provinces:', data.slice(0, 3));
+        setProvinces(data);
+      })
+      .catch(error => {
+        console.error('❌ Error fetching provinces:', error);
+        setProvinces([]);
+      });
   }, []);
 
   // Fetch districts khi chọn tỉnh
@@ -127,7 +135,8 @@ const useCreateEventLogic = (templateInfo = null) => {
   // Khôi phục lại useEffect đồng bộ tên tỉnh/thành với code
   useEffect(() => {
     if (selectedProvinceCode) {
-      const province = provinces.find(p => p.code === selectedProvinceCode);
+      const province = provinces.find(p => p.code === parseInt(selectedProvinceCode));
+      console.log('🔄 Syncing city from province code:', selectedProvinceCode, 'to city name:', province?.name);
       setFormData(prev => ({
         ...prev,
         location: {
@@ -141,6 +150,7 @@ const useCreateEventLogic = (templateInfo = null) => {
   // Khi chọn quận, cập nhật formData.location.district
   useEffect(() => {
     const district = districts.find(d => d.code === selectedDistrictCode);
+    console.log('🔄 Syncing district from code:', selectedDistrictCode, 'to name:', district?.name);
     setFormData(prev => ({
       ...prev,
       location: {
@@ -153,6 +163,7 @@ const useCreateEventLogic = (templateInfo = null) => {
   // Khi chọn phường, cập nhật formData.location.ward
   useEffect(() => {
     const ward = wards.find(w => w.code === selectedWardCode);
+    console.log('🔄 Syncing ward from code:', selectedWardCode, 'to name:', ward?.name);
     setFormData(prev => ({
       ...prev,
       location: {
@@ -586,233 +597,115 @@ const useCreateEventLogic = (templateInfo = null) => {
   };
 
   const handleFinalSubmit = async (e) => {
-    if (e && e.preventDefault) {
-      e.preventDefault();
-    }
+    if (e) e.preventDefault();
     
-    if (!user || user.role !== 'event_owner') {
-      toast.error('Bạn không có quyền tạo sự kiện');
-      return;
-    }
-
+    console.log('🚀 Starting final submit...');
+    console.log('📋 Current formData:', JSON.stringify(formData, null, 2));
+    console.log('🏙️ City in formData:', formData.location.city);
+    console.log('🏘️ District in formData:', formData.location.district);
+    console.log('🏠 Ward in formData:', formData.location.ward);
+    console.log('🏙️ Selected province code:', selectedProvinceCode);
+    
+    setLoading(true);
     try {
-      setLoading(true);
-
-      console.log('User object in handleFinalSubmit:', user);
-      console.log('User ID in handleFinalSubmit:', user?._id);
-      console.log('Template info:', templateInfo);
-      console.log('Form data before submission:', formData);
-      console.log('Seating map data:', formData.seatingMap);
-
-      // Validate required fields
+      // Validation cuối cùng trước khi submit
       if (!formData.title || !formData.description) {
-        toast.error('Vui lòng điền đầy đủ thông tin cơ bản của sự kiện');
+        toast.error('Vui lòng điền đầy đủ thông tin bắt buộc');
         setLoading(false);
         return;
       }
-
-      // Validate ticket types
-      if (!formData.ticketTypes || formData.ticketTypes.length === 0) {
-        toast.error('Vui lòng thêm ít nhất một loại vé');
-        setLoading(false);
-        return;
-      }
-
-      // Validate tổng số lượng vé không vượt quá sức chứa (chỉ cho event general)
-      if (isGeneralEvent) {
-        const totalTickets = formData.ticketTypes.reduce((sum, ticket) => sum + (Number(ticket.totalQuantity) || 0), 0);
-        const capacity = Number(formData.capacity) || 0;
-        if (totalTickets > capacity) {
-          toast.error('Tổng số lượng vé không được lớn hơn sức chứa.');
-          setLoading(false);
-          return;
-        }
-      }
-
-      for (const ticket of formData.ticketTypes) {
-        if (!ticket.name || ticket.price < 0 || ticket.totalQuantity <= 0) {
-          toast.error('Vui lòng kiểm tra lại thông tin loại vé');
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Kiểm tra kết nối đến backend
-      try {
-        console.log('Testing API connection...');
-        const testResponse = await api.get('/health-check');
-        console.log('API connection test successful:', testResponse.data);
-      } catch (connectionError) {
-        console.error('API connection test failed:', connectionError);
-        toast.error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối và thử lại.');
-        setLoading(false);
-        return;
-      }
-
-      // Tính toán capacity và seatOptions dựa trên template
-      let payload;
-      let apiEndpoint = '/events';
       
-      if (isSeatingEvent) {
-        // Sự kiện có ghế ngồi
-        console.log("Đang xử lý sự kiện có ghế ngồi");
-        apiEndpoint = '/events/create-with-seating';
-        
-        const totalTickets = formData.ticketTypes.reduce((sum, ticket) => sum + ticket.totalQuantity, 0);
-        
-        // Ensure seatingMap is properly aligned with venue layout
-        const venueLayout = formData.seatingMap?.layoutType || 'theater';
-        
-        const locationData = {
-          type: formData.location.type || 'offline',
-          venueName: formData.location.venueName,
-          address: formData.location.address,
-          ward: formData.location.ward,
-          district: formData.location.district,
-          city: formData.location.city,
-          country: formData.location.country || 'Vietnam',
-          venueLayout: venueLayout // Use the same value for both properties
-        };
-
-        // Convert rows from number to proper schema structure
-        const processedSeatingMap = {
-          ...formData.seatingMap,
-          layoutType: venueLayout, // Ensure it matches venueLayout
-          sections: Array.isArray(formData.seatingMap?.sections) ? 
-            formData.seatingMap.sections.map(section => {
-              // Convert numeric rows to rowSchema structure
-              if (typeof section.rows === 'number' || typeof section.rows === 'string') {
-                // Giới hạn số lượng hàng và ghế để tránh payload quá lớn
-                const numRows = Math.min(parseInt(section.rows) || 10, 15);
-                const seatsPerRow = Math.min(parseInt(section.seatsPerRow) || 15, 30);
-                
-                return {
-                  ...section,
-                  rows: generateRowsData(numRows, seatsPerRow)
-                };
-              } else if (!Array.isArray(section.rows)) {
-                // If rows is neither a number nor an array, create a default array
-                return {
-                  ...section,
-                  rows: generateRowsData(10, 15) // Default values
-                };
-              }
-              return section;
-            }) : []
-        };
-        
-        console.log('Processed seating map for submission:', processedSeatingMap);
-
-        payload = {
-          ...formData,
-          organizers: [user._id],
-          location: locationData,
-          organizer: formData.organizer || { name: user.username || 'Event Organizer' },
-          seatOptions: {
-            totalSeats: totalTickets || formData.capacity || 100,
-            totalSections: processedSeatingMap?.sections?.length || 5,
-            venueType: formData.location.venueLayout || 'theater'
-          },
-          // Ensure capacity is set explicitly
-          capacity: totalTickets || formData.capacity || 100,
-          // Send empty array for ticketTypes to prevent casting errors
-          // Ticket types will be created separately in the backend
-          ticketTypes: [],
-          // Store the original ticket types data in a separate field
-          ticketTypesData: formData.ticketTypes,
-          templateType: templateInfo?.templateType || 'seating',
-          seatingMap: processedSeatingMap // Use the processed seating map
-        };
-      } else {
-        // Sự kiện general hoặc online
-        const locationData = {
-          type: formData.location.type,
-          venueName: formData.location.venueName,
-          address: formData.location.address,
-          ward: formData.location.ward,
-          district: formData.location.district,
-          city: formData.location.city,
-          country: formData.location.country || 'Vietnam'
-        };
-
-        // Chỉ thêm thông tin online nếu là online event
-        if (formData.location.type === 'online') {
-          locationData.meetingLink = formData.location.meetingLink;
-          locationData.platform = formData.location.platform;
-        }
-
-        // Đảm bảo rằng thông tin về số lượng vé được gửi chính xác
-        const ticketTypesData = formData.ticketTypes.map(ticket => ({
-          ...ticket,
-          // Chuyển đổi thành số nguyên rõ ràng để tránh lỗi
-          totalQuantity: parseInt(ticket.totalQuantity) || 100,
-          availableQuantity: parseInt(ticket.availableQuantity || ticket.totalQuantity) || 100
-        }));
-
-        // Đảm bảo capacity cũng được gửi chính xác
-        const capacity = parseInt(formData.capacity) || 
-          ticketTypesData.reduce((sum, ticket) => sum + (parseInt(ticket.totalQuantity) || 0), 0);
-
-        payload = {
-          ...formData,
-          organizers: [user._id],
-          location: locationData,
-          organizer: formData.organizer,
-          // Đảm bảo capacity có giá trị đúng
-          capacity: capacity > 0 ? capacity : 100,
-          ticketTypes: [], // Gửi mảng rỗng cho ticketTypes
-          ticketTypesData: ticketTypesData, // Gửi loại vé thực tế ở field này
-          templateType: templateInfo?.templateType || 'general'
-        };
-      }
-
-      console.log('API endpoint:', apiEndpoint);
-      console.log('Submitting event data:', payload);
-
-      // Thực hiện API call với timeout dài hơn
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-      try {
-        const response = await api.post(apiEndpoint, payload, {
-          signal: controller.signal,
-          timeout: 30000
-        });
-        
-        clearTimeout(timeoutId);
-        
-        console.log('Event creation response:', response.data);
-        console.log('Response structure:', {
-          success: response.data.success,
-          hasData: !!response.data.data,
-          eventId: response.data.data?._id,
-          dataKeys: Object.keys(response.data.data || {})
-        });
-        
-        if (response.data.success && response.data.data?._id) {
-          const eventId = response.data.data._id;
-          const eventTitle = response.data.data.title;
-          console.log('🎉 Event created successfully:', { eventId, eventTitle });
-          toast.success(`Tạo sự kiện "${eventTitle}" thành công!`);
-          
-          // Navigate after a short delay to ensure toast is shown
+      // Đảm bảo city được set đúng trước khi submit
+      if (!formData.location.city && selectedProvinceCode) {
+        const province = provinces.find(p => p.code === selectedProvinceCode);
+        if (province) {
+          console.log('🔧 Fixing city before submit:', province.name);
+          setFormData(prev => ({
+            ...prev,
+            location: {
+              ...prev.location,
+              city: province.name
+            }
+          }));
+          // Đợi một chút để state update
           setTimeout(() => {
-            navigate('/my-events');
-          }, 2000);
-        } else {
-          console.error('❌ Invalid response structure:', response.data);
-          throw new Error('Không nhận được ID sự kiện từ server');
-        }
-      } catch (apiError) {
-        if (apiError.name === 'AbortError') {
-          console.error('API request timed out');
-          toast.error('Yêu cầu bị hủy do quá thời gian chờ. Vui lòng thử lại sau.');
-        } else {
-          throw apiError; // Re-throw to be caught by the outer catch
+            submitEvent();
+          }, 100);
+          return;
         }
       }
+      
+      // Nếu vẫn không có city, thử lấy từ provinces
+      if (!formData.location.city && selectedProvinceCode) {
+        console.log('🔧 City still empty, trying to get from provinces...');
+        const province = provinces.find(p => p.code === selectedProvinceCode);
+        if (province) {
+          console.log('🔧 Found province for city:', province.name);
+          // Cập nhật formData trực tiếp
+          const updatedFormData = {
+            ...formData,
+            location: {
+              ...formData.location,
+              city: province.name
+            }
+          };
+          console.log('🔧 Updated formData with city:', updatedFormData.location.city);
+          submitEventWithData(updatedFormData);
+          return;
+        }
+      }
+      
+      submitEvent();
     } catch (error) {
-      console.error('Error creating event:', error);
+      console.error('❌ Error in handleFinalSubmit:', error);
+      toast.error('Có lỗi xảy ra khi tạo sự kiện');
+      setLoading(false);
+    }
+  };
+  
+  const submitEvent = async () => {
+    submitEventWithData(formData);
+  };
+  
+  const submitEventWithData = async (data) => {
+    try {
+      console.log('📤 Submitting event data to backend with prepared data...');
+      console.log('🏙️ Final city value:', data.location.city);
+      
+      // Chuẩn bị dữ liệu trước khi gửi
+      const eventData = {
+        ...data,
+        // Đảm bảo capacity có giá trị
+        capacity: data.capacity || 100,
+        // Đảm bảo platform có giá trị hợp lệ cho online event
+        location: {
+          ...data.location,
+          platform: data.location.type === 'online' ? (data.location.platform || 'zoom') : undefined
+        },
+        // Gửi ticketTypesData thay vì ticketTypes để backend tạo riêng
+        ticketTypesData: data.ticketTypes,
+        ticketTypes: [], // Gửi mảng rỗng, backend sẽ tạo
+        // Đảm bảo seatingMap có cấu trúc đúng
+        seatingMap: data.seatingMap ? {
+          ...data.seatingMap,
+          sections: data.seatingMap.sections?.map(section => ({
+            ...section,
+            // Đảm bảo rows là array thay vì number
+            rows: Array.isArray(section.rows) ? section.rows : generateRowsData(10, 15)
+          })) || []
+        } : undefined
+      };
+      
+      console.log('📋 Prepared event data:', JSON.stringify(eventData, null, 2));
+      
+      const response = await api.post('/events', eventData);
+      
+      console.log('✅ Event created successfully:', response.data);
+      
+      toast.success('Tạo sự kiện thành công!');
+      navigate('/events');
+    } catch (error) {
+      console.error('❌ Error creating event:', error);
       console.error('Response data:', error.response?.data);
       console.error('Error message:', error.message);
       toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi tạo sự kiện');
@@ -846,24 +739,44 @@ const useCreateEventLogic = (templateInfo = null) => {
   // Sửa handleChange để cập nhật code khi chọn dropdown
   const handleChangeWithDropdown = (e) => {
     const { name, value } = e.target;
+    console.log('🔄 handleChangeWithDropdown called:', name, value);
+    
     if (name === 'location.city') {
+      console.log('🏙️ City dropdown changed to code:', value);
+      console.log('🏙️ Available provinces:', provinces.length);
+      console.log('🏙️ Looking for province with code:', value);
+      
       setSelectedProvinceCode(value);
       // Force update city name in formData
-      const province = provinces.find(p => p.code === value);
-      setFormData(prev => ({
-        ...prev,
-        location: {
-          ...prev.location,
-          city: province ? province.name : ''
-        }
-      }));
+      const province = provinces.find(p => p.code === parseInt(value));
+      console.log('🏙️ Found province:', province);
+      
+      if (province) {
+        console.log('🏙️ Province name:', province.name);
+        setFormData(prev => {
+          const newFormData = {
+            ...prev,
+            location: {
+              ...prev.location,
+              city: province.name
+            }
+          };
+          console.log('🏙️ Updated formData.city to:', newFormData.location.city);
+          return newFormData;
+        });
+      } else {
+        console.error('❌ Province not found for code:', value);
+        console.log('🏙️ Available province codes:', provinces.map(p => p.code).slice(0, 10));
+      }
       setSelectedDistrictCode('');
       setSelectedWardCode('');
       return;
     }
     if (name === 'location.district') {
+      console.log('🏘️ District dropdown changed to code:', value);
       setSelectedDistrictCode(value);
       const district = districts.find(d => d.code === value);
+      console.log('🏘️ Found district:', district?.name);
       setFormData(prev => ({
         ...prev,
         location: {
@@ -875,8 +788,10 @@ const useCreateEventLogic = (templateInfo = null) => {
       return;
     }
     if (name === 'location.ward') {
+      console.log('🏠 Ward dropdown changed to code:', value);
       setSelectedWardCode(value);
       const ward = wards.find(w => w.code === value);
+      console.log('🏠 Found ward:', ward?.name);
       setFormData(prev => ({
         ...prev,
         location: {
