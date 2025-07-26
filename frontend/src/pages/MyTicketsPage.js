@@ -3,7 +3,8 @@ import { ticketService } from '../services/ticketService';
 import { toast } from 'react-toastify';
 import QRCode from 'qrcode';
 import { useSearchParams } from 'react-router-dom';
-import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTicketAlt, FaQrcode, FaTimes, FaExclamationTriangle, FaCheckCircle, FaInfoCircle } from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTicketAlt, FaQrcode, FaTimes, FaExclamationTriangle, FaCheckCircle, FaInfoCircle, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
+import RefundRequestForm from '../components/RefundRequestForm';
 
 const MyTicketsPage = () => {
     const [searchParams] = useSearchParams();
@@ -15,6 +16,7 @@ const MyTicketsPage = () => {
     const [qrCodes, setQrCodes] = useState({});
     const [showReturnModal, setShowReturnModal] = useState(null);
     const [isReturning, setIsReturning] = useState(false);
+    const [showRefundRequestModal, setShowRefundRequestModal] = useState(false);
     const [newTickets, setNewTickets] = useState([]);
     const [selectedStatus, setSelectedStatus] = useState('all');
 
@@ -656,11 +658,11 @@ const MyTicketsPage = () => {
                                     <button 
                                         onClick={() => {
                                             setSelectedTicket(null);
-                                            openReturnModal(selectedTicket);
+                                            setShowRefundRequestModal(selectedTicket);
                                         }}
                                         className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 shadow-lg hover:shadow-red-500/25"
                                     >
-                                        Trả vé (Phí 25%)
+                                        <FaMoneyBillWave className="inline mr-2" /> Yêu cầu hoàn tiền
                                     </button>
                                 )}
                                 <button 
@@ -671,6 +673,23 @@ const MyTicketsPage = () => {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Refund Request Modal */}
+            {showRefundRequestModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+                    <div className="bg-gray-800 rounded-2xl shadow-2xl border border-blue-500/30 w-full max-w-2xl overflow-hidden">
+                        <RefundRequestForm 
+                            booking={showRefundRequestModal.booking}
+                            onSuccess={() => {
+                                setShowRefundRequestModal(false);
+                                fetchTickets();
+                                toast.success('Yêu cầu hoàn tiền đã được gửi thành công');
+                            }}
+                            onCancel={() => setShowRefundRequestModal(false)}
+                        />
                     </div>
                 </div>
             )}
