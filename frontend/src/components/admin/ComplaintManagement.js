@@ -3,6 +3,8 @@ import { adminAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 import { FaEye, FaFilter, FaRedo, FaTimes, FaUser, FaTag, FaExclamationCircle, FaPaperPlane, FaUserSlash, FaUnlock, FaShieldAlt } from 'react-icons/fa';
 import { ClipLoader } from 'react-spinners';
+import axios from 'axios'; // Added axios import
+import { API_URL } from '../../config'; // Added API_URL import
 
 const ComplaintManagement = () => {
     const [complaints, setComplaints] = useState([]);
@@ -160,37 +162,79 @@ const ComplaintManagement = () => {
     };
     
     // Giải quyết nhanh kháng cáo và unban user
-    const handleQuickUnban = async (userId) => {
-        if (!userId) {
-            toast.error('Không tìm thấy ID người dùng!');
-            return;
-        }
-        
+    const handleQuickUnban = async () => {
         try {
             setIsSubmitting(true);
+
+            // Lấy nội dung khiếu nại
+            const description = selectedComplaint?.description || '';
             
-            console.log('🔓 Đang mở khóa tài khoản cho user:', userId);
-            // Unban user
-            await adminAPI.unbanUser(userId);
-            toast.success('Đã mở khóa tài khoản người dùng thành công!');
+            // Trích xuất email từ nội dung
+            const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+            const emails = description.match(emailRegex) || [];
+            
+            // Email để mở khóa
+            let emailToUnban = '';
+            
+            if (emails.length > 0) {
+                // Sử dụng email đầu tiên tìm thấy trong nội dung
+                emailToUnban = emails[0];
+                console.log('📧 Đã tìm thấy email trong nội dung:', emailToUnban);
+            } else {
+                // Nếu không tìm thấy, yêu cầu nhập
+                const userInput = prompt('Không tìm thấy email trong nội dung. Vui lòng nhập email cần mở khóa:');
+                if (!userInput || !userInput.trim()) {
+                    toast.warning('Bạn chưa nhập email, hành động đã bị hủy.');
+                    setIsSubmitting(false);
+                    return;
+                }
+                emailToUnban = userInput.trim();
+            }
+            
+            console.log('🔓 Đang mở khóa tài khoản với email:', emailToUnban);
+            
+            // Gọi API unbanUserByEmail
+            const token = localStorage.getItem('token');
+            const response = await axios.post(
+                `${API_URL}/admin/users/unban-by-email`,
+                { email: emailToUnban },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            
+            console.log('✅ Kết quả mở khóa:', response.data);
+            toast.success(`Đã mở khóa tài khoản ${emailToUnban} thành công!`);
             
             // Giải quyết khiếu nại
-            if (selectedComplaint) {
-                console.log('✅ Đang giải quyết khiếu nại:', selectedComplaint._id);
-                const resolutionText = 'Đã chấp nhận kháng cáo và mở khóa tài khoản.';
-                
-                // Sử dụng resolveComplaint API
-                await adminAPI.resolveComplaint(selectedComplaint._id, { 
-                    resolution: resolutionText 
-                });
+            if (selectedComplaint?._id) {
+                await axios.post(
+                    `${API_URL}/admin/complaints/${selectedComplaint._id}/resolve`,
+                    { resolution: `Đã chấp nhận kháng cáo và mở khóa tài khoản ${emailToUnban}.` },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
                 
                 toast.success('Đã giải quyết khiếu nại thành công!');
-                closeModal();
-                fetchComplaints();
             }
-        } catch (err) {
-            console.error('❌ Lỗi:', err);
-            toast.error('Không thể hoàn tất thao tác: ' + (err.response?.data?.message || err.message));
+            
+            closeModal();
+            fetchComplaints();
+        } catch (error) {
+            console.error('❌ Lỗi khi mở khóa:', error);
+            
+            if (error.response?.data) {
+                toast.error(`Không thể mở khóa: ${error.response.data.message || error.message}`);
+            } else {
+                toast.error(`Lỗi: ${error.message}`);
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -499,15 +543,7 @@ const ComplaintManagement = () => {
                                 <h4 className="font-medium text-blue-700 mb-2">Hành động nhanh:</h4>
                                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                                     <button 
-                                        onClick={() => {
-                                            // Ưu tiên sử dụng ID của bannedUserInfo nếu có
-                                            const userIdToUnban = selectedComplaint.bannedUserInfo?._id || selectedComplaint.user?._id;
-                                            if (!userIdToUnban) {
-                                                toast.error('Không tìm thấy ID người dùng cần mở khóa');
-                                                return;
-                                            }
-                                            handleQuickUnban(userIdToUnban);
-                                        }}
+                                        onClick={handleQuickUnban}
                                         disabled={isSubmitting}
                                         className="flex items-center justify-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
