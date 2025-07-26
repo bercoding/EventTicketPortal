@@ -34,8 +34,19 @@ const POSConfirmation = () => {
 
     const confirmPayment = async (paymentId) => {
         try {
-            const response = await api.put(`/payments/pos/${paymentId}/confirm`);
-            if (response.data.status === 'success') {
+            // Disable button during processing
+            setLoading(true);
+            
+            // Add timeout to prevent hanging
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Request timeout')), 30000); // 30 seconds
+            });
+            
+            const responsePromise = api.put(`/payments/pos/${paymentId}/confirm`);
+            const response = await Promise.race([responsePromise, timeoutPromise]);
+            
+            // Check both success and status fields
+            if (response.data.success === true || response.data.status === 'success') {
                 toast.success('Xác nhận thanh toán thành công!');
                 
                 // Tìm payment để lấy thông tin user
@@ -45,24 +56,65 @@ const POSConfirmation = () => {
                     window.open(`/my-tickets?payment=${paymentId}`, '_blank');
                 }
                 
-                fetchPOSPayments(); // Refresh list
+                // Add delay before refreshing to ensure backend has updated
+                setTimeout(() => {
+                    fetchPOSPayments(); // Refresh list
+                }, 1000);
+            } else {
+                // Handle case where backend returns success: false with message
+                const message = response.data.message || 'Lỗi khi xác nhận thanh toán';
+                toast.error(message);
+                console.log('Payment confirmation response:', response.data);
             }
         } catch (error) {
             console.error('Error confirming payment:', error);
-            toast.error('Lỗi khi xác nhận thanh toán');
+            
+            // Check if it's a timeout error
+            if (error.message === 'Request timeout') {
+                toast.error('Yêu cầu xác nhận bị timeout. Vui lòng thử lại.');
+                return;
+            }
+            
+            // Show specific error message from backend if available
+            const errorMessage = error.response?.data?.message || 'Lỗi khi xác nhận thanh toán';
+            toast.error(errorMessage);
+            
+            // If it's a 400 error, it might be a race condition - refresh the list
+            if (error.response?.status === 400) {
+                console.log('Detected potential race condition, refreshing payment list...');
+                setTimeout(() => {
+                    fetchPOSPayments();
+                }, 2000);
+            }
+        } finally {
+            setLoading(false);
         }
     };
 
     const cancelPayment = async (paymentId) => {
         try {
+            // Disable button during processing
+            setLoading(true);
+            
             const response = await api.put(`/payments/pos/${paymentId}/cancel`);
-            if (response.data.status === 'success') {
+            
+            // Check both success and status fields
+            if (response.data.success === true || response.data.status === 'success') {
                 toast.success('Hủy thanh toán thành công!');
                 fetchPOSPayments(); // Refresh list
+            } else {
+                // Handle case where backend returns success: false with message
+                const message = response.data.message || 'Lỗi khi hủy thanh toán';
+                toast.error(message);
+                console.log('Payment cancellation response:', response.data);
             }
         } catch (error) {
             console.error('Error canceling payment:', error);
-            toast.error('Lỗi khi hủy thanh toán');
+            // Show specific error message from backend if available
+            const errorMessage = error.response?.data?.message || 'Lỗi khi hủy thanh toán';
+            toast.error(errorMessage);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -232,17 +284,19 @@ const POSConfirmation = () => {
                                                 <>
                                                     <button
                                                         onClick={() => confirmPayment(payment._id)}
-                                                        className="text-green-600 hover:text-green-900 mr-4"
+                                                        disabled={loading}
+                                                        className={`mr-4 ${loading ? 'text-gray-400 cursor-not-allowed' : 'text-green-600 hover:text-green-900'}`}
                                                     >
                                                         <FaCheckCircle className="inline mr-1" />
-                                                        Xác nhận
+                                                        {loading ? 'Đang xử lý...' : 'Xác nhận'}
                                                     </button>
                                                     <button
                                                         onClick={() => cancelPayment(payment._id)}
-                                                        className="text-red-600 hover:text-red-900"
+                                                        disabled={loading}
+                                                        className={loading ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-900'}
                                                     >
                                                         <FaTimesCircle className="inline mr-1" />
-                                                        Hủy
+                                                        {loading ? 'Đang xử lý...' : 'Hủy'}
                                                     </button>
                                                 </>
                                             )}

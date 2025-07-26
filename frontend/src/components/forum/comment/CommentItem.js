@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FaThumbsUp, FaComment, FaRegThumbsUp, FaRegCommentDots, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaRegThumbsUp, FaRegCommentDots, FaEdit, FaTrash } from 'react-icons/fa';
 import { IoSend } from 'react-icons/io5';
-import { commentAPI } from '../../../services/api';
 
 const CommentItem = ({
   comment,
@@ -33,68 +32,29 @@ const CommentItem = ({
   removeEditImage,
   setRemoveEditImage,
   handleEditImageChange,
-  setEditingComment
+  setEditingComment,
+  // Thêm prop để nhận event realtime nếu cần
+  realtimeParentId
 }) => {
-  const [likeCount, setLikeCount] = useState(comment.likesCount || comment.likeCount || 0);
-  const [isLiked, setIsLiked] = useState(false);
-  const [likersModalOpen, setLikersModalOpen] = useState(false);
-  const [likers, setLikers] = useState([]);
-  const [loadingLikers, setLoadingLikers] = useState(false);
+  const [likeCount, setLikeCount] = useState(comment.likeCount || 0);
   const [showMenu, setShowMenu] = useState(false);
   const [showReplies, setShowReplies] = useState(false);
-  const [hoverLikers, setHoverLikers] = useState([]);
-  const [showHoverLikers, setShowHoverLikers] = useState(false);
-  const hoverTimeout = useRef();
-  const modalRef = useRef();
+  const prevShowReplies = useRef(false);
 
+  // Khi showReplies chuyển từ false sang true, luôn fetch lại replies
   useEffect(() => {
-    // Kiểm tra user đã like chưa
-    if (user && comment.likes) {
-      setIsLiked(comment.likes.some(like => like.userId?._id === user._id || like.userId === user._id));
-    } else {
-      setIsLiked(false);
+    if (showReplies && !prevShowReplies.current) {
+      fetchReplies(comment._id);
     }
-    setLikeCount(comment.likesCount || comment.likeCount || (comment.likes ? comment.likes.length : 0));
-  }, [comment.likes, comment.likesCount, comment.likeCount, user]);
+    prevShowReplies.current = showReplies;
+  }, [showReplies, fetchReplies, comment._id]);
 
-  const handleLike = async () => {
-    if (!user) return;
-    try {
-      const res = await commentAPI.likeComment(comment._id);
-      if (res.data.success) {
-        setIsLiked(res.data.liked);
-        setLikeCount(res.data.likesCount);
-      }
-    } catch (err) {
-      // Có thể show toast lỗi
+  // Nếu nhận event realtime (realtimeParentId === comment._id) và đang mở replies, fetch lại replies
+  useEffect(() => {
+    if (realtimeParentId === comment._id && showReplies) {
+      fetchReplies(comment._id);
     }
-  };
-
-  const handleShowLikers = async () => {
-    setLikersModalOpen(true);
-    setLoadingLikers(true);
-    try {
-      const res = await commentAPI.getCommentLikes(comment._id);
-      if (res.data.success) {
-        setLikers(res.data.users || []);
-      }
-    } catch (err) {
-      setLikers([]);
-    } finally {
-      setLoadingLikers(false);
-    }
-  };
-
-  const handleHoverLikers = async () => {
-    try {
-      const res = await commentAPI.getCommentLikes(comment._id);
-      if (res.data.success) {
-        setHoverLikers((res.data.users || []).slice(0, 10));
-      }
-    } catch {
-      setHoverLikers([]);
-    }
-  };
+  }, [realtimeParentId, showReplies, fetchReplies, comment._id]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -103,45 +63,13 @@ const CommentItem = ({
     }
   };
 
-  const handleToggleReplies = () => {
-    if (!showReplies) {
-      fetchReplies(comment._id);
-    }
-    setShowReplies(!showReplies);
+  const handleLike = () => {
+    setLikeCount(likeCount + 1);
+    // Có thể thêm API call để lưu lượt thích
   };
 
-  useEffect(() => {
-    if (showRepliesMap && comment && showRepliesMap[comment._id]) {
-      // console.log('Rendering replies for', comment._id, replies);
-    }
-  }, [showRepliesMap, comment, replies]);
-
-  useEffect(() => {
-    if (!likersModalOpen) return;
-    function handleClickOutside(event) {
-      if (modalRef.current && !modalRef.current.contains(event.target)) {
-        setLikersModalOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [likersModalOpen]);
-
-  const getTimeAgo = (createdAt) => {
-    if (!createdAt) return '';
-    const now = new Date();
-    const created = new Date(createdAt);
-    const diffMs = now - created;
-    const diffSecs = Math.floor(diffMs / 1000);
-    if (diffSecs < 60) return `${diffSecs} giây`;
-    const diffMins = Math.floor(diffSecs / 60);
-    if (diffMins < 60) return `${diffMins} phút`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d`;
+  const handleToggleReplies = () => {
+    setShowReplies((prev) => !prev);
   };
 
   return (
@@ -152,7 +80,7 @@ const CommentItem = ({
           <div className="flex items-center justify-between mb-1">
             <div>
               <span className="font-semibold text-base text-gray-800">{comment.userID?.fullName || comment.userID?.username || 'Anonymous'}</span>
-              <span className="text-xs text-gray-400 ml-2">{getTimeAgo(comment.createdAt)}</span>
+              <span className="text-xs text-gray-400 ml-2">{/* thời gian */}</span>
             </div>
             {user && (comment.userID?._id === user.id || comment.userID?._id === user._id) && (
               <div className="relative">
@@ -203,98 +131,33 @@ const CommentItem = ({
             </div>
           ) : (
             <>
-              <div className="relative">
-                <div className="text-sm whitespace-pre-line break-words text-gray-800">{comment.content}</div>
-                {comment.comment_image && (
-                  <img src={comment.comment_image} alt="comment" className="mt-2 max-h-60 rounded-lg border shadow" />
-                )}
-                <div
-                  className="absolute -bottom-4 right-2 flex items-center gap-1 bg-white px-2 py-0.5 rounded-full shadow border text-xs cursor-pointer select-none"
-                  style={{ minHeight: 22 }}
-                  onClick={handleShowLikers}
-                  onMouseEnter={() => {
-                    setShowHoverLikers(true);
-                    handleHoverLikers();
-                  }}
-                  onMouseLeave={() => {
-                    hoverTimeout.current = setTimeout(() => setShowHoverLikers(false), 200);
-                  }}
-                >
-                  <span className={`text-base ${isLiked ? 'text-blue-600' : 'text-gray-400'}`}><FaThumbsUp /></span>
-                  <span className="font-semibold text-gray-700">{likeCount > 0 ? likeCount : ''}</span>
-                  {showHoverLikers && hoverLikers.length > 0 && (
-                    <div
-                      className="absolute bottom-full right-0 mb-2 w-56 bg-white border rounded-lg shadow-lg z-50 p-2 text-xs"
-                      onMouseEnter={() => {
-                        clearTimeout(hoverTimeout.current);
-                        setShowHoverLikers(true);
-                      }}
-                      onMouseLeave={() => setShowHoverLikers(false)}
-                    >
-                      <div className="font-semibold mb-1">Đã thích:</div>
-                      <ul>
-                        {hoverLikers.map(user => (
-                          <li key={user._id} className="flex items-center gap-2 py-1">
-                            <img src={user.avatar || 'https://via.placeholder.com/24'} alt="avatar" className="w-5 h-5 rounded-full object-cover border" />
-                            <span>{user.fullName || user.username}</span>
-                          </li>
-                        ))}
-                        {likeCount > 10 && <li className="text-gray-400 italic">...và còn nữa, click để xem tất cả</li>}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <div className="text-sm whitespace-pre-line break-words text-gray-800">{comment.content}</div>
+              {comment.comment_image && (
+                <img src={comment.comment_image} alt="comment" className="mt-2 max-h-60 rounded-lg border shadow" />
+              )}
             </>
           )}
         </div>
-        <div className="flex items-center gap-4 mt-4 text-xs ml-2">
-          <button
-            onClick={handleLike}
-            className={`flex items-center gap-1 font-semibold px-2 py-1 rounded transition ${isLiked ? 'text-blue-600' : 'hover:text-blue-600'}`}
-            type="button"
-          >
-            <FaThumbsUp /> Thích
+        <div className="flex items-center gap-4 mt-1 text-xs ml-2">
+          <button onClick={handleLike} className="flex items-center gap-1 text-gray-500 hover:text-blue-500 transition">
+            <FaRegThumbsUp className="text-base"/> Thích {likeCount > 0 && <span>({likeCount})</span>}
           </button>
           <button
-            className="flex items-center gap-1 font-semibold px-2 py-1 rounded hover:text-blue-600"
+            className="flex items-center gap-1 text-gray-500 hover:text-blue-500 transition"
             onClick={() => onReply(comment._id)}
-            type="button"
           >
             <FaRegCommentDots className="text-base"/> Phản hồi
           </button>
         </div>
-        {/* Modal danh sách người đã like comment */}
-        {likersModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-            <div ref={modalRef} className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md relative animate-fade-in">
-              <button onClick={() => setLikersModalOpen(false)} className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-xl font-bold">&times;</button>
-              <h2 className="text-lg font-bold text-center mb-2">Những người đã thích bình luận này</h2>
-              {loadingLikers ? (
-                <div className="text-center py-8">Đang tải...</div>
-              ) : (
-                <ul className="divide-y divide-gray-100 max-h-72 overflow-y-auto">
-                  {likers.length === 0 && <li className="py-4 text-center text-gray-500">Chưa có ai thích bình luận này</li>}
-                  {likers.map((user) => (
-                    <li key={user._id} className="flex items-center gap-3 py-3">
-                      <img src={user.avatar || 'https://via.placeholder.com/32'} alt="avatar" className="w-8 h-8 rounded-full object-cover border" />
-                      <span className="font-medium text-gray-800">{user.fullName || user.username}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
-        {(comment.replyCount > 0 || (repliesMap && (repliesMap[comment._id]?.length > 0))) && !showReplies && (
+        {((Array.isArray(replies) && replies.length > 0) || comment.replyCount > 0) && !showReplies && (
           <button className="text-blue-600 text-xs mt-1 ml-2 hover:underline font-medium transition" onClick={handleToggleReplies}>
-            Xem tất cả {(comment.replyCount || (repliesMap[comment._id]?.length || 0))} phản hồi
+            Xem tất cả {(Array.isArray(replies) && replies.length > 0) ? replies.length : comment.replyCount} phản hồi
           </button>
         )}
         {replyingTo === comment._id && (
           <form onSubmit={(e) => { e.preventDefault(); handleSubmitComment(e, comment._id); }} className="mt-2 relative">
             <textarea
-              className="w-full rounded-xl border border-blue-300 p-2 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 transition"
+              className="w-full rounded-xl border border-blue-300 p-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition"
               value={replyContent}
               onChange={(e) => setReplyContent(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -348,6 +211,7 @@ const CommentItem = ({
                   setRemoveEditImage={setRemoveEditImage}
                   handleEditImageChange={handleEditImageChange}
                   setEditingComment={setEditingComment}
+                  realtimeParentId={realtimeParentId}
                 />
               ))
             )}

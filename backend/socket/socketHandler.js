@@ -23,12 +23,44 @@ module.exports = (io) => {
             // Join room với ID là userId
             socket.join(userId);
             
+            // Kiểm tra nếu user là admin thì join vào admin room
+            try {
+                const user = await User.findById(userId);
+                if (user && user.role === 'admin') {
+                    socket.join('admin_room');
+                    console.log(`👑 Admin ${userId} joined admin room`);
+                }
+            } catch (error) {
+                console.error('Error checking admin role:', error);
+            }
+            
             // Lưu vào danh sách online users
             onlineUsers[userId] = socket.id;
             socketToUserMap[socket.id] = userId;
             
             console.log('🌐 Online users after authentication:', Object.keys(onlineUsers));
             console.log('🔌 Socket joined room:', userId);
+        });
+
+        // Handler cho admin join room
+        socket.on('join_admin_room', async () => {
+            const userId = socketToUserMap[socket.id];
+            if (!userId) {
+                console.log('❌ Cannot join admin room: No authenticated user');
+                return;
+            }
+            
+            try {
+                const user = await User.findById(userId);
+                if (user && user.role === 'admin') {
+                    socket.join('admin_room');
+                    console.log(`👑 Admin ${userId} joined admin room via join_admin_room event`);
+                } else {
+                    console.log(`❌ User ${userId} is not admin, cannot join admin room`);
+                }
+            } catch (error) {
+                console.error('Error checking admin role for join_admin_room:', error);
+            }
         });
 
         socket.on('request_conversations', async () => {

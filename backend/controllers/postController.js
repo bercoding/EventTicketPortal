@@ -4,6 +4,7 @@ const { cloudinary, storage } = require('../config/cloudinary');
 const multer = require('multer');
 const upload = multer({ storage: storage });
 const User = require('../models/User');
+const Notification = require('../models/Notification'); // Import Notification model
 
 // Create a new post
 const createPost = [
@@ -18,9 +19,7 @@ const createPost = [
       throw new Error('Not authenticated');
     }
     
-    const userId = req.user.id; // Lấy từ middleware protect
-    // const images = req.files ? req.files.map(file => file.path) : [];
-    // Sửa lại để lưu đúng URL ảnh từ Cloudinary
+    const userId = req.user.id; 
     const images = req.files ? req.files.map(file => file.url || file.path) : [];
 
     if (images.length > 10) {
@@ -44,6 +43,14 @@ const createPost = [
       .populate('userId', 'username fullName avatar email')
       .populate('eventId', 'title')
       .lean();
+
+    // Sau khi tạo post
+    if (post.status === 'pending') {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('new_post_pending', { postId: post._id });
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -244,6 +251,26 @@ const toggleLikePost = asyncHandler(async (req, res) => {
   if (likedIndex === -1) {
     post.likes.push({ userId });
     liked = true;
+
+    // --- Create Notification ---
+    // Only notify if someone else likes the post
+    if (post.userId.toString() !== userId.toString()) {
+      const notification = await Notification.create({
+        userId: post.userId,
+        type: 'like_post',
+        title: 'Có người đã thích bài viết của bạn',
+        message: `${req.user.fullName || req.user.username} đã thích bài viết của bạn.`,
+        relatedTo: {
+          type: 'post',
+          id: post._id
+        }
+      });
+      // --- Emit socket event ---
+      const io = req.app.get('io');
+      io.to(post.userId.toString()).emit('new_notification', notification);
+    }
+    // --- End Notification ---
+
   } else {
     post.likes.splice(likedIndex, 1);
     liked = false;

@@ -160,6 +160,25 @@ exports.rejectEvent = async (req, res) => {
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
+
+    // --- Create Notification for each organizer ---
+    if (event.organizers && event.organizers.length > 0) {
+        const io = req.app.get('io');
+        for (const organizer of event.organizers) {
+            const notification = await Notification.create({
+                userId: organizer._id,
+                type: 'event_rejected',
+                title: 'Sự kiện đã bị từ chối',
+                message: `Sự kiện "<strong>${event.title}</strong>" của bạn đã bị từ chối. Lý do: ${reason}`,
+                relatedTo: {
+                  type: 'event',
+                  id: event._id
+                }
+            });
+            // --- Emit socket event ---
+            io.to(organizer._id.toString()).emit('new_notification', notification);
+        }
+    }
     
     res.json({ message: 'Event rejected successfully', event });
   } catch (error) {

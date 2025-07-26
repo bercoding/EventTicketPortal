@@ -10,6 +10,7 @@ const User = require('../models/User');
 const { sanitizeOrderInfo } = require('../utils/helpers');
 const asyncHandler = require('express-async-handler');
 const crypto = require('crypto');
+const Notification = require('../models/Notification'); // Import Notification model
 
 // Initialize services
 const vietqrService = new VietQRService();
@@ -985,6 +986,7 @@ const confirmPOSPayment = async (req, res) => {
         console.log('🔍 CONTROLLER HIT: confirmPOSPayment');
         console.log('📋 Request params:', req.params);
         console.log('👤 Request user:', req.user?.email, req.user?.role);
+        console.log('🕐 Request timestamp:', new Date().toISOString());
         const { paymentId } = req.params;
         console.log('✅ Confirming POS payment:', paymentId);
 
@@ -1140,7 +1142,37 @@ const confirmPOSPayment = async (req, res) => {
             console.log('✅ Seating map updated successfully');
         }
 
+        // --- Create Notification ---
+        const userToNotify = payment.user;
+        if (userToNotify) {
+            try {
+                const notification = await Notification.create({
+                    userId: userToNotify._id,
+                    type: 'ticket_purchased',
+                    title: 'Vé của bạn đã được xác nhận',
+                    message: `Thanh toán cho sự kiện "<strong>${payment.event.title}</strong>" đã thành công. Vé của bạn hiện đã có trong mục 'Vé của tôi'.`,
+                    relatedTo: {
+                      type: 'ticket', // Loại mới để điều hướng
+                      id: booking._id // Có thể dùng bookingId để sau này trỏ tới trang vé
+                    }
+                });
+                console.log('✅ Notification created successfully:', notification._id);
+                
+                // --- Emit socket event ---
+                const io = req.app.get('io');
+                if (io) {
+                    io.to(userToNotify._id.toString()).emit('new_notification', notification);
+                    console.log('✅ Socket notification sent to user:', userToNotify._id);
+                }
+            } catch (notificationError) {
+                console.error('❌ Error creating notification:', notificationError);
+                // Don't fail the entire payment confirmation if notification fails
+            }
+        }
+        // --- End Notification ---
+
         return res.status(200).json({
+            success: true,
             status: 'success',
             message: 'Xác nhận thanh toán thành công',
             payment: {

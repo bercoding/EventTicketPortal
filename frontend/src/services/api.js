@@ -293,6 +293,13 @@ const authAPI = {
 
 export { authAPI };
 
+// Notification API
+export const notificationAPI = {
+  getNotifications: () => api.get('/notifications'),
+  markAsRead: (id) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: () => api.put('/notifications/mark-all-as-read'),
+};
+
 // Post API
 export const postAPI = {
   // Lấy tất cả posts

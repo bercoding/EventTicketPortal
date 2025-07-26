@@ -1,16 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { adminAPI } from '../../services/api';
+import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 
 const AdminEventManagement = () => {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
+    const { socket } = useSocket();
+    const { user } = useAuth();
 
     useEffect(() => {
         fetchEvents();
     }, [filter]);
+
+    // Thêm useEffect để tự động refresh khi filter thay đổi thành pending
+    useEffect(() => {
+        if (filter === 'pending') {
+            fetchEvents();
+        }
+    }, [filter]);
+
+    // Thêm useEffect để tự động refresh khi có sự kiện mới
+    useEffect(() => {
+        if (filter === 'pending') {
+            fetchEvents();
+        }
+    }, [filter]);
+
+    // Thêm useEffect để lắng nghe sự kiện realtime
+    useEffect(() => {
+        if (socket && user && user.role === 'admin') {
+            // Join admin room khi component mount và user là admin
+            socket.emit('join_admin_room');
+            console.log('👑 Admin joined admin room');
+            
+            // Lắng nghe sự kiện khi có sự kiện mới được tạo
+            socket.on('new_event_created', (newEvent) => {
+                console.log('🎉 New event created:', newEvent);
+                toast.info('Có sự kiện mới cần duyệt!', {
+                    position: "top-right",
+                    autoClose: 5000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                });
+                // Tự động chuyển sang filter pending và refresh
+                setFilter('pending');
+                // Thêm delay nhỏ để đảm bảo filter đã được cập nhật
+                setTimeout(() => {
+                    fetchEvents();
+                }, 100);
+            });
+
+            // Lắng nghe sự kiện khi có sự kiện được cập nhật
+            socket.on('event_updated', (updatedEvent) => {
+                console.log('🔄 Event updated:', updatedEvent);
+                // Refresh danh sách sự kiện
+                fetchEvents();
+            });
+
+            return () => {
+                socket.off('new_event_created');
+                socket.off('event_updated');
+            };
+        }
+    }, [socket, user]);
 
     const fetchEvents = async () => {
         try {
@@ -198,9 +256,9 @@ const AdminEventManagement = () => {
                                                 <div className="flex items-start gap-4">
                                                     {/* Event Image */}
                                                     <div className="flex-shrink-0 w-20 h-20 bg-gray-200 rounded-lg overflow-hidden">
-                                                        {event.images && event.images.length > 0 ? (
+                                                        {event.images && (event.images.logo || event.images.banner) ? (
                                                             <img
-                                                                src={`http://localhost:5001${event.images[0]}`}
+                                                                src={event.images.logo || event.images.banner}
                                                                 alt={event.title}
                                                                 className="w-full h-full object-cover"
                                                             />
@@ -222,10 +280,22 @@ const AdminEventManagement = () => {
                                                         <div className="flex flex-wrap gap-2 mb-3">
                                                             {getStatusBadge(event)}
                                                         </div>
-                                                        <div className="text-xs text-gray-500">
-                                                            <span>📅 {new Date(event.startDate).toLocaleDateString('vi-VN')}</span>
-                                                            <span className="mx-2">•</span>
-                                                            <span>📍 {event.location?.venueName || 'Online'}</span>
+                                                        <div className="text-xs text-gray-500 mb-1">
+                                                            <span>📅 {event.startDate ? new Date(event.startDate).toLocaleString('vi-VN') : 'Chưa xác định'}</span>
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 mb-1">
+                                                            <span>📍 {event.location?.venue?.name || event.location?.venueName || event.location?.address || 'Online'}</span>
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 mb-1">
+                                                            {Array.isArray(event.ticketTypes) && event.ticketTypes.length > 0 ? (
+                                                                <>
+                                                                    <span>💵 Giá vé: {event.ticketTypes.reduce((min, t) => t.price < min ? t.price : min, event.ticketTypes[0].price).toLocaleString('vi-VN')} đ</span>
+                                                                    <span className="mx-2">•</span>
+                                                                    <span>🎟️ Tổng vé: {event.ticketTypes.reduce((sum, t) => sum + (t.totalQuantity || 0), 0)}</span>
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-red-500">Chưa cấu hình vé</span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>

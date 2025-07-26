@@ -1,6 +1,6 @@
 import React from 'react';
 
-const CommentModal = ({ open, onClose, onConfirm, isSubmitting }) => {
+const DeleteCommentModal = ({ open, onClose, onConfirm, isSubmitting }) => {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
@@ -17,4 +17,4 @@ const CommentModal = ({ open, onClose, onConfirm, isSubmitting }) => {
   );
 };
 
-export default CommentModal; 
+export default DeleteCommentModal; 

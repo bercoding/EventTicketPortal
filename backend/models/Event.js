@@ -239,7 +239,19 @@ const eventSchema = new mongoose.Schema({
   specialOrder: {
     type: Number,
     default: 0
-  }
+  },
+  // Approval/Rejection fields
+  approvedAt: Date,
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  rejectedAt: Date,
+  rejectedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  rejectionReason: String
 }, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
 
 // Indexes

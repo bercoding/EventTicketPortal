@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom'; // Import useLocation
 import friendService from '../../services/friendService';
 import FriendsList from './FriendsList';
 import SearchUsers from './SearchUsers';
@@ -20,12 +20,20 @@ import {
 const FriendPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation(); // Lấy thông tin location
   const [activeTab, setActiveTab] = useState('friends');
   const [friends, setFriends] = useState([]);
   const [friendRequests, setFriendRequests] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [blockedUsers, setBlockedUsers] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // useEffect này sẽ chạy trước để set tab nếu có
+  useEffect(() => {
+    if (location.state && location.state.initialTab) {
+      setActiveTab(location.state.initialTab);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     console.log('🔍 FriendPage - User Debug Info:');

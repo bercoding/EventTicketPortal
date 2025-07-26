@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { toast } from 'react-hot-toast'; // Sử dụng react-hot-toast cho đẹp
+import { FaBell } from 'react-icons/fa';
 
 const SocketContext = createContext();
 
@@ -15,6 +17,7 @@ export const SocketProvider = ({ children }) => {
     const [conversations, setConversations] = useState([]); // Danh sách các cuộc trò chuyện
     const [currentConversationId, setCurrentConversationId] = useState(null);
     const [onlineUsers, setOnlineUsers] = useState({}); // { userId: true }
+    const [lastNotification, setLastNotification] = useState(null); // State cho thông báo mới
     const { user } = useAuth();
 
     const connectSocket = useCallback(() => {
@@ -136,6 +139,48 @@ export const SocketProvider = ({ children }) => {
         socket.on('new_private_message', handleNewMessage);
         socket.on('message_error', handleMessageError);
 
+        // --- Lắng nghe sự kiện thông báo mới ---
+        const handleNewNotification = (notification) => {
+            console.log('🎉 New notification received:', notification);
+            setLastNotification(notification); // Cập nhật state để trigger re-fetch ở nơi cần
+            
+            // Hiển thị toast
+            toast.custom((t) => (
+                <div
+                  className={`${
+                    t.visible ? 'animate-enter' : 'animate-leave'
+                  } max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}
+                >
+                  <div className="flex-1 w-0 p-4">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 pt-0.5">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                           <FaBell className="h-6 w-6 text-blue-500" />
+                        </div>
+                      </div>
+                      <div className="ml-3 flex-1">
+                        <p className="text-sm font-medium text-gray-900">
+                          {notification.title}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500" dangerouslySetInnerHTML={{ __html: notification.message }}></p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex border-l border-gray-200">
+                    <button
+                      onClick={() => toast.dismiss(t.id)}
+                      className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      Đóng
+                    </button>
+                  </div>
+                </div>
+            ));
+        };
+
+        socket.on('new_notification', handleNewNotification);
+        // --- Kết thúc lắng nghe ---
+
         socket.on('disconnect', (reason) => {
             // console.log('Socket disconnected from context:', reason);
         });
@@ -149,6 +194,7 @@ export const SocketProvider = ({ children }) => {
             socket.off('messages_history', handleMessagesHistory);
             socket.off('new_private_message', handleNewMessage);
             socket.off('message_error', handleMessageError);
+            socket.off('new_notification', handleNewNotification); // Cleanup
             socket.off('disconnect');
             socket.off('connect_error');
         };
@@ -190,7 +236,8 @@ export const SocketProvider = ({ children }) => {
         currentConversationId, 
         setCurrentConversationId, 
         requestMessagesForConversation,
-        onlineUsers
+        onlineUsers,
+        lastNotification // Cung cấp state mới
     };
 
     return (

@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTimes, FaImage, FaGlobe, FaUsers } from 'react-icons/fa';
 
+// CreatePostModal: Modal tao bai viet moi
 const CreatePostModal = ({
   open,
   onClose,
@@ -14,26 +15,27 @@ const CreatePostModal = ({
   isCreating,
   error
 }) => {
+  // xu ly chon anh
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 10) {
-      alert('Không thể tải lên quá 10 hình ảnh');
+      alert('Khong the tai len qua 10 hinh anh');
       return;
     }
-
     const previews = files.map(file => URL.createObjectURL(file));
     setImagePreview(previews);
     setFormData(prev => ({ ...prev, images: files }));
   };
 
+  // xoa anh khoi preview
   const removeImage = (index) => {
     const newPreviews = imagePreview.filter((_, i) => i !== index);
     const newFiles = Array.from(formData.images).filter((_, i) => i !== index);
-    
     setImagePreview(newPreviews);
     setFormData(prev => ({ ...prev, images: newFiles }));
   };
 
+  // render UI
   return (
     <AnimatePresence>
       {open && (
@@ -52,19 +54,19 @@ const CreatePostModal = ({
         {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Tạo bài viết mới
+                Tao bai viet moi
               </h2>
               <motion.button
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.9 }}
-            onClick={onClose}
+                onClick={onClose}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
                 <FaTimes className="text-gray-400 text-xl" />
               </motion.button>
         </div>
 
-            {/* User Info */}
+            {/* Thong tin user */}
             <div className="flex items-center gap-4 px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 p-0.5">
                 <img 
@@ -75,16 +77,16 @@ const CreatePostModal = ({
               </div>
           <div>
                 <div className="font-semibold text-gray-900">
-                  {user?.fullName || user?.username || 'Người dùng'}
+                  {user?.fullName || user?.username || 'Nguoi dung'}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <FaGlobe className="text-green-500" />
-                  <span>Đăng công khai</span>
+                  <span>Dang cong khai</span>
             </div>
           </div>
         </div>
 
-            {/* Error Message */}
+            {/* Thong bao loi */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -98,41 +100,41 @@ const CreatePostModal = ({
               </motion.div>
             )}
 
-        {/* Scrollable Content */}
+        {/* Form nhap lieu */}
         <div className="flex-1 overflow-y-auto px-6 pb-6">
           <form onSubmit={onSubmit} className="space-y-4 mt-4" id="create-post-form">
-                {/* Title Input */}
+                {/* Tieu de */}
           <input
             type="text"
-                  placeholder="Tiêu đề bài viết (tùy chọn)"
+            placeholder="Tieu de bai viet (tuy chon)"
             value={formData.title}
             onChange={e => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg font-medium transition-all duration-300"
+            className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg font-medium transition-all duration-300"
           />
 
-                {/* Content Textarea */}
+                {/* Noi dung */}
           <textarea
-                  placeholder={`${user?.fullName || user?.username || 'Bạn'} ơi, bạn đang nghĩ gì?`}
+            placeholder={`${user?.fullName || user?.username || 'Ban'} oi, ban dang nghi gi?`}
             value={formData.content}
             onChange={e => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg min-h-[120px] resize-none transition-all duration-300"
-                  rows={4}
+            className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg min-h-[120px] resize-none transition-all duration-300"
+            rows={4}
           />
 
-                {/* Tags Input */}
+                {/* Tag */}
                 <input
                   type="text"
-                  placeholder="Thẻ (phân tách bằng dấu phẩy) - VD: du lịch, ẩm thực, công nghệ"
+                  placeholder="The (phan tach bang dau phay) - VD: du lich, am thuc, cong nghe"
                   value={formData.tags}
                   onChange={e => setFormData({ ...formData, tags: e.target.value })}
                   className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
                 />
 
-                {/* Image Upload */}
+                {/* Upload anh */}
                 <div className="space-y-3">
                   <label className="flex items-center gap-2 cursor-pointer text-gray-600 hover:text-blue-600 transition-colors">
                     <FaImage />
-                    <span className="font-medium">Thêm hình ảnh</span>
+                    <span className="font-medium">Them hinh anh</span>
                     <input
                       type="file"
                       multiple
@@ -142,7 +144,7 @@ const CreatePostModal = ({
                     />
                   </label>
 
-                  {/* Image Previews */}
+                  {/* Preview anh */}
             {imagePreview.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {imagePreview.map((preview, index) => (
@@ -155,7 +157,7 @@ const CreatePostModal = ({
                     <img
                       src={preview}
                       alt={`Preview ${index + 1}`}
-                            className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                      className="w-full h-24 object-cover rounded-lg border border-gray-200"
                     />
                           <motion.button
                             whileHover={{ scale: 1.1 }}
@@ -174,10 +176,10 @@ const CreatePostModal = ({
             </form>
         </div>
 
-        {/* Footer */}
+        {/* Footer: nut dang va huy */}
         <div className="flex justify-between items-center pt-6 mt-6 border-t border-gray-100 px-6 pb-6">
           <div className="text-sm text-gray-500">
-            {formData.content.length}/2000 ký tự
+            {formData.content.length}/2000 ky tu
           </div>
           <div className="flex gap-3">
             <motion.button
@@ -188,7 +190,7 @@ const CreatePostModal = ({
               className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors"
               disabled={isCreating}
             >
-              Hủy
+              Huy
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }}
@@ -201,10 +203,10 @@ const CreatePostModal = ({
               {isCreating ? (
                 <div className="flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                  <span>Đang đăng...</span>
+                  <span>Dang dang...</span>
                 </div>
               ) : (
-                'Đăng bài'
+                'Dang bai'
               )}
             </motion.button>
           </div>
