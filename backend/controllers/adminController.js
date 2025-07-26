@@ -6,6 +6,7 @@ const ViolationReport = require('../models/ViolationReport');
 const OwnerRequest = require('../models/OwnerRequest');
 const Ticket = require('../models/Ticket');
 const Notification = require('../models/Notification'); // Import Notification model
+const Payment = require('../models/Payment'); // Import Payment model
 
 // Get all users with pagination and filters
 exports.getUsers = async (req, res) => {
@@ -681,32 +682,61 @@ exports.getDashboardStats = async (req, res) => {
     const pendingReportsPromise = ViolationReport.countDocuments({ status: 'pending' });
     const pendingPostsPromise = Post.countDocuments({ moderationStatus: 'pending' });
 
+    // Thêm các thống kê mới
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthlyRevenuePromise = Payment.aggregate([
+      { $match: { status: 'success', createdAt: { $gte: firstDayOfMonth } } },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+    ]);
+    const totalRevenuePromise = Payment.aggregate([
+      { $match: { status: 'success' } },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+    ]);
+    const activeEventsPromise = Event.countDocuments({ status: 'approved' });
+    const bannedUsersPromise = User.countDocuments({ status: 'banned' });
+
     const [
-        totalUsers,
-        totalEvents,
-        pendingOwnerRequests,
-        pendingComplaints,
-        pendingEvents,
-        pendingReports,
-        pendingPosts
+      totalUsers,
+      totalEvents,
+      pendingOwnerRequests,
+      pendingComplaints,
+      pendingEvents,
+      pendingReports,
+      pendingPosts,
+      monthlyRevenueAgg,
+      totalRevenueAgg,
+      activeEvents,
+      bannedUsers
     ] = await Promise.all([
-        totalUsersPromise,
-        totalEventsPromise,
-        pendingOwnerRequestsPromise,
-        pendingComplaintsPromise,
-        pendingEventsPromise,
-        pendingReportsPromise,
-        pendingPostsPromise
+      totalUsersPromise,
+      totalEventsPromise,
+      pendingOwnerRequestsPromise,
+      pendingComplaintsPromise,
+      pendingEventsPromise,
+      pendingReportsPromise,
+      pendingPostsPromise,
+      monthlyRevenuePromise,
+      totalRevenuePromise,
+      activeEventsPromise,
+      bannedUsersPromise
     ]);
 
+    const monthlyRevenue = (monthlyRevenueAgg[0] && monthlyRevenueAgg[0].total) || 0;
+    const totalRevenue = (totalRevenueAgg[0] && totalRevenueAgg[0].total) || 0;
+
     res.json({
-        totalUsers,
-        totalEvents,
-        pendingOwnerRequests,
-        pendingComplaints,
-        pendingEvents,
-        pendingReports,
-        pendingPosts,
+      totalUsers,
+      totalEvents,
+      pendingOwnerRequests,
+      pendingComplaints,
+      pendingEvents,
+      pendingReports,
+      pendingPosts,
+      monthlyRevenue,
+      totalRevenue,
+      activeEvents,
+      bannedUsers
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching dashboard stats', error: error.message });

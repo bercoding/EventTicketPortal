@@ -49,13 +49,6 @@ const POSConfirmation = () => {
             if (response.data.success === true || response.data.status === 'success') {
                 toast.success('Xác nhận thanh toán thành công!');
                 
-                // Tìm payment để lấy thông tin user
-                const payment = posPayments.find(p => p._id === paymentId);
-                if (payment) {
-                    // Chuyển hướng khách hàng đến trang vé của họ
-                    window.open(`/my-tickets?payment=${paymentId}`, '_blank');
-                }
-                
                 // Add delay before refreshing to ensure backend has updated
                 setTimeout(() => {
                     fetchPOSPayments(); // Refresh list
