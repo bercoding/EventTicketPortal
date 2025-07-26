@@ -29,7 +29,7 @@ const ticketSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['available', 'pending', 'active', 'returned', 'cancelled'],
+    enum: ['available', 'pending', 'active', 'returned', 'cancelled', 'refund_requested'],
     default: 'available'
   },
   qrCode: {

@@ -1,289 +1,204 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faFilter, faSearch, faCheckCircle, faTimesCircle, 
-  faSpinner, faMoneyBillWave, faClock, faUserCircle, 
-  faCalendarAlt, faInfoCircle, faEye
-} from '@fortawesome/free-solid-svg-icons';
 import api from '../../services/api';
+import { FaCheck, FaTimes, FaSpinner, FaEye, FaMoneyBillWave, FaFileAlt, FaCalendarAlt, FaUser } from 'react-icons/fa';
+import { format } from 'date-fns';
+import vi from 'date-fns/locale/vi';
 
 const RefundManagement = () => {
   const [refundRequests, setRefundRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRefund, setSelectedRefund] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [processingAction, setProcessingAction] = useState(false);
-  const [filters, setFilters] = useState({
-    status: 'pending',
-    page: 1,
-    limit: 10
-  });
-  const [pagination, setPagination] = useState({
-    total: 0,
-    currentPage: 1,
-    totalPages: 1
-  });
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [filter, setFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [adminNotes, setAdminNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
-  
-  // Fetch refund requests
-  useEffect(() => {
-    fetchRefundRequests();
-  }, [filters]);
-  
+
   const fetchRefundRequests = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/refunds/admin/requests', { params: filters });
+      const response = await api.get(`/refunds/admin/requests?status=${filter === 'all' ? '' : filter}&page=${currentPage}&limit=10`);
+      
       if (response.data.success) {
         setRefundRequests(response.data.refundRequests);
-        setPagination({
-          total: response.data.pagination.total,
-          currentPage: response.data.pagination.page,
-          totalPages: response.data.pagination.totalPages
-        });
+        setTotalPages(response.data.pagination.totalPages);
       } else {
-        toast.error('Failed to fetch refund requests');
+        toast.error('Không thể tải danh sách yêu cầu hoàn tiền');
       }
     } catch (error) {
       console.error('Error fetching refund requests:', error);
-      toast.error(error.response?.data?.message || 'An error occurred');
+      toast.error('Đã xảy ra lỗi khi tải dữ liệu');
     } finally {
       setLoading(false);
     }
   };
-  
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value, page: 1 }));
-  };
-  
-  const handlePageChange = (newPage) => {
-    if (newPage > 0 && newPage <= pagination.totalPages) {
-      setFilters(prev => ({ ...prev, page: newPage }));
-    }
-  };
-  
-  const openRefundModal = (refund) => {
-    setSelectedRefund(refund);
-    setAdminNotes('');
-    setRejectionReason('');
-    setIsModalOpen(true);
-  };
-  
-  const closeRefundModal = () => {
-    setIsModalOpen(false);
-    setSelectedRefund(null);
-  };
-  
-  const handleProcessRefund = async (status) => {
+
+  useEffect(() => {
+    fetchRefundRequests();
+  }, [filter, currentPage]);
+
+  const handleProcessRequest = async (id, status) => {
     try {
-      setProcessingAction(true);
+      setIsProcessing(true);
       
-      const data = {
+      const requestData = {
         status,
-        adminNotes
+        adminNotes: adminNotes
       };
       
-      if (status === 'rejected') {
-        if (!rejectionReason.trim()) {
-          toast.error('Vui lòng nhập lý do từ chối');
-          return;
-        }
-        data.rejectionReason = rejectionReason;
+      if (status === 'rejected' && !rejectionReason) {
+        toast.error('Vui lòng nhập lý do từ chối');
+        return;
       }
       
-      const response = await api.put(`/refunds/admin/requests/${selectedRefund._id}`, data);
+      if (status === 'rejected') {
+        requestData.rejectionReason = rejectionReason;
+      }
+      
+      const response = await api.put(`/refunds/admin/requests/${id}`, requestData);
       
       if (response.data.success) {
-        toast.success(
-          status === 'completed' 
-            ? 'Đã xác nhận hoàn tiền thành công' 
-            : status === 'rejected'
-            ? 'Đã từ chối yêu cầu hoàn tiền'
-            : 'Đã cập nhật trạng thái yêu cầu'
-        );
-        closeRefundModal();
+        toast.success(`Đã ${status === 'completed' ? 'hoàn thành' : status === 'rejected' ? 'từ chối' : 'cập nhật'} yêu cầu hoàn tiền`);
         fetchRefundRequests();
+        setSelectedRefund(null);
+        setAdminNotes('');
+        setRejectionReason('');
       } else {
-        toast.error(response.data.message || 'Có lỗi xảy ra');
+        toast.error(response.data.message || 'Không thể xử lý yêu cầu');
       }
     } catch (error) {
-      console.error('Error processing refund:', error);
-      toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
+      console.error('Error processing refund request:', error);
+      toast.error(error.response?.data?.message || 'Đã xảy ra lỗi khi xử lý yêu cầu');
     } finally {
-      setProcessingAction(false);
+      setIsProcessing(false);
     }
   };
-  
-  // Format date
+
   const formatDate = (dateString) => {
-    const options = { 
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    };
-    return new Date(dateString).toLocaleDateString('vi-VN', options);
+    if (!dateString) return 'N/A';
+    try {
+      return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: vi });
+    } catch (e) {
+      return 'Ngày không hợp lệ';
+    }
   };
-  
-  // Get status badge
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'pending':
-        return (
-          <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
-            <FontAwesomeIcon icon={faClock} className="mr-1" /> Đang chờ
-          </span>
-        );
+        return <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">Chờ xử lý</span>;
       case 'processing':
-        return (
-          <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
-            <FontAwesomeIcon icon={faSpinner} className="mr-1" /> Đang xử lý
-          </span>
-        );
+        return <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">Đang xử lý</span>;
       case 'completed':
-        return (
-          <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-            <FontAwesomeIcon icon={faCheckCircle} className="mr-1" /> Hoàn thành
-          </span>
-        );
+        return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Hoàn thành</span>;
       case 'rejected':
-        return (
-          <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
-            <FontAwesomeIcon icon={faTimesCircle} className="mr-1" /> Từ chối
-          </span>
-        );
+        return <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">Từ chối</span>;
       default:
-        return (
-          <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
-            {status}
-          </span>
-        );
+        return <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">{status}</span>;
     }
   };
-  
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-green-500 to-teal-400 rounded-xl p-6 text-white shadow-lg">
-        <h1 className="text-2xl font-bold mb-1">Quản lý hoàn tiền</h1>
-        <p className="text-green-100">Xem xét và xử lý các yêu cầu hoàn tiền từ người dùng</p>
-      </div>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">Quản lý yêu cầu hoàn tiền</h1>
       
       {/* Filter Controls */}
-      <div className="p-4 bg-white rounded-xl shadow">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
-            <select
-              id="status"
-              name="status"
-              value={filters.status}
-              onChange={handleFilterChange}
-              className="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-            >
-              <option value="">Tất cả</option>
-              <option value="pending">Đang chờ</option>
-              <option value="processing">Đang xử lý</option>
-              <option value="completed">Đã hoàn thành</option>
-              <option value="rejected">Đã từ chối</option>
-            </select>
-          </div>
-          
-          <div className="flex space-x-2">
-            <button 
-              onClick={fetchRefundRequests} 
-              className="mt-1 w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-            >
-              <FontAwesomeIcon icon={faFilter} className="mr-2" /> Lọc
-            </button>
-            <button 
-              onClick={() => setFilters({ status: 'pending', page: 1, limit: 10 })} 
-              className="mt-1 w-full inline-flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <FontAwesomeIcon icon={faFilter} className="mr-2" /> Đặt lại
-            </button>
-          </div>
+      <div className="mb-6 flex flex-wrap items-center gap-4">
+        <div className="flex items-center space-x-2">
+          <span className="text-sm font-medium text-gray-600">Trạng thái:</span>
+          <select
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="border rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Tất cả</option>
+            <option value="pending">Chờ xử lý</option>
+            <option value="processing">Đang xử lý</option>
+            <option value="completed">Hoàn thành</option>
+            <option value="rejected">Từ chối</option>
+          </select>
         </div>
       </div>
       
-      {/* Main Content: Refunds List */}
+      {/* Refund Request List */}
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <FontAwesomeIcon icon={faSpinner} className="text-3xl text-teal-600 animate-spin" />
+          <FaSpinner className="animate-spin text-blue-500 text-3xl" />
         </div>
       ) : refundRequests.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl shadow">
-          <FontAwesomeIcon icon={faMoneyBillWave} className="text-5xl text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-800">Không có yêu cầu hoàn tiền</h3>
-          <p className="text-gray-500 mt-1">Chưa có yêu cầu hoàn tiền nào phù hợp với bộ lọc hiện tại.</p>
+        <div className="bg-white rounded-lg shadow-md p-6 text-center">
+          <p className="text-gray-500">Không có yêu cầu hoàn tiền nào</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Người dùng
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Người yêu cầu
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Sự kiện / Booking
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Sự kiện
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Số tiền
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Trạng thái
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ngày yêu cầu
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thao tác
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Số tiền
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Trạng thái
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Hành động
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {refundRequests.map((refund) => (
-                <tr key={refund._id} className="hover:bg-gray-50">
+              {refundRequests.map((request) => (
+                <tr key={request._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
                         <img 
-                          className="h-10 w-10 rounded-full" 
-                          src={refund.user?.avatar || 'https://via.placeholder.com/40'} 
-                          alt=""
+                          className="h-10 w-10 rounded-full object-cover" 
+                          src={request.user?.avatar ? `http://localhost:5001${request.user.avatar}` : '/images/placeholder-avatar.svg'} 
+                          alt={request.user?.username} 
                         />
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{refund.user?.username}</div>
-                        <div className="text-sm text-gray-500">{refund.user?.email}</div>
+                        <div className="text-sm font-medium text-gray-900">{request.user?.username}</div>
+                        <div className="text-sm text-gray-500">{request.user?.email}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{refund.event?.title}</div>
-                    <div className="text-sm text-gray-500">Booking: {refund.booking?.bookingCode}</div>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900 line-clamp-1">{request.event?.title}</div>
+                    <div className="text-xs text-gray-500">{formatDate(request.event?.startDate)}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-green-600">{refund.refundAmount?.toLocaleString('vi-VN')}đ</div>
-                    <div className="text-xs text-gray-500">Phí: {(refund.amount - refund.refundAmount)?.toLocaleString('vi-VN')}đ</div>
+                    <div className="text-sm text-gray-900">{formatDate(request.createdAt)}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge(refund.status)}
+                    <div className="text-sm text-gray-900 font-semibold">{request.refundAmount?.toLocaleString('vi-VN')}đ</div>
+                    <div className="text-xs text-gray-500">
+                      <span className="line-through">{request.amount?.toLocaleString('vi-VN')}đ</span>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(refund.createdAt)}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {getStatusBadge(request.status)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button
-                      onClick={() => openRefundModal(refund)}
-                      className="text-teal-600 hover:text-teal-900 bg-teal-100 hover:bg-teal-200 p-2 rounded-full"
+                      onClick={() => setSelectedRefund(request)}
+                      className="text-indigo-600 hover:text-indigo-900 mr-3"
                     >
-                      <FontAwesomeIcon icon={faEye} />
+                      <FaEye className="inline" /> Xem
                     </button>
                   </td>
                 </tr>
@@ -294,241 +209,270 @@ const RefundManagement = () => {
       )}
       
       {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="mt-6 flex justify-between items-center">
-          <span className="text-sm text-gray-700">
-            Trang {pagination.currentPage} / {pagination.totalPages} ({pagination.total} kết quả)
-          </span>
-          <div className="flex space-x-2">
-            <button 
-              onClick={() => handlePageChange(pagination.currentPage - 1)} 
-              disabled={pagination.currentPage <= 1}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-6">
+          <nav className="flex items-center space-x-2">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className={`px-3 py-1 rounded-md ${
+                currentPage === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
             >
               Trước
             </button>
-            <button 
-              onClick={() => handlePageChange(pagination.currentPage + 1)} 
-              disabled={pagination.currentPage >= pagination.totalPages}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              // Logic để hiển thị 5 trang gần với trang hiện tại
+              const pageNum = Math.max(
+                1,
+                currentPage > 3
+                  ? currentPage + i - 2
+                  : i + 1
+              );
+              
+              if (pageNum > totalPages) return null;
+              
+              return (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`px-3 py-1 rounded-md ${
+                    currentPage === pageNum
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1 rounded-md ${
+                currentPage === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
             >
               Sau
             </button>
-          </div>
+          </nav>
         </div>
       )}
       
-      {/* Refund Detail Modal */}
-      {isModalOpen && selectedRefund && (
+      {/* Refund Details Modal */}
+      {selectedRefund && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl transform transition-all">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Chi tiết yêu cầu hoàn tiền
-              </h3>
-              <button 
-                onClick={closeRefundModal}
-                className="text-gray-400 hover:text-gray-600"
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden">
+            <div className="flex justify-between items-center bg-blue-600 text-white px-6 py-4">
+              <h3 className="text-lg font-semibold">Chi tiết yêu cầu hoàn tiền</h3>
+              <button
+                onClick={() => setSelectedRefund(null)}
+                className="text-white hover:text-gray-200"
               >
-                &times;
+                <FaTimes />
               </button>
             </div>
             
-            {/* Modal Body */}
-            <div className="p-6 space-y-6">
-              {/* User and Event Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* User Info */}
-                <div className="space-y-2">
-                  <p className="font-semibold flex items-center text-gray-700">
-                    <FontAwesomeIcon icon={faUserCircle} className="mr-2 text-teal-500" /> Thông tin người dùng
+            <div className="p-6">
+              {/* Request Details */}
+              <div className="mb-6 grid grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Mã yêu cầu</h4>
+                  <p className="text-base font-mono bg-gray-100 p-1 rounded">{selectedRefund._id}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Ngày tạo</h4>
+                  <p className="text-base flex items-center">
+                    <FaCalendarAlt className="mr-2 text-blue-500" />
+                    {formatDate(selectedRefund.createdAt)}
                   </p>
+                </div>
+              </div>
+              
+              <div className="mb-6 grid grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Người yêu cầu</h4>
                   <div className="flex items-center">
-                    <img 
-                      src={selectedRefund.user?.avatar || 'https://via.placeholder.com/40'} 
-                      alt="" 
-                      className="h-10 w-10 rounded-full mr-2"
-                    />
+                    <div className="flex-shrink-0 h-8 w-8 mr-2">
+                      <img 
+                        className="h-8 w-8 rounded-full object-cover" 
+                        src={selectedRefund.user?.avatar ? `http://localhost:5001${selectedRefund.user.avatar}` : '/images/placeholder-avatar.svg'} 
+                        alt={selectedRefund.user?.username} 
+                      />
+                    </div>
                     <div>
-                      <p className="font-medium">{selectedRefund.user?.username}</p>
+                      <p className="text-base">{selectedRefund.user?.username}</p>
                       <p className="text-sm text-gray-500">{selectedRefund.user?.email}</p>
                     </div>
                   </div>
                 </div>
-                
-                {/* Event Info */}
-                <div className="space-y-2">
-                  <p className="font-semibold flex items-center text-gray-700">
-                    <FontAwesomeIcon icon={faCalendarAlt} className="mr-2 text-teal-500" /> Thông tin sự kiện
-                  </p>
-                  <p className="font-medium">{selectedRefund.event?.title}</p>
-                  <p className="text-sm text-gray-500">
-                    Booking: {selectedRefund.booking?.bookingCode}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Ngày yêu cầu: {formatDate(selectedRefund.createdAt)}
-                  </p>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Trạng thái</h4>
+                  <div>{getStatusBadge(selectedRefund.status)}</div>
                 </div>
               </div>
               
-              {/* Refund Info */}
-              <div>
-                <p className="font-semibold flex items-center text-gray-700 mb-2">
-                  <FontAwesomeIcon icon={faMoneyBillWave} className="mr-2 text-teal-500" /> Thông tin hoàn tiền
-                </p>
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Số tiền gốc:</p>
-                      <p className="font-medium">{selectedRefund.amount?.toLocaleString('vi-VN')}đ</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Số tiền hoàn:</p>
-                      <p className="font-medium text-green-600">{selectedRefund.refundAmount?.toLocaleString('vi-VN')}đ</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Phí hoàn vé (25%):</p>
-                      <p className="font-medium text-red-500">{(selectedRefund.amount - selectedRefund.refundAmount)?.toLocaleString('vi-VN')}đ</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Trạng thái:</p>
-                      <p>{getStatusBadge(selectedRefund.status)}</p>
-                    </div>
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Sự kiện</h4>
+                <p className="text-base">{selectedRefund.event?.title}</p>
+              </div>
+              
+              <div className="mb-6 grid grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Số tiền ban đầu</h4>
+                  <p className="text-base text-gray-700">{selectedRefund.amount?.toLocaleString('vi-VN')}đ</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Số tiền hoàn lại (75%)</h4>
+                  <p className="text-lg font-bold text-green-600">{selectedRefund.refundAmount?.toLocaleString('vi-VN')}đ</p>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Lý do trả vé</h4>
+                <p className="text-base bg-gray-50 p-3 rounded-md border">{selectedRefund.reason}</p>
+              </div>
+              
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-500 mb-1">Thông tin ngân hàng</h4>
+                <div className="bg-gray-50 p-3 rounded-md border">
+                  <p><span className="font-semibold">Tên ngân hàng:</span> {selectedRefund.bankInfo.bankName}</p>
+                  <p><span className="font-semibold">Số tài khoản:</span> {selectedRefund.bankInfo.accountNumber}</p>
+                  <p><span className="font-semibold">Tên chủ tài khoản:</span> {selectedRefund.bankInfo.accountHolderName}</p>
+                  {selectedRefund.bankInfo.branch && (
+                    <p><span className="font-semibold">Chi nhánh:</span> {selectedRefund.bankInfo.branch}</p>
+                  )}
+                </div>
+              </div>
+              
+              {/* Admin Actions - Only show for pending/processing requests */}
+              {(selectedRefund.status === 'pending' || selectedRefund.status === 'processing') && (
+                <>
+                  <div className="mb-6">
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Ghi chú của admin</h4>
+                    <textarea
+                      value={adminNotes}
+                      onChange={(e) => setAdminNotes(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows="3"
+                      placeholder="Thêm ghi chú (không bắt buộc)"
+                    />
                   </div>
-                </div>
-              </div>
-              
-              {/* Bank Info */}
-              <div>
-                <p className="font-semibold flex items-center text-gray-700 mb-2">
-                  <FontAwesomeIcon icon={faMoneyBillWave} className="mr-2 text-teal-500" /> Thông tin ngân hàng
-                </p>
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Ngân hàng:</p>
-                      <p className="font-medium">{selectedRefund.bankInfo.bankName}</p>
+                  
+                  {/* Rejection Reason - Only show when rejecting */}
+                  {selectedRefund.status !== 'rejected' && (
+                    <div className="mb-6" style={{ display: isProcessing && rejectionReason !== '' ? 'block' : 'none' }}>
+                      <h4 className="text-sm font-medium text-gray-500 mb-1">Lý do từ chối <span className="text-red-500">*</span></h4>
+                      <textarea
+                        value={rejectionReason}
+                        onChange={(e) => setRejectionReason(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows="3"
+                        placeholder="Nhập lý do từ chối yêu cầu"
+                      />
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Số tài khoản:</p>
-                      <p className="font-medium">{selectedRefund.bankInfo.accountNumber}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Chủ tài khoản:</p>
-                      <p className="font-medium">{selectedRefund.bankInfo.accountHolderName}</p>
-                    </div>
-                    {selectedRefund.bankInfo.branch && (
-                      <div>
-                        <p className="text-sm text-gray-500">Chi nhánh:</p>
-                        <p className="font-medium">{selectedRefund.bankInfo.branch}</p>
+                  )}
+                  
+                  <div className="flex flex-wrap gap-3 justify-end">
+                    <button
+                      onClick={() => setSelectedRefund(null)}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-all"
+                      disabled={isProcessing}
+                    >
+                      Đóng
+                    </button>
+                    
+                    {selectedRefund.status === 'pending' && (
+                      <button
+                        onClick={() => handleProcessRequest(selectedRefund._id, 'processing')}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-all"
+                        disabled={isProcessing}
+                      >
+                        {isProcessing ? <FaSpinner className="inline animate-spin mr-1" /> : null}
+                        Đang xử lý
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={() => {
+                        setIsProcessing(true);
+                        setRejectionReason('');
+                      }}
+                      className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-all"
+                      disabled={isProcessing}
+                    >
+                      {isProcessing && rejectionReason !== undefined ? <FaSpinner className="inline animate-spin mr-1" /> : null}
+                      Từ chối
+                    </button>
+                    
+                    {isProcessing && rejectionReason !== undefined && (
+                      <div className="w-full mt-2">
+                        <textarea
+                          value={rejectionReason}
+                          onChange={(e) => setRejectionReason(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows="3"
+                          placeholder="Nhập lý do từ chối yêu cầu"
+                        />
+                        <div className="flex justify-end mt-2">
+                          <button
+                            onClick={() => {
+                              setIsProcessing(false);
+                              setRejectionReason(undefined);
+                            }}
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-all mr-2"
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            onClick={() => handleProcessRequest(selectedRefund._id, 'rejected')}
+                            className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-all"
+                            disabled={!rejectionReason}
+                          >
+                            Xác nhận từ chối
+                          </button>
+                        </div>
                       </div>
                     )}
+                    
+                    <button
+                      onClick={() => handleProcessRequest(selectedRefund._id, 'completed')}
+                      className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-all"
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? <FaSpinner className="inline animate-spin mr-1" /> : <FaCheck className="inline mr-1" />}
+                      Đã hoàn tiền
+                    </button>
                   </div>
-                </div>
-              </div>
+                </>
+              )}
               
-              {/* Reason */}
-              <div>
-                <p className="font-semibold flex items-center text-gray-700 mb-2">
-                  <FontAwesomeIcon icon={faInfoCircle} className="mr-2 text-teal-500" /> Lý do trả vé
-                </p>
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <p>{selectedRefund.reason}</p>
-                </div>
-              </div>
-              
-              {/* Admin Notes */}
-              {(selectedRefund.status === 'pending' || selectedRefund.status === 'processing') && (
-                <div>
-                  <p className="font-semibold flex items-center text-gray-700 mb-2">
-                    <FontAwesomeIcon icon={faInfoCircle} className="mr-2 text-teal-500" /> Ghi chú của Admin
-                  </p>
-                  <textarea
-                    value={adminNotes}
-                    onChange={(e) => setAdminNotes(e.target.value)}
-                    className="w-full h-24 border border-gray-300 rounded-md p-2 focus:ring-teal-500 focus:border-teal-500"
-                    placeholder="Nhập ghi chú xử lý của bạn..."
-                  />
+              {/* Show completion/rejection info */}
+              {selectedRefund.status === 'completed' && (
+                <div className="bg-green-50 border border-green-200 p-4 rounded-md">
+                  <h4 className="font-medium text-green-800 flex items-center">
+                    <FaCheck className="mr-2" /> Đã hoàn tiền
+                  </h4>
+                  <p className="text-green-700 mt-1">Thời gian: {formatDate(selectedRefund.completedAt)}</p>
+                  {selectedRefund.adminNotes && (
+                    <p className="text-green-700 mt-1">Ghi chú: {selectedRefund.adminNotes}</p>
+                  )}
                 </div>
               )}
               
-              {/* Rejection Reason */}
-              {selectedRefund.status === 'pending' && (
-                <div className={`${selectedRefund.status === 'rejected' ? '' : 'hidden'}`}>
-                  <p className="font-semibold flex items-center text-gray-700 mb-2">
-                    <FontAwesomeIcon icon={faInfoCircle} className="mr-2 text-teal-500" /> Lý do từ chối
-                  </p>
-                  <textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    className="w-full h-24 border border-gray-300 rounded-md p-2 focus:ring-teal-500 focus:border-teal-500"
-                    placeholder="Nhập lý do từ chối yêu cầu..."
-                  />
-                </div>
-              )}
-              
-              {/* Admin Actions */}
-              {selectedRefund.status === 'pending' && (
-                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                  <button
-                    onClick={closeRefundModal}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                    disabled={processingAction}
-                  >
-                    Đóng
-                  </button>
-                  <button
-                    onClick={() => handleProcessRefund('processing')}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    disabled={processingAction}
-                  >
-                    {processingAction ? 'Đang xử lý...' : 'Đánh dấu đang xử lý'}
-                  </button>
-                  <button
-                    onClick={() => handleProcessRefund('rejected')}
-                    className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                    disabled={processingAction}
-                  >
-                    {processingAction ? 'Đang xử lý...' : 'Từ chối'}
-                  </button>
-                  <button
-                    onClick={() => handleProcessRefund('completed')}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                    disabled={processingAction}
-                  >
-                    {processingAction ? 'Đang xử lý...' : 'Đã hoàn tiền'}
-                  </button>
-                </div>
-              )}
-              
-              {selectedRefund.status === 'processing' && (
-                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                  <button
-                    onClick={closeRefundModal}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                    disabled={processingAction}
-                  >
-                    Đóng
-                  </button>
-                  <button
-                    onClick={() => handleProcessRefund('completed')}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                    disabled={processingAction}
-                  >
-                    {processingAction ? 'Đang xử lý...' : 'Đã hoàn tiền'}
-                  </button>
-                </div>
-              )}
-              
-              {(selectedRefund.status === 'completed' || selectedRefund.status === 'rejected') && (
-                <div className="flex justify-end pt-4 border-t border-gray-200">
-                  <button
-                    onClick={closeRefundModal}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                  >
-                    Đóng
-                  </button>
+              {selectedRefund.status === 'rejected' && (
+                <div className="bg-red-50 border border-red-200 p-4 rounded-md">
+                  <h4 className="font-medium text-red-800 flex items-center">
+                    <FaTimes className="mr-2" /> Đã từ chối
+                  </h4>
+                  <p className="text-red-700 mt-1">Thời gian: {formatDate(selectedRefund.rejectedAt)}</p>
+                  <p className="text-red-700 mt-1">Lý do: {selectedRefund.rejectionReason}</p>
                 </div>
               )}
             </div>

@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { FaTachometerAlt, FaUsers, FaCalendarCheck, FaExclamationTriangle, FaFileAlt, FaDollarSign, FaUserTie } from 'react-icons/fa';
+import { FaTachometerAlt, FaUsers, FaCalendarCheck, FaExclamationTriangle, FaFileAlt, FaDollarSign, FaUserTie, FaChartBar, FaCalendarAlt, FaMapMarkerAlt, FaTicketAlt, FaFileInvoiceDollar, FaBuilding, FaShieldAlt } from 'react-icons/fa';
 import { adminAPI } from '../../services/api';
 import AdminSidebar from './AdminSidebar';
 
@@ -36,59 +36,16 @@ const AdminLayout = () => {
     };
 
     const menuItems = [
-        {
-            name: 'Dashboard',
-            path: '/admin',
-            icon: FaTachometerAlt,
-            description: 'Tổng quan hệ thống'
-        },
-        {
-            name: 'Quản lý Users',
-            path: '/admin/users',
-            icon: FaUsers,
-            description: 'Quản lý người dùng'
-        },
-        {
-            name: 'Quản lý Events',
-            path: '/admin/events',
-            icon: FaCalendarCheck,
-            description: 'Duyệt và quản lý sự kiện',
-            countKey: 'pendingEvents'
-        },
-        {
-            name: 'Khiếu nại',
-            path: '/admin/complaints',
-            icon: FaExclamationTriangle,
-            description: 'Xử lý khiếu nại',
-            countKey: 'pendingComplaints'
-        },
-        {
-            name: 'Quản lý Hoàn tiền',
-            path: '/admin/refunds',
-            icon: FaDollarSign,
-            description: 'Xử lý yêu cầu hoàn tiền',
-            countKey: 'pendingRefunds'
-        },
-        {
-            name: 'Quản lý Posts',
-            path: '/admin/posts',
-            icon: FaFileAlt,
-            description: 'Quản lý tất cả bài đăng',
-            countKey: 'pendingPosts'
-        },
-        {
-            name: 'Báo cáo doanh thu',
-            path: '/admin/revenue',
-            icon: FaDollarSign,
-            description: 'Thống kê doanh thu'
-        },
-        {
-            name: 'Yêu cầu Owner',
-            path: '/admin/owner-requests',
-            icon: FaUserTie,
-            description: 'Duyệt yêu cầu trở thành owner',
-            countKey: 'pendingOwnerRequests'
-        }
+        { name: 'Dashboard', path: '/admin/dashboard', icon: <FaChartBar className="mr-3" /> },
+        { name: 'Quản lý Người dùng', path: '/admin/users', icon: <FaUsers className="mr-3" /> },
+        { name: 'Quản lý Sự kiện', path: '/admin/events', icon: <FaCalendarAlt className="mr-3" /> },
+        { name: 'Quản lý Địa điểm', path: '/admin/venues', icon: <FaMapMarkerAlt className="mr-3" /> },
+        { name: 'Quản lý Vé', path: '/admin/tickets', icon: <FaTicketAlt className="mr-3" /> },
+        { name: 'Quản lý Giao dịch', path: '/admin/transactions', icon: <FaFileInvoiceDollar className="mr-3" /> },
+        { name: 'Quản lý Hoàn tiền', path: '/admin/refunds', icon: <FaDollarSign className="mr-3" /> },
+        { name: 'Quản lý Owner', path: '/admin/owners', icon: <FaBuilding className="mr-3" /> },
+        { name: 'Quản lý Khiếu nại', path: '/admin/complaints', icon: <FaExclamationTriangle className="mr-3" /> },
+        { name: 'Quản lý Nội dung', path: '/admin/content', icon: <FaShieldAlt className="mr-3" /> },
     ];
 
     const isActive = (path) => {

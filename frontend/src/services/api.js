@@ -546,38 +546,36 @@ export const adminAPI = {
   getDashboardStats: () => api.get('/admin/dashboard/stats'),
 
   // User management
-  getUsers: (page, limit, searchTerm) => api.get(`/admin/users?page=${page}&limit=${limit}&search=${searchTerm || ''}`),
-  updateUserStatus: (userId, status) => api.put(`/admin/users/${userId}/status`, { status }),
-  banUser: (userId, banReason, duration) => api.post(`/admin/users/${userId}/ban`, { banReason, duration }),
+  getUsers: (params) => api.get('/admin/users', { params }),
+  banUser: (userId, data) => api.post(`/admin/users/${userId}/ban`, data),
   unbanUser: (userId) => api.post(`/admin/users/${userId}/unban`),
 
   // Event management
-  getEvents: (page, limit, status) => api.get(`/admin/events?page=${page}&limit=${limit}&status=${status || ''}`),
+  getEvents: (params) => api.get('/admin/events', { params }),
   getDebugEvents: () => api.get('/admin/debug/events'),
   approveEvent: (eventId) => api.post(`/admin/events/${eventId}/approve`),
-  rejectEvent: (eventId, reason) => api.post(`/admin/events/${eventId}/reject`, { reason }),
+  rejectEvent: (eventId, data) => api.post(`/admin/events/${eventId}/reject`, data),
 
   // Complaint management
-  getComplaints: (page = 1, limit = 10, status = '', type = '', search = '') => 
-    api.get(`/admin/complaints?page=${page}&limit=${limit}&status=${status}&type=${type}&search=${search}`),
-  resolveComplaint: (complaintId, resolution) => api.post(`/admin/complaints/${complaintId}/resolve`, resolution),
+  getComplaints: (params) => api.get('/admin/complaints', { params }),
+  resolveComplaint: (complaintId, data) => api.post(`/admin/complaints/${complaintId}/resolve`, data),
 
   // Post management
-  getPosts: (page, limit, status) => api.get(`/admin/posts?page=${page}&limit=${limit}&status=${status || ''}`),
+  getPosts: (params) => api.get('/admin/posts', { params }),
   moderatePost: (postId, data) => api.post(`/admin/posts/${postId}/moderate`, data),
   deletePost: (postId) => api.delete(`/admin/posts/${postId}`),
 
   // Violation reports
-  getViolationReports: (page, limit, status) => api.get(`/admin/reports?page=${page}&limit=${limit}&status=${status || ''}`),
-  resolveViolationReport: (reportId, resolution) => api.post(`/admin/reports/${reportId}/resolve`, { resolution }),
+  getViolationReports: (params) => api.get('/admin/violation-reports', { params }),
+  resolveViolationReport: (reportId, data) => api.post(`/admin/violation-reports/${reportId}/resolve`, data),
 
   // Revenue
   getRevenue: (params) => api.get('/admin/revenue', { params }),
 
   // Owner requests
-  getOwnerRequests: (page, limit, status) => api.get(`/admin/owner-requests?page=${page}&limit=${limit}&status=${status || ''}`),
+  getOwnerRequests: (params) => api.get('/admin/owner-requests', { params }),
   approveOwnerRequest: (requestId) => api.post(`/admin/owner-requests/${requestId}/approve`),
-  rejectOwnerRequest: (requestId, reason) => api.post(`/admin/owner-requests/${requestId}/reject`, { reason }),
+  rejectOwnerRequest: (requestId, data) => api.post(`/admin/owner-requests/${requestId}/reject`, data),
 };
 
 // Tickets API

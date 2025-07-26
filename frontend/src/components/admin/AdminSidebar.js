@@ -10,7 +10,8 @@ import {
     FaDollarSign,
     FaUserTie,
     FaCreditCard,
-    FaTicketAlt
+    FaTicketAlt,
+    FaMoneyBillWave
 } from 'react-icons/fa';
 
 const AdminSidebar = () => {
@@ -42,6 +43,12 @@ const AdminSidebar = () => {
             path: '/admin/pos-confirmation',
             icon: FaCreditCard,
             description: 'Xác nhận thanh toán POS'
+        },
+        {
+            name: 'Quản lý Hoàn tiền',
+            path: '/admin/refunds',
+            icon: FaMoneyBillWave,
+            description: 'Xử lý yêu cầu hoàn tiền'
         },
         {
             name: 'Khiếu nại',

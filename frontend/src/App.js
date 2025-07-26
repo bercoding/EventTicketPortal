@@ -192,6 +192,7 @@ const App = () => {
                                             {/* Admin Routes */}
                                             <Route path="/admin" element={<PrivateRoute roles={['admin']}><AdminLayout /></PrivateRoute>}>
                                                 <Route index element={<AdminDashboard />} />
+                                                <Route path="dashboard" element={<AdminDashboard />} />
                                                 <Route path="users" element={<UserManagement />} />
                                                 <Route path="events" element={<AdminEventManagement />} />
                                                 <Route path="featured-events" element={<AdminEventManagement />} />

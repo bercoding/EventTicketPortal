@@ -50,7 +50,11 @@ const refundRequestSchema = new mongoose.Schema({
             required: true,
             trim: true
         },
-        branch: String
+        branch: {
+            type: String,
+            default: '',
+            trim: true
+        }
     },
     status: {
         type: String,
@@ -86,6 +90,24 @@ const refundRequestSchema = new mongoose.Schema({
 refundRequestSchema.index({ status: 1, createdAt: -1 });
 refundRequestSchema.index({ user: 1, status: 1 });
 refundRequestSchema.index({ event: 1, status: 1 });
+
+// Middleware trước khi lưu để kiểm tra dữ liệu
+refundRequestSchema.pre('save', function(next) {
+    // Nếu là document mới, kiểm tra các trường bắt buộc
+    if (this.isNew) {
+        // Kiểm tra thông tin ngân hàng
+        if (!this.bankInfo || !this.bankInfo.bankName || !this.bankInfo.accountNumber || !this.bankInfo.accountHolderName) {
+            return next(new Error('Thông tin ngân hàng không đầy đủ'));
+        }
+        
+        // Kiểm tra số tiền hợp lệ
+        if (typeof this.amount !== 'number' || typeof this.refundAmount !== 'number' || this.amount <= 0 || this.refundAmount <= 0) {
+            return next(new Error('Số tiền không hợp lệ'));
+        }
+    }
+    
+    next();
+});
 
 const RefundRequest = mongoose.model('RefundRequest', refundRequestSchema);
 

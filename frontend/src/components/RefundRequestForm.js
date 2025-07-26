@@ -55,6 +55,31 @@ const RefundRequestForm = ({ booking, onSuccess, onCancel }) => {
     try {
       setIsSubmitting(true);
       
+      // Validate form data
+      if (!formData.reason.trim()) {
+        toast.error('Vui lòng nhập lý do trả vé');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (!formData.bankName.trim()) {
+        toast.error('Vui lòng nhập tên ngân hàng');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (!formData.accountNumber.trim()) {
+        toast.error('Vui lòng nhập số tài khoản');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (!formData.accountHolderName.trim()) {
+        toast.error('Vui lòng nhập tên chủ tài khoản');
+        setIsSubmitting(false);
+        return;
+      }
+      
       // Prepare request body
       const requestData = {
         bookingId: booking._id,
@@ -66,6 +91,8 @@ const RefundRequestForm = ({ booking, onSuccess, onCancel }) => {
           branch: formData.branch || ''
         }
       };
+      
+      console.log('Sending refund request data:', requestData);
       
       // Call API to create refund request
       const response = await api.post('/refunds/requests', requestData);
@@ -80,7 +107,13 @@ const RefundRequestForm = ({ booking, onSuccess, onCancel }) => {
       }
     } catch (error) {
       console.error('Error submitting refund request:', error);
-      toast.error(error.response?.data?.message || 'Đã xảy ra lỗi khi gửi yêu cầu');
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else if (error.message) {
+        toast.error(`Lỗi: ${error.message}`);
+      } else {
+        toast.error('Đã xảy ra lỗi khi gửi yêu cầu');
+      }
     } finally {
       setIsSubmitting(false);
     }
