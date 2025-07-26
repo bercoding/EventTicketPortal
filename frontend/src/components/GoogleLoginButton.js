@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -8,7 +8,6 @@ const GoogleLoginButton = () => {
     const { googleLogin } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
-    const buttonRef = useRef(null);
 
     const handleGoogleSuccess = async (credentialResponse) => {
         try {
@@ -34,15 +33,13 @@ const GoogleLoginButton = () => {
         alert('Không thể kết nối với Google. Vui lòng thử lại.');
     };
 
-    // Sử dụng useEffect trong component chính
-    useEffect(() => {
-        if (buttonRef.current) {
-            buttonRef.current.addEventListener('click', () => {
-                // This just triggers the Google login UI
-                document.querySelector('.google-login-container button')?.click();
-            });
-        }
-    }, []);
+    // Xử lý sự kiện khi người dùng nhấn nút tùy chỉnh
+    const handleCustomButtonClick = (e) => {
+        e.preventDefault(); // Ngăn chặn hành vi mặc định của form
+        
+        // Tìm và kích hoạt nút Google OAuth thực tế
+        document.querySelector('.google-login-container button')?.click();
+    };
 
     return (
         <div className="w-full space-y-2">
@@ -63,7 +60,8 @@ const GoogleLoginButton = () => {
             
             {/* Sử dụng nút tùy chỉnh để kích hoạt Google Login */}
             <button
-                ref={buttonRef}
+                type="button" // Thiết lập type là button để tránh submit form
+                onClick={handleCustomButtonClick}
                 className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3b4cb8] transition-all duration-200"
             >
                 <FcGoogle className="w-5 h-5" />
