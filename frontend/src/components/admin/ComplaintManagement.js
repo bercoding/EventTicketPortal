@@ -210,8 +210,6 @@ const ComplaintManagement = () => {
       }
 
       try {
-        setIsSubmitting(true);
-        
         // Lấy mô tả khiếu nại để tìm thông tin người dùng
         const description = selectedComplaint.description || '';
         
@@ -220,13 +218,27 @@ const ComplaintManagement = () => {
         const emails = description.match(emailRegex) || [];
         
         // Lấy thông tin từ email đầu tiên tìm thấy hoặc từ người tạo khiếu nại
-        const emailToUnban = emails.length > 0 ? emails[0] : (selectedComplaint.user?.email || '');
+        let emailToUnban = emails.length > 0 ? emails[0] : (selectedComplaint.user?.email || '');
         
+        // Nếu không tìm được email, yêu cầu nhập thủ công
         if (!emailToUnban) {
-          toast.error('Không tìm thấy email để mở khóa, vui lòng nhập thủ công');
-          return;
+          const userInput = window.prompt('Không tìm thấy email trong nội dung. Vui lòng nhập email người dùng cần mở khóa:');
+          
+          if (!userInput || !userInput.trim()) {
+            toast.warning('Bạn chưa nhập email, hành động đã bị hủy.');
+            return;
+          }
+          
+          emailToUnban = userInput.trim();
+          
+          // Kiểm tra cơ bản nếu input giống email
+          if (!emailToUnban.includes('@')) {
+            toast.error('Email không hợp lệ, vui lòng nhập đúng định dạng email');
+            return;
+          }
         }
         
+        setIsSubmitting(true);
         console.log('🔓 Thực hiện mở khóa nhanh cho email:', emailToUnban);
         
         // Gọi API để unban user bằng email
