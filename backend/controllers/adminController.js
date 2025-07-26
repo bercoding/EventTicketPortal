@@ -73,25 +73,69 @@ exports.banUser = async (req, res) => {
 exports.unbanUser = async (req, res) => {
   try {
     const { id } = req.params;
+    const { username, email } = req.body; // Thêm tham số để hỗ trợ tìm kiếm theo username/email
     
-    const user = await User.findByIdAndUpdate(
-      id,
-      { 
-        status: 'active',
-        banReason: null,
-        banDate: null,
-        banExpiry: null,
-        bannedBy: null
-      },
-      { new: true }
-    ).select('-password');
+    console.log('🔓 Đang xử lý unban cho ID/username/email:', id, username, email);
     
+    let user;
+    
+    // Tìm theo ID nếu có giá trị hợp lệ
+    if (id && id.match(/^[0-9a-fA-F]{24}$/)) {
+      console.log('🔍 Tìm user theo ID:', id);
+      user = await User.findById(id);
+    }
+    
+    // Nếu không tìm thấy theo ID, thử tìm theo username
+    if (!user && username) {
+      console.log('🔍 Tìm user theo username:', username);
+      user = await User.findOne({ username });
+    }
+    
+    // Nếu vẫn không tìm thấy, thử tìm theo email
+    if (!user && email) {
+      console.log('🔍 Tìm user theo email:', email);
+      user = await User.findOne({ email });
+    }
+    
+    // Nếu không tìm thấy user
     if (!user) {
+      console.log('❌ Không tìm thấy user với ID/username/email:', id, username, email);
       return res.status(404).json({ message: 'User not found' });
     }
     
-    res.json({ message: 'User unbanned successfully', user });
+    console.log('✅ Đã tìm thấy user:', user.username, user._id);
+    
+    // Chỉ update nếu user đang bị ban
+    if (user.status !== 'banned') {
+      console.log('⚠️ User không trong trạng thái banned:', user.status);
+      return res.status(400).json({ 
+        message: 'User is not banned',
+        currentStatus: user.status
+      });
+    }
+    
+    // Update trạng thái user
+    user.status = 'active';
+    user.banReason = null;
+    user.banDate = null;
+    user.banExpiry = null;
+    user.bannedBy = null;
+    
+    await user.save();
+    
+    console.log('✅ Đã mở khóa user thành công:', user.username);
+    
+    res.json({ 
+      message: 'User unbanned successfully', 
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        status: user.status
+      } 
+    });
   } catch (error) {
+    console.error('❌ Error unbanning user:', error);
     res.status(500).json({ message: 'Error unbanning user', error: error.message });
   }
 };

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../services/api';
 import { toast } from 'react-toastify';
-import { FaEye, FaFilter, FaRedo, FaTimes, FaUser, FaTag, FaExclamationCircle, FaPaperPlane, FaUserSlash, FaUnlock, FaShieldAlt } from 'react-icons/fa';
+import { FaEye, FaFilter, FaRedo, FaTimes, FaUser, FaTag, FaExclamationCircle, FaPaperPlane, FaUserSlash, FaUnlock, FaShieldAlt, FaKey, FaEdit } from 'react-icons/fa';
 import { ClipLoader } from 'react-spinners';
+import axios from 'axios'; // Added axios import
+import { API_URL } from '../../services/api'; // Added API_URL import
 
 const ComplaintManagement = () => {
     const [complaints, setComplaints] = useState([]);
@@ -52,7 +54,20 @@ const ComplaintManagement = () => {
             console.log("🔍 Fetching complaints with filters:", filterParams);
             const response = await adminAPI.getComplaints(filterParams); 
             const { data } = response;
-            console.log("📄 Complaints data:", data);
+            console.log("📄 Complaints data từ API:", data);
+            
+            // Kiểm tra cấu trúc dữ liệu trả về từ API
+            if (data.complaints && data.complaints.length > 0) {
+                console.log("📋 Mẫu khiếu nại đầu tiên:", data.complaints[0]);
+                console.log("👤 Thuộc tính user:", data.complaints[0].user);
+                
+                // Kiểm tra và phân tích cấu trúc user
+                if (typeof data.complaints[0].user === 'string') {
+                    console.log("⚠️ Chú ý: user là một chuỗi ID, không phải object");
+                } else if (data.complaints[0].user && typeof data.complaints[0].user === 'object') {
+                    console.log("✓ User là một đối tượng:", Object.keys(data.complaints[0].user));
+                }
+            }
             
             // Lọc thêm cho tab kháng cáo ban (nếu cần)
             let filteredComplaints = data.complaints || [];
@@ -68,7 +83,21 @@ const ComplaintManagement = () => {
                 console.log("🔒 Ban appeals filtered:", filteredComplaints.length);
             }
             
-            setComplaints(filteredComplaints);
+            // Bổ sung thêm dữ liệu cho filteredComplaints nếu cần
+            const processedComplaints = filteredComplaints.map(complaint => {
+                // Nếu user là string, tạo đối tượng user với _id
+                if (complaint.user && typeof complaint.user === 'string') {
+                    return {
+                        ...complaint,
+                        processedUser: {
+                            _id: complaint.user
+                        }
+                    };
+                }
+                return complaint;
+            });
+            
+            setComplaints(processedComplaints);
             setPagination({
                 currentPage: data.currentPage,
                 totalPages: data.totalPages,
@@ -99,7 +128,16 @@ const ComplaintManagement = () => {
         }
     };
 
+    // Mở modal để xem chi tiết và giải quyết khiếu nại
     const openModal = (complaint) => {
+        // Hiển thị thông tin chi tiết về khiếu nại để debug
+        console.log('📝 Chi tiết khiếu nại đầy đủ:', complaint);
+        console.log('👤 Thuộc tính user:', complaint.user);
+        
+        // JSON stringify để xem cấu trúc dữ liệu đầy đủ
+        console.log('📊 Dữ liệu JSON đầy đủ:', JSON.stringify(complaint, null, 2));
+        
+        // Lưu complaint và reset resolution
         setSelectedComplaint(complaint);
         setResolution('');
         setIsModalOpen(true);
@@ -160,37 +198,114 @@ const ComplaintManagement = () => {
     };
     
     // Giải quyết nhanh kháng cáo và unban user
-    const handleQuickUnban = async (userId) => {
-        if (!userId) {
-            toast.error('Không tìm thấy ID người dùng!');
+    const handleQuickUnban = async () => {
+        // Đảm bảo có selectedComplaint
+        if (!selectedComplaint) {
+            toast.error('Không tìm thấy thông tin khiếu nại');
             return;
         }
-        
+
         try {
             setIsSubmitting(true);
             
-            console.log('🔓 Đang mở khóa tài khoản cho user:', userId);
-            // Unban user
-            await adminAPI.unbanUser(userId);
-            toast.success('Đã mở khóa tài khoản người dùng thành công!');
+            // ID khiếu nại đang được sử dụng (cho debug và thử nghiệm)
+            console.log('🆔 ID khiếu nại:', selectedComplaint._id);
             
-            // Giải quyết khiếu nại
-            if (selectedComplaint) {
-                console.log('✅ Đang giải quyết khiếu nại:', selectedComplaint._id);
-                const resolutionText = 'Đã chấp nhận kháng cáo và mở khóa tài khoản.';
+            // Thử nhiều cách để lấy ID người dùng
+            // 1. Trường hợp phổ biến nhất: user._id
+            let userId = null;
+            if (selectedComplaint?.user) {
+                if (typeof selectedComplaint.user === 'object' && selectedComplaint.user._id) {
+                    userId = selectedComplaint.user._id;
+                    console.log('✅ Sử dụng ID từ user._id:', userId);
+                } 
+                else if (typeof selectedComplaint.user === 'string') {
+                    userId = selectedComplaint.user;
+                    console.log('✅ Sử dụng ID từ user (string):', userId);
+                }
+                else if (selectedComplaint.user.id) {
+                    userId = selectedComplaint.user.id;
+                    console.log('✅ Sử dụng ID từ user.id:', userId);
+                }
+            }
+            
+            // Nếu không tìm thấy ID, hiển thị lỗi
+            if (!userId) {
+                console.error('⚠️ Không thể tìm thấy ID người dùng');
+                toast.error('Không tìm thấy ID người dùng để mở khóa');
+                setIsSubmitting(false);
+                return;
+            }
+            
+            // Kiểm tra ID có phải MongoDB ObjectId hợp lệ
+            const isValidMongoId = /^[0-9a-fA-F]{24}$/.test(userId);
+            if (!isValidMongoId) {
+                console.error('❌ ID không phải định dạng MongoDB ObjectId hợp lệ:', userId);
+                toast.error('ID người dùng không hợp lệ');
+                setIsSubmitting(false);
+                return;
+            }
+            
+            console.log('🔓 Đang gọi API mở khóa cho user với ID:', userId);
+            
+            // Gọi API để unban user với axios trực tiếp để có thể debug chi tiết
+            try {
+                const token = localStorage.getItem('token');
+                const unbanResponse = await axios.post(
+                    `${API_URL}/admin/users/${userId}/unban`,
+                    {},
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
                 
-                // Sử dụng resolveComplaint API
-                await adminAPI.resolveComplaint(selectedComplaint._id, { 
-                    resolution: resolutionText 
-                });
+                // Log response chi tiết
+                console.log('✅ Kết quả API unban thành công:', unbanResponse);
+                toast.success('Đã mở khóa tài khoản người dùng thành công!');
                 
+                // Giải quyết khiếu nại
+                const resolveResponse = await axios.post(
+                    `${API_URL}/admin/complaints/${selectedComplaint._id}/resolve`,
+                    { resolution: 'Đã chấp nhận kháng cáo và mở khóa tài khoản.' },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                
+                console.log('✅ Kết quả giải quyết khiếu nại:', resolveResponse);
                 toast.success('Đã giải quyết khiếu nại thành công!');
+                
                 closeModal();
                 fetchComplaints();
+            } catch (axiosError) {
+                console.error('❌ Chi tiết lỗi từ API:', axiosError);
+                
+                // Log đầy đủ thông tin response
+                if (axiosError.response) {
+                    console.error('🔍 Status:', axiosError.response.status);
+                    console.error('🔍 Status Text:', axiosError.response.statusText);
+                    console.error('🔍 Data:', axiosError.response.data);
+                    console.error('🔍 Headers:', axiosError.response.headers);
+                    
+                    // Hiển thị thông báo lỗi chi tiết hơn
+                    toast.error(`Không thể mở khóa: ${axiosError.response.status} - ${axiosError.response.data?.message || axiosError.message}`);
+                } else if (axiosError.request) {
+                    console.error('🔍 Request made but no response received:', axiosError.request);
+                    toast.error('Không nhận được phản hồi từ server');
+                } else {
+                    console.error('🔍 Error setting up request:', axiosError.message);
+                    toast.error('Lỗi cấu hình request: ' + axiosError.message);
+                }
             }
         } catch (err) {
-            console.error('❌ Lỗi:', err);
-            toast.error('Không thể hoàn tất thao tác: ' + (err.response?.data?.message || err.message));
+            console.error('❌ Lỗi khi xử lý kháng cáo ban:', err);
+            toast.error('Lỗi xử lý: ' + err.message);
         } finally {
             setIsSubmitting(false);
         }
@@ -412,24 +527,109 @@ const ComplaintManagement = () => {
                             </button>
                         </div>
                        
-                        <div className="mt-4 space-y-4 text-sm text-gray-600">
-                            <p><span className="font-semibold">Người dùng:</span> {selectedComplaint.user?.username}</p>
-                            <p><span className="font-semibold">Chủ đề:</span> {selectedComplaint.subject}</p>
-                            <p><span className="font-semibold">Mô tả:</span></p>
-                            <p className="p-2 bg-gray-50 border rounded-md">{selectedComplaint.description}</p>
-                            {selectedComplaint.relatedEvent && <p><span className="font-semibold">Sự kiện liên quan:</span> {selectedComplaint.relatedEvent.title}</p>}
-                            {selectedComplaint.relatedUser && <p><span className="font-semibold">Người dùng liên quan:</span> {selectedComplaint.relatedUser.username}</p>}
-                        </div>
+                        {/* Phía dưới Modal Title, thêm một form đơn giản để hiển thị thông tin người dùng */}
+                        {selectedComplaint && (
+                            <div className="mt-4 space-y-4 text-sm text-gray-600">
+                                <p><span className="font-semibold">Người dùng:</span> {selectedComplaint.user?.username || 'N/A'}</p>
+                                <p><span className="font-semibold">Email:</span> {selectedComplaint.user?.email || 'N/A'}</p>
+                                <p><span className="font-semibold">Chủ đề:</span> {selectedComplaint.subject}</p>
+                                <p><span className="font-semibold">Mô tả:</span></p>
+                                <p className="p-2 bg-gray-50 border rounded-md">{selectedComplaint.description}</p>
+                                {selectedComplaint.relatedEvent && <p><span className="font-semibold">Sự kiện liên quan:</span> {selectedComplaint.relatedEvent.title}</p>}
+                                {selectedComplaint.relatedUser && <p><span className="font-semibold">Người dùng liên quan:</span> {selectedComplaint.relatedUser.username}</p>}
+                            </div>
+                        )}
 
                         {/* Hiển thị các nút hành động đặc biệt cho kháng cáo ban */}
-                        {(activeTab === 'ban-appeals' || selectedComplaint.subject?.includes('Kháng cáo')) && (
+                        {(activeTab === 'ban-appeals' || selectedComplaint?.subject?.includes('Kháng cáo')) && (
                             <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                                 <h4 className="font-medium text-blue-700 mb-2">Hành động nhanh:</h4>
-                                <div className="flex space-x-3">
+                                
+                                {/* Debug ID người dùng - hiển thị các ID có thể sử dụng */}
+                                <div className="mb-3 p-2 bg-yellow-50 border border-yellow-300 rounded text-xs">
+                                    <p className="font-bold mb-1">Debug - ID người dùng:</p>
+                                    <ul className="space-y-1">
+                                        {selectedComplaint?.user && typeof selectedComplaint.user === 'object' && selectedComplaint.user._id && (
+                                            <li>user._id: <span className="font-mono bg-gray-100 px-1">{selectedComplaint.user._id}</span></li>
+                                        )}
+                                        {selectedComplaint?.user && typeof selectedComplaint.user === 'string' && (
+                                            <li>user (string): <span className="font-mono bg-gray-100 px-1">{selectedComplaint.user}</span></li>
+                                        )}
+                                        {selectedComplaint?.userId && (
+                                            <li>userId: <span className="font-mono bg-gray-100 px-1">{selectedComplaint.userId}</span></li>
+                                        )}
+                                        {selectedComplaint?.user && selectedComplaint.user.id && (
+                                            <li>user.id: <span className="font-mono bg-gray-100 px-1">{selectedComplaint.user.id}</span></li>
+                                        )}
+                                        {selectedComplaint?._id && (
+                                            <li>_id khiếu nại: <span className="font-mono bg-gray-100 px-1">{selectedComplaint._id}</span></li>
+                                        )}
+                                    </ul>
+                                </div>
+                                
+                                {/* Form đơn giản để unban */}
+                                <div className="mb-4">
                                     <button 
-                                        onClick={() => handleQuickUnban(selectedComplaint.user?._id)}
+                                        onClick={async () => {
+                                            // Đơn giản hóa: Lấy thông tin username và email từ selectedComplaint
+                                            if (!selectedComplaint || (!selectedComplaint.user && !selectedComplaint._id)) {
+                                                toast.error('Không có đủ thông tin để mở khóa tài khoản');
+                                                return;
+                                            }
+                                            
+                                            try {
+                                                setIsSubmitting(true);
+                                                const username = selectedComplaint.user?.username;
+                                                const email = selectedComplaint.user?.email;
+                                                const id = selectedComplaint.user?._id || selectedComplaint.user;
+                                                
+                                                console.log('🔓 Thông tin để mở khóa:', { id, username, email });
+                                                
+                                                // Gọi API với đầy đủ thông tin
+                                                const token = localStorage.getItem('token');
+                                                const response = await axios.post(
+                                                    `${API_URL}/admin/users/${id || 'unknown'}/unban`, 
+                                                    { username, email },
+                                                    {
+                                                        headers: {
+                                                            'Authorization': `Bearer ${token}`,
+                                                            'Content-Type': 'application/json'
+                                                        }
+                                                    }
+                                                );
+                                                
+                                                console.log('✅ Kết quả mở khóa:', response.data);
+                                                toast.success('Đã mở khóa tài khoản thành công');
+                                                
+                                                // Giải quyết khiếu nại
+                                                await axios.post(
+                                                    `${API_URL}/admin/complaints/${selectedComplaint._id}/resolve`,
+                                                    { resolution: 'Đã chấp nhận kháng cáo và mở khóa tài khoản.' },
+                                                    {
+                                                        headers: {
+                                                            'Authorization': `Bearer ${token}`,
+                                                            'Content-Type': 'application/json'
+                                                        }
+                                                    }
+                                                );
+                                                
+                                                toast.success('Đã giải quyết khiếu nại thành công');
+                                                closeModal();
+                                                fetchComplaints();
+                                            } catch (error) {
+                                                console.error('❌ Lỗi khi mở khóa:', error);
+                                                if (error.response?.data) {
+                                                    console.log('Chi tiết lỗi:', error.response.data);
+                                                    toast.error(`Không thể mở khóa: ${error.response.data.message || 'Lỗi không xác định'}`);
+                                                } else {
+                                                    toast.error('Không thể kết nối đến server');
+                                                }
+                                            } finally {
+                                                setIsSubmitting(false);
+                                            }
+                                        }}
                                         disabled={isSubmitting}
-                                        className="flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="mb-2 flex items-center justify-center w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 disabled:opacity-50"
                                     >
                                         {isSubmitting ? (
                                             <>
@@ -445,12 +645,85 @@ const ComplaintManagement = () => {
                                             </>
                                         )}
                                     </button>
+                                    
+                                    {/* Nút mở khóa với ID khiếu nại - phòng trường hợp ID khiếu nại chính là ID người dùng */}
+                                    <button 
+                                        onClick={() => {
+                                            // Thử dùng ID khiếu nại làm ID người dùng (một số hệ thống có thể thiết kế như vậy)
+                                            if (selectedComplaint && selectedComplaint._id) {
+                                                const confirmUse = window.confirm(`Thử mở khóa với ID của khiếu nại: ${selectedComplaint._id}?`);
+                                                if (confirmUse) {
+                                                    // Thực hiện mở khóa với ID khiếu nại
+                                                    console.log("🔑 Thử unban với ID khiếu nại:", selectedComplaint._id);
+                                                    adminAPI.unbanUser(selectedComplaint._id)
+                                                        .then(result => {
+                                                            console.log("✅ Kết quả:", result);
+                                                            toast.success("Đã mở khóa tài khoản thành công!");
+                                                            
+                                                            // Đánh dấu đã giải quyết
+                                                            adminAPI.resolveComplaint(selectedComplaint._id, { 
+                                                                resolution: 'Đã chấp nhận kháng cáo và mở khóa tài khoản.' 
+                                                            }).then(() => {
+                                                                closeModal();
+                                                                fetchComplaints();
+                                                            });
+                                                        })
+                                                        .catch(err => {
+                                                            console.error("❌ Lỗi:", err);
+                                                            toast.error("Không thể mở khóa: " + err.message);
+                                                        });
+                                                }
+                                            } else {
+                                                toast.error("Không tìm thấy ID khiếu nại");
+                                            }
+                                        }}
+                                        disabled={isSubmitting || !selectedComplaint?._id}
+                                        className="mb-2 flex items-center px-3 py-2 bg-blue-500 text-white text-sm font-medium rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <FaKey className="mr-1.5" /> Thử với ID khiếu nại
+                                    </button>
+                                    
+                                    {/* Nút nhập ID thủ công */}
+                                    <button 
+                                        onClick={() => {
+                                            const manualId = window.prompt("Nhập ID người dùng để mở khóa:");
+                                            if (manualId && manualId.trim()) {
+                                                const confirmUse = window.confirm(`Mở khóa với ID: ${manualId}?`);
+                                                if (confirmUse) {
+                                                    console.log("🔑 Thử unban với ID thủ công:", manualId);
+                                                    adminAPI.unbanUser(manualId.trim())
+                                                        .then(result => {
+                                                            console.log("✅ Kết quả:", result);
+                                                            toast.success("Đã mở khóa tài khoản thành công!");
+                                                            
+                                                            // Đánh dấu đã giải quyết
+                                                            if (selectedComplaint && selectedComplaint._id) {
+                                                                adminAPI.resolveComplaint(selectedComplaint._id, { 
+                                                                    resolution: 'Đã chấp nhận kháng cáo và mở khóa tài khoản.' 
+                                                                }).then(() => {
+                                                                    closeModal();
+                                                                    fetchComplaints();
+                                                                });
+                                                            }
+                                                        })
+                                                        .catch(err => {
+                                                            console.error("❌ Lỗi:", err);
+                                                            toast.error("Không thể mở khóa: " + err.message);
+                                                        });
+                                                }
+                                            }
+                                        }}
+                                        className="mb-2 flex items-center px-3 py-2 bg-purple-500 text-white text-sm font-medium rounded hover:bg-purple-600"
+                                    >
+                                        <FaEdit className="mr-1.5" /> Nhập ID thủ công
+                                    </button>
+                                    
                                     <button 
                                         onClick={() => {
                                             setResolution('Kháng cáo bị từ chối. Tài khoản vẫn bị khóa theo quyết định ban đầu.');
                                         }}
                                         disabled={isSubmitting}
-                                        className="flex items-center px-3 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="mb-2 flex items-center justify-center w-full px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 disabled:opacity-50 mt-2"
                                     >
                                         <FaUserSlash className="mr-1.5" /> Từ chối kháng cáo
                                     </button>
