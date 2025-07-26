@@ -143,7 +143,12 @@ const BasicSeatingDesigner = ({ seatingMap, setSeatingMap, ticketTypes = [], lay
   };
   
   // Add a new section
-  const addSection = () => {
+  const addSection = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     // Calculate a good position for the new section - below the stage
     const stageY = localMapRef.current.stage?.y || 50;
     const stageHeight = localMapRef.current.stage?.height || 60;
@@ -186,7 +191,12 @@ const BasicSeatingDesigner = ({ seatingMap, setSeatingMap, ticketTypes = [], lay
   };
   
   // Add a venue object
-  const addVenueObject = (objectType) => {
+  const addVenueObject = (objectType, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     // Calculate a good position for the new venue object - to the side of existing objects
     const existingObjects = localMapRef.current.venueObjects || [];
     const objectCount = existingObjects.length;
@@ -210,45 +220,54 @@ const BasicSeatingDesigner = ({ seatingMap, setSeatingMap, ticketTypes = [], lay
       }
     }
     
+    // Create the new venue object
     const newObject = {
       id: `venue-object-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-      x: posX,
-      y: posY,
-      width: objectType.width || 60,
-      height: objectType.height || 60,
       type: objectType.id,
       label: objectType.name,
+      x: posX,
+      y: posY,
+      width: objectType.width,
+      height: objectType.height,
       color: objectType.color,
-      isRound: objectType.isRound
+      isRound: objectType.isRound || false
     };
     
-    console.log('Adding new venue object at position:', { x: newObject.x, y: newObject.y });
+    console.log('Adding new venue object:', newObject);
     
-    // Create new map with added venue object using deep clone
+    // Create new map with added object using deep clone
     const newMap = JSON.parse(JSON.stringify(localMapRef.current));
     newMap.venueObjects.push(newObject);
     
     // Save changes
     saveChanges(newMap);
     
-    // Select new venue object
+    // Select new object
     setSelectedElement({
       type: 'venueObject',
       id: newObject.id,
       index: newMap.venueObjects.length - 1
     });
-    
+
     setDebugInfo(prev => ({
       ...prev,
-      lastAction: `added ${objectType.name} object`
+      lastAction: `added ${objectType}`
     }));
   };
   
   // Delete selected element
-  const deleteSelected = () => {
+  const deleteSelected = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (!selectedElement) return;
     
-    let newMap = JSON.parse(JSON.stringify(localMapRef.current));
+    console.log('Deleting selected element:', selectedElement);
+    
+    // Create new map without the selected element
+    const newMap = JSON.parse(JSON.stringify(localMapRef.current));
     
     if (selectedElement.type === 'section') {
       newMap.sections = newMap.sections.filter(s => s.id !== selectedElement.id);
@@ -268,16 +287,21 @@ const BasicSeatingDesigner = ({ seatingMap, setSeatingMap, ticketTypes = [], lay
     }));
   };
   
-  // Undo/redo functions
-  const undo = () => {
+  // Undo last action
+  const undo = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (historyIndex <= 0) return;
     
     const newIndex = historyIndex - 1;
-    const prevMap = history[newIndex];
+    const previousMap = history[newIndex];
     
-    setLocalMap(JSON.parse(JSON.stringify(prevMap)));
-    updateParent(prevMap);
     setHistoryIndex(newIndex);
+    setLocalMap(previousMap);
+    updateParent(previousMap);
     
     setDebugInfo(prev => ({
       ...prev,
@@ -285,15 +309,21 @@ const BasicSeatingDesigner = ({ seatingMap, setSeatingMap, ticketTypes = [], lay
     }));
   };
   
-  const redo = () => {
+  // Redo last action
+  const redo = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (historyIndex >= history.length - 1) return;
     
     const newIndex = historyIndex + 1;
     const nextMap = history[newIndex];
     
-    setLocalMap(JSON.parse(JSON.stringify(nextMap)));
-    updateParent(nextMap);
     setHistoryIndex(newIndex);
+    setLocalMap(nextMap);
+    updateParent(nextMap);
     
     setDebugInfo(prev => ({
       ...prev,
@@ -301,17 +331,21 @@ const BasicSeatingDesigner = ({ seatingMap, setSeatingMap, ticketTypes = [], lay
     }));
   };
   
-  // Debug info
-  const showDebugInfo = () => {
-    alert(`DEBUG INFO:
-Sections: ${localMapRef.current.sections?.length || 0}
-Objects: ${localMapRef.current.venueObjects?.length || 0}
-Layout: ${localMapRef.current.layoutType || 'unknown'}
-Selected: ${selectedElement ? `${selectedElement.type} (${selectedElement.id})` : 'none'}
-Dragging: ${isDragging ? 'yes' : 'no'}
-Mouse Position: X:${debugInfo.mousePos.x.toFixed(2)}, Y:${debugInfo.mousePos.y.toFixed(2)}
-Drag Offset: X:${debugInfo.offset.x.toFixed(2)}, Y:${debugInfo.offset.y.toFixed(2)}
-Last Action: ${debugInfo.lastAction}`);
+  // Show debug info
+  const showDebugInfo = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    console.log('Current debug info:', debugInfo);
+    console.log('Current local map:', localMap);
+    console.log('Selected element:', selectedElement);
+    
+    setDebugInfo(prev => ({
+      ...prev,
+      lastAction: 'debug info shown'
+    }));
   };
   
   // Handle element selection
@@ -412,41 +446,39 @@ Last Action: ${debugInfo.lastAction}`);
     const point = getSvgCoordinates(e);
     
     // Make sure drag offset is valid
-    const offsetX = typeof dragOffsetRef.current.x === 'number' ? dragOffsetRef.current.x : 0;
-    const offsetY = typeof dragOffsetRef.current.y === 'number' ? dragOffsetRef.current.y : 0;
+    const offset = dragOffsetRef.current || { x: 0, y: 0 };
     
     // Calculate new position
-    const newX = Math.max(0, point.x - offsetX);
-    const newY = Math.max(0, point.y - offsetY);
+    const newX = Math.max(0, point.x - offset.x);
+    const newY = Math.max(0, point.y - offset.y);
     
-    // Create a deep copy of the current map
-    const newMap = JSON.parse(JSON.stringify(localMapRef.current));
+    // Update the element position
+    const updatedMap = JSON.parse(JSON.stringify(localMapRef.current));
     
-    // Update position based on element type
     if (selectedElementRef.current.type === 'stage') {
-      newMap.stage.x = newX;
-      newMap.stage.y = newY;
+      updatedMap.stage.x = newX;
+      updatedMap.stage.y = newY;
     } else if (selectedElementRef.current.type === 'section') {
-      const index = newMap.sections.findIndex(s => s.id === selectedElementRef.current.id);
-      if (index !== -1) {
-        newMap.sections[index].x = newX;
-        newMap.sections[index].y = newY;
+      const sectionIndex = updatedMap.sections.findIndex(s => s.id === selectedElementRef.current.id);
+      if (sectionIndex !== -1) {
+        updatedMap.sections[sectionIndex].x = newX;
+        updatedMap.sections[sectionIndex].y = newY;
       }
     } else if (selectedElementRef.current.type === 'venueObject') {
-      const index = newMap.venueObjects.findIndex(o => o.id === selectedElementRef.current.id);
-      if (index !== -1) {
-        newMap.venueObjects[index].x = newX;
-        newMap.venueObjects[index].y = newY;
+      const objectIndex = updatedMap.venueObjects.findIndex(o => o.id === selectedElementRef.current.id);
+      if (objectIndex !== -1) {
+        updatedMap.venueObjects[objectIndex].x = newX;
+        updatedMap.venueObjects[objectIndex].y = newY;
       }
     }
     
-    // Update local state only (don't record history during dragging)
-    setLocalMap(newMap);
+    // Update local state immediately for smooth dragging
+    setLocalMap(updatedMap);
     
     setDebugInfo(prev => ({
       ...prev,
       mousePos: { x: point.x, y: point.y },
-      lastAction: `dragging ${selectedElementRef.current.type} to ${newX.toFixed(0)},${newY.toFixed(0)}`
+      lastAction: `dragging ${selectedElementRef.current.type}`
     }));
   };
   
@@ -454,38 +486,37 @@ Last Action: ${debugInfo.lastAction}`);
   const handleGlobalMouseUp = (e) => {
     if (!isDraggingRef.current) return;
     
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+    e.preventDefault();
+    e.stopPropagation();
     
-    console.log('End dragging, saving position');
+    console.log('Finished dragging:', selectedElementRef.current?.type);
     
-    // Remove dragging class from all elements
-    document.querySelectorAll('.dragging').forEach(el => {
-      el.classList.remove('dragging');
-    });
-    
-    // Remove global event listeners
-    document.removeEventListener('mousemove', handleGlobalMouseMove);
-    document.removeEventListener('mouseup', handleGlobalMouseUp);
-    
-    // End dragging
+    // Stop dragging
     setIsDragging(false);
     isDraggingRef.current = false;
     
-    // IMPORTANT: Get the current value of localMap from the ref
-    // and save it to both history and parent component
-    const currentMap = localMapRef.current;
-    console.log("Saving final position", currentMap);
+    // Remove dragging class
+    if (selectedElementRef.current) {
+      const selector = `g[data-id="${selectedElementRef.current.id}"]`;
+      const dragEl = document.querySelector(selector);
+      if (dragEl) {
+        dragEl.classList.remove('dragging');
+      }
+    }
     
-    // Record this change in history and update parent
-    saveChanges(currentMap);
+    // Remove event listeners
+    document.removeEventListener('mousemove', handleGlobalMouseMove);
+    document.removeEventListener('mouseup', handleGlobalMouseUp);
+    
+    // Save changes to parent
+    if (localMapRef.current) {
+      saveChanges(localMapRef.current);
+    }
     
     setDebugInfo(prev => ({
       ...prev,
       isDragging: false,
-      lastAction: `finished dragging ${selectedElementRef.current?.type || 'element'}`
+      lastAction: `finished dragging ${selectedElementRef.current?.type || 'unknown'}`
     }));
   };
   
@@ -493,38 +524,57 @@ Last Action: ${debugInfo.lastAction}`);
   const handleMouseMove = handleGlobalMouseMove;
   const handleMouseUp = handleGlobalMouseUp;
   
-  // Handle canvas click (deselect)
+  // Handle canvas click
   const handleCanvasClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Only handle clicks if not dragging
+    if (isDraggingRef.current) return;
+    
+    // Deselect if clicking on empty space
     if (selectedElement) {
-      e.preventDefault();
-      e.stopPropagation();
       setSelectedElement(null);
-      
       setDebugInfo(prev => ({
         ...prev,
-        lastAction: 'deselected element'
+        lastAction: 'deselected'
       }));
     }
   };
 
   // Handle property updates
   const handlePropertyUpdate = (updatedMap) => {
+    console.log('Property update triggered - preventing form submit');
     saveChanges(updatedMap);
   };
 
   // Handle object selection from toolbar
-  const handleAddObjectFromToolbar = (objectType) => {
-    addVenueObject(objectType);
+  const handleAddObjectFromToolbar = (objectType, e) => {
+    console.log('Add object from toolbar triggered - preventing form submit');
+    addVenueObject(objectType, e);
   };
   
   // Render the designer
   return (
-    <div className="basic-seating-designer">
+    <div 
+      className="basic-seating-designer"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onKeyDown={(e) => {
+        // Ngăn chặn việc submit form khi nhấn Enter
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+    >
       {/* Toolbar */}
       <div className="toolbar">
         <button 
           type="button"
-          onClick={addSection}
+          onClick={(e) => addSection(e)}
           className="toolbar-btn success"
           title="Thêm khu vực ghế ngồi"
         >
@@ -533,7 +583,7 @@ Last Action: ${debugInfo.lastAction}`);
         
         <button
           type="button"
-          onClick={deleteSelected}
+          onClick={(e) => deleteSelected(e)}
           className={`toolbar-btn danger ${!selectedElement ? 'disabled' : ''}`}
           disabled={!selectedElement}
           title="Xóa phần tử đã chọn"
@@ -543,7 +593,7 @@ Last Action: ${debugInfo.lastAction}`);
         
         <button
           type="button"
-          onClick={undo}
+          onClick={(e) => undo(e)}
           className={`toolbar-btn ${historyIndex <= 0 ? 'disabled' : ''}`}
           disabled={historyIndex <= 0}
           title="Hoàn tác"
@@ -553,7 +603,7 @@ Last Action: ${debugInfo.lastAction}`);
         
         <button
           type="button"
-          onClick={redo}
+          onClick={(e) => redo(e)}
           className={`toolbar-btn ${historyIndex >= history.length - 1 ? 'disabled' : ''}`}
           disabled={historyIndex >= history.length - 1}
           title="Làm lại"
@@ -563,7 +613,7 @@ Last Action: ${debugInfo.lastAction}`);
         
         <button
           type="button"
-          onClick={showDebugInfo}
+          onClick={(e) => showDebugInfo(e)}
           className="toolbar-btn info"
           title="Hiển thị thông tin gỡ lỗi"
         >
@@ -574,7 +624,11 @@ Last Action: ${debugInfo.lastAction}`);
         
         <button
           type="button"
-          onClick={() => setShowSidebar(!showSidebar)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setShowSidebar(!showSidebar);
+          }}
           className={`toolbar-btn ${showSidebar ? 'active' : ''}`}
           title={showSidebar ? "Ẩn thanh bên" : "Hiện thanh bên"}
         >

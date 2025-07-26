@@ -41,7 +41,7 @@ const NavigationButtons = ({ currentStep, totalSteps = 4, onPrevStep, onNextStep
         type="button"
         onClick={(e) => handleButtonClick(e, currentStep === totalSteps ? onSubmit : onNextStep)}
         disabled={loading}
-        className="next-button"
+        className={`next-button ${currentStep === totalSteps ? 'submit-button' : ''}`}
       >
         {loading ? (
           <span>Đang xử lý...</span>

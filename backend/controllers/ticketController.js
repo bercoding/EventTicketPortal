@@ -15,7 +15,7 @@ const getUserTickets = async (req, res) => {
         const tickets = await Ticket.find({ user: req.user._id })
             .populate({
                 path: 'event',
-                select: 'title startDate images venue location templateType'
+                select: 'title startDate images venue'
             })
             .populate({
                 path: 'bookingId',

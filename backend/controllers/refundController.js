@@ -2,6 +2,7 @@ const RefundRequest = require('../models/RefundRequest');
 const Booking = require('../models/Booking');
 const Event = require('../models/Event');
 const User = require('../models/User');
+const Ticket = require('../models/Ticket');
 const Notification = require('../models/Notification');
 const mongoose = require('mongoose');
 
@@ -10,20 +11,62 @@ exports.createRefundRequest = async (req, res) => {
   try {
     const { bookingId, reason, bankInfo } = req.body;
     const userId = req.user.id;
+    
+    let booking;
+    let event;
+    let ticketInfo;
 
-    // Kiểm tra xem booking có tồn tại không và thuộc về user hiện tại
-    const booking = await Booking.findOne({ _id: bookingId, user: userId })
-      .populate('event');
-
-    if (!booking) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Không tìm thấy thông tin đặt vé hoặc bạn không phải chủ sở hữu vé này' 
+    // Kiểm tra xem bookingId có thể là ticketId không
+    const isTicketId = await Ticket.findOne({ _id: bookingId, user: userId });
+    
+    if (isTicketId) {
+      // Nếu đây là ticket ID
+      ticketInfo = isTicketId;
+      
+      // Lấy thông tin event từ ticket
+      event = await Event.findById(ticketInfo.event);
+      
+      if (!event) {
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy thông tin sự kiện cho vé này'
+        });
+      }
+      
+      // Tìm booking liên quan đến vé này
+      booking = await Booking.findOne({ 
+        user: userId,
+        tickets: { $elemMatch: { $eq: bookingId } }
       });
+      
+      // Nếu không tìm thấy booking, tạo một booking ảo để xử lý
+      if (!booking) {
+        booking = {
+          _id: bookingId, // Sử dụng ticketId làm bookingId
+          user: userId,
+          totalAmount: ticketInfo.price,
+          status: 'confirmed',
+          event: event._id,
+          isVirtualBooking: true // Đánh dấu đây là booking ảo
+        };
+      }
+    } else {
+      // Kiểm tra theo bookingId truyền thống
+      booking = await Booking.findOne({ _id: bookingId, user: userId })
+        .populate('event');
+      
+      if (!booking) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Không tìm thấy thông tin đặt vé hoặc bạn không phải chủ sở hữu vé này' 
+        });
+      }
+      
+      event = booking.event;
     }
 
     // Kiểm tra xem booking có thể được hoàn tiền không
-    if (booking.status === 'cancelled' || booking.status === 'refunded') {
+    if (booking.status === 'cancelled' || booking.status === 'refunded' || booking.status === 'refund_requested') {
       return res.status(400).json({ 
         success: false, 
         message: 'Đơn đặt vé đã bị hủy hoặc đã được hoàn tiền trước đó' 
@@ -31,7 +74,6 @@ exports.createRefundRequest = async (req, res) => {
     }
 
     // Kiểm tra nếu sự kiện đã diễn ra
-    const event = booking.event;
     if (new Date(event.startDate) <= new Date()) {
       return res.status(400).json({
         success: false,
@@ -40,15 +82,16 @@ exports.createRefundRequest = async (req, res) => {
     }
 
     // Tính toán số tiền hoàn (75% giá trị đơn hàng)
-    const refundAmount = Math.floor(booking.totalAmount * 0.75);
+    const totalAmount = booking.totalAmount || (ticketInfo ? ticketInfo.price : 0);
+    const refundAmount = Math.floor(totalAmount * 0.75);
 
     // Tạo yêu cầu hoàn tiền
     const refundRequest = new RefundRequest({
       user: userId,
-      booking: bookingId,
-      event: booking.event._id,
+      booking: booking._id,
+      event: event._id,
       reason,
-      amount: booking.totalAmount,
+      amount: totalAmount,
       refundAmount,
       bankInfo,
       status: 'pending'
@@ -56,12 +99,30 @@ exports.createRefundRequest = async (req, res) => {
 
     await refundRequest.save();
 
-    // Cập nhật trạng thái booking
-    booking.status = 'refund_requested';
-    await booking.save();
+    // Cập nhật trạng thái booking nếu đây là booking thực
+    if (!booking.isVirtualBooking) {
+      booking.status = 'refund_requested';
+      await booking.save();
+    }
+    
+    // Cập nhật trạng thái vé nếu đây là ticket ID
+    if (ticketInfo) {
+      ticketInfo.status = 'refund_requested';
+      await ticketInfo.save();
+    }
 
     // Thông báo cho admin
-    // TODO: Implement admin notification logic
+    await Notification.create({
+      userId: null, // Gửi cho tất cả admin
+      type: 'refund_request',
+      title: 'Yêu cầu hoàn tiền mới',
+      message: `Có yêu cầu hoàn tiền mới cho ${event.title}`,
+      isForAdmin: true,
+      relatedTo: {
+        type: 'refund',
+        id: refundRequest._id
+      }
+    });
 
     return res.status(201).json({
       success: true,

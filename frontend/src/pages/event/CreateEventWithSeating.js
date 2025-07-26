@@ -613,7 +613,25 @@ const CreateEventWithSeating = () => {
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          
+          // Kiểm tra xem có phải do người dùng thực sự thao tác với nút submit
+          const isFromSubmitButton = e.nativeEvent && e.nativeEvent.isTrusted && 
+            e.target && (e.target.classList.contains('submit-button') || e.target.closest('.submit-button'));
+          
+          // Chặn nếu không phải từ nút submit
+          if (!isFromSubmitButton) {
+            console.log('Form submit ignored: not from submit button');
+            return;
+          }
+          
           currentStep === 3 ? handleFinalSubmit(e) : handleNextStep(e);
+        }}
+        onKeyDown={(e) => {
+          // Ngăn chặn việc submit form khi nhấn Enter
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+          }
         }}
       >
         {renderStepContent()}

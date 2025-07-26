@@ -64,7 +64,12 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
     return rows;
   };
 
-  const handleChange = (field, value) => {
+  const handleChange = (field, value, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     const updatedElement = { ...element };
     
     // Xử lý đặc biệt cho trường rows và seatsPerRow
@@ -118,7 +123,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="text" 
                 value={element.name || 'Sân khấu'} 
-                onChange={(e) => handleChange('name', e.target.value)} 
+                onChange={(e) => handleChange('name', e.target.value, e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -127,7 +132,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={element.width} 
-                onChange={(e) => handleChange('width', Number(e.target.value))} 
+                onChange={(e) => handleChange('width', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -136,7 +141,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={element.height} 
-                onChange={(e) => handleChange('height', Number(e.target.value))} 
+                onChange={(e) => handleChange('height', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -145,7 +150,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={Math.round(element.x)} 
-                onChange={(e) => handleChange('x', Number(e.target.value))} 
+                onChange={(e) => handleChange('x', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -154,7 +159,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={Math.round(element.y)} 
-                onChange={(e) => handleChange('y', Number(e.target.value))} 
+                onChange={(e) => handleChange('y', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -169,7 +174,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="text" 
                 value={element.name} 
-                onChange={(e) => handleChange('name', e.target.value)} 
+                onChange={(e) => handleChange('name', e.target.value, e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -178,7 +183,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={element.width} 
-                onChange={(e) => handleChange('width', Number(e.target.value))} 
+                onChange={(e) => handleChange('width', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -187,7 +192,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={element.height} 
-                onChange={(e) => handleChange('height', Number(e.target.value))} 
+                onChange={(e) => handleChange('height', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -196,7 +201,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={Math.round(element.x)} 
-                onChange={(e) => handleChange('x', Number(e.target.value))} 
+                onChange={(e) => handleChange('x', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -205,7 +210,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={Math.round(element.y)} 
-                onChange={(e) => handleChange('y', Number(e.target.value))} 
+                onChange={(e) => handleChange('y', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -217,8 +222,10 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
                 min={1}
                 max={15} 
                 onChange={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   const value = Math.min(Number(e.target.value), 15);
-                  handleChange('rows', value);
+                  handleChange('rows', value, e);
                 }} 
                 className="seating-designer-input"
               />
@@ -236,14 +243,16 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
                 min={1}
                 max={30}
                 onChange={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   const value = Math.min(Number(e.target.value), 30);
-                  handleChange('seatsPerRow', value);
+                  handleChange('seatsPerRow', value, e);
                 }} 
                 className="seating-designer-input"
               />
               {(element.seatsPerRow || 0) > 30 && (
                 <div className="property-warning">
-                  Vì lý do hiệu suất, số ghế tối đa mỗi hàng là 30
+                  Vì lý do hiệu suất, số ghế mỗi hàng tối đa là 30
                 </div>
               )}
             </div>
@@ -251,7 +260,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <label>Loại vé:</label>
               <select 
                 value={element.ticketTypeId || ''} 
-                onChange={(e) => handleChange('ticketTypeId', e.target.value)} 
+                onChange={(e) => handleChange('ticketTypeId', e.target.value, e)} 
                 className="seating-designer-select"
               >
                 <option value="">Chọn loại vé</option>
@@ -273,7 +282,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="text" 
                 value={element.label} 
-                onChange={(e) => handleChange('label', e.target.value)} 
+                onChange={(e) => handleChange('label', e.target.value, e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -282,7 +291,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={element.width} 
-                onChange={(e) => handleChange('width', Number(e.target.value))} 
+                onChange={(e) => handleChange('width', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -291,7 +300,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={element.height} 
-                onChange={(e) => handleChange('height', Number(e.target.value))} 
+                onChange={(e) => handleChange('height', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -300,7 +309,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={Math.round(element.x)} 
-                onChange={(e) => handleChange('x', Number(e.target.value))} 
+                onChange={(e) => handleChange('x', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -309,7 +318,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="number" 
                 value={Math.round(element.y)} 
-                onChange={(e) => handleChange('y', Number(e.target.value))} 
+                onChange={(e) => handleChange('y', Number(e.target.value), e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -318,7 +327,7 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
               <input 
                 type="color" 
                 value={element.color || '#3B82F6'} 
-                onChange={(e) => handleChange('color', e.target.value)} 
+                onChange={(e) => handleChange('color', e.target.value, e)} 
                 className="seating-designer-input"
               />
             </div>
@@ -331,7 +340,20 @@ const PropertyEditor = ({ selectedElement, localMap, onUpdate, ticketTypes = [] 
   };
 
   return (
-    <div className="property-editor">
+    <div 
+      className="property-editor"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onKeyDown={(e) => {
+        // Ngăn chặn việc submit form khi nhấn Enter
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+    >
       <div className="property-editor-header">
         {selectedElement.type === 'stage' ? 'Sân khấu' : 
          selectedElement.type === 'section' ? 'Khu vực' : 

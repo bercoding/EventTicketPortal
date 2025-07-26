@@ -32,13 +32,23 @@ const ObjectToolbar = ({ onAddObject }) => {
   // Hiển thị tất cả các đối tượng khi mở rộng
   const allObjects = showAllObjects ? venueObjectTypes : popularObjects;
 
-  const handleAddObject = (objectType) => {
+  const handleAddObject = (objectType, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (onAddObject) {
-      onAddObject(objectType);
+      onAddObject(objectType, e);
     }
   };
 
-  const toggleExpand = () => {
+  const toggleExpand = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     setExpanded(!expanded);
     if (!expanded) {
       setShowAllObjects(true);
@@ -46,8 +56,21 @@ const ObjectToolbar = ({ onAddObject }) => {
   };
 
   return (
-    <div className={`object-toolbar ${expanded ? 'expanded' : ''}`}>
-      <div className="object-toolbar-header" onClick={toggleExpand}>
+    <div 
+      className={`object-toolbar ${expanded ? 'expanded' : ''}`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onKeyDown={(e) => {
+        // Ngăn chặn việc submit form khi nhấn Enter
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+    >
+      <div className="object-toolbar-header" onClick={(e) => toggleExpand(e)}>
         <span>Thêm vật thể</span>
         <FaPlus className={`expand-icon ${expanded ? 'expanded' : ''}`} />
       </div>
@@ -60,7 +83,7 @@ const ObjectToolbar = ({ onAddObject }) => {
               <button
                 key={objectType.id}
                 className="object-button"
-                onClick={() => handleAddObject(objectType)}
+                onClick={(e) => handleAddObject(objectType, e)}
                 title={objectType.name}
                 style={{ color: objectType.color }}
               >
@@ -73,7 +96,11 @@ const ObjectToolbar = ({ onAddObject }) => {
           {!showAllObjects && (
             <button
               className="object-button more-button"
-              onClick={() => setShowAllObjects(true)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowAllObjects(true);
+              }}
             >
               <FaPlus />
               <span className="object-label">Thêm...</span>
