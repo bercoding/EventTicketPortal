@@ -32,6 +32,8 @@ const ComplaintManagement = () => {
 
     // Thêm state để lưu trữ thông tin người dùng được tìm thấy
     const [foundUser, setFoundUser] = useState(null);
+    // Thêm state để lưu trữ thông tin nhập để tìm kiếm
+    const [searchInput, setSearchInput] = useState('');
 
     const fetchComplaints = useCallback(async () => {
         setLoading(true);
@@ -331,6 +333,62 @@ const ComplaintManagement = () => {
         if (id) searchParams.append('id', id);
         if (username) searchParams.append('username', username);
         if (email) searchParams.append('email', email);
+        
+        const token = localStorage.getItem('token');
+        const response = await axios.get(
+          `${API_URL}/admin/debug/find-user?${searchParams.toString()}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        console.log('✅ Kết quả tìm kiếm người dùng:', response.data);
+        
+        if (response.data.success && response.data.users && response.data.users.length > 0) {
+          // Lấy người dùng đầu tiên tìm thấy
+          setFoundUser(response.data.users[0]);
+          
+          // Thông báo dựa vào trạng thái tài khoản
+          if (response.data.users[0].status === 'banned') {
+            toast.success(`Tìm thấy người dùng: ${response.data.users[0].username} (Đang bị khóa)`);
+          } else {
+            toast.info(`Tìm thấy người dùng: ${response.data.users[0].username} (Đang hoạt động - không bị khóa)`);
+          }
+        } else {
+          setFoundUser(null);
+          toast.error('Không tìm thấy thông tin người dùng');
+        }
+      } catch (error) {
+        console.error('❌ Lỗi khi tìm kiếm người dùng:', error);
+        toast.error('Không thể tìm kiếm người dùng');
+        setFoundUser(null);
+      } finally {
+        setIsSubmitting(false);
+      }
+    };
+
+    // Thêm hàm tìm kiếm người dùng cụ thể theo input
+    const findSpecificUser = async () => {
+      if (!searchInput.trim()) {
+        toast.error('Vui lòng nhập email hoặc username để tìm kiếm');
+        return;
+      }
+
+      try {
+        setIsSubmitting(true);
+        
+        console.log('🔍 Tìm kiếm người dùng cụ thể:', searchInput);
+        
+        // Tạo URL tìm kiếm với input
+        let searchParams = new URLSearchParams();
+        // Kiểm tra nếu input có dạng email
+        if (searchInput.includes('@')) {
+          searchParams.append('email', searchInput.trim());
+        } else {
+          searchParams.append('username', searchInput.trim());
+        }
         
         const token = localStorage.getItem('token');
         const response = await axios.get(
@@ -762,6 +820,35 @@ const ComplaintManagement = () => {
                                             <li>_id khiếu nại: <span className="font-mono bg-gray-100 px-1">{selectedComplaint._id}</span></li>
                                         )}
                                     </ul>
+                                </div>
+
+                                {/* Form tìm kiếm người dùng cụ thể */}
+                                <div className="mb-3 p-3 bg-gray-50 border border-gray-300 rounded">
+                                    <p className="font-bold mb-2 text-gray-700">Tìm kiếm người dùng cụ thể:</p>
+                                    <div className="flex space-x-2">
+                                        <input 
+                                            type="text" 
+                                            value={searchInput}
+                                            onChange={(e) => setSearchInput(e.target.value)}
+                                            placeholder="Email hoặc username người dùng" 
+                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                        <button
+                                            onClick={findSpecificUser}
+                                            disabled={isSubmitting || !searchInput.trim()}
+                                            className="px-4 py-2 bg-purple-600 text-white font-medium rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isSubmitting ? (
+                                                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                            ) : (
+                                                <FaSearch />
+                                            )}
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">Ví dụ: thantdgoku@gmail.com</p>
                                 </div>
 
                                 {/* Nút tìm kiếm người dùng */}
