@@ -3,7 +3,7 @@ import { ticketService } from '../services/ticketService';
 import { toast } from 'react-toastify';
 import QRCode from 'qrcode';
 import { useSearchParams } from 'react-router-dom';
-import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTicketAlt, FaQrcode, FaTimes, FaExclamationTriangle, FaCheckCircle, FaInfoCircle, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTicketAlt, FaQrcode, FaTimes, FaExclamationTriangle, FaCheckCircle, FaInfoCircle, FaUndo, FaMoneyBillWave, FaGlobe, FaLink } from 'react-icons/fa';
 import RefundRequestForm from '../components/RefundRequestForm';
 
 const MyTicketsPage = () => {
@@ -44,22 +44,24 @@ const MyTicketsPage = () => {
                 }
             }
             
-            // Generate QR codes for all tickets
-            const qrCodePromises = response.data.map(async (ticket) => {
-                try {
-                    const qrData = ticket.qrCode || JSON.stringify({
-                        ticketId: ticket._id,
-                        eventId: ticket.event?._id,
-                        userId: ticket.userId,
-                        seatInfo: ticket.seatNumber ? `${ticket.section} - Ghế ${ticket.seatNumber}` : 'Vé tổng quát'
-                    });
-                    const qrCodeDataURL = await QRCode.toDataURL(qrData);
-                    return { ticketId: ticket._id, qrCode: qrCodeDataURL };
-                } catch (err) {
-                    console.error('Error generating QR code:', err);
-                    return { ticketId: ticket._id, qrCode: null };
-                }
-            });
+            // Generate QR codes for offline events only
+            const qrCodePromises = response.data
+                .filter(ticket => ticket.event?.templateType !== 'online') // Chỉ tạo QR cho sự kiện offline
+                .map(async (ticket) => {
+                    try {
+                        const qrData = ticket.qrCode || JSON.stringify({
+                            ticketId: ticket._id,
+                            eventId: ticket.event?._id,
+                            userId: ticket.userId,
+                            seatInfo: ticket.seatNumber ? `${ticket.section} - Ghế ${ticket.seatNumber}` : 'Vé tổng quát'
+                        });
+                        const qrCodeDataURL = await QRCode.toDataURL(qrData);
+                        return { ticketId: ticket._id, qrCode: qrCodeDataURL };
+                    } catch (err) {
+                        console.error('Error generating QR code:', err);
+                        return { ticketId: ticket._id, qrCode: null };
+                    }
+                });
             
             const qrResults = await Promise.all(qrCodePromises);
             const qrCodeMap = {};
@@ -354,8 +356,8 @@ const MyTicketsPage = () => {
                                                 </div>
                                             )}
                                             
-                                            {/* QR Code Preview */}
-                                            {qrCodes[ticket._id] && (
+                                            {/* QR Code Preview for offline events */}
+                                            {ticket.event?.templateType !== 'online' && qrCodes[ticket._id] && (
                                                 <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                                                     <div className="bg-white/90 backdrop-blur-sm rounded-lg p-2">
                                                         <img 
@@ -363,6 +365,18 @@ const MyTicketsPage = () => {
                                                             alt="QR Code" 
                                                             className="w-12 h-12"
                                                         />
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Online Event Indicator */}
+                                            {ticket.event?.templateType === 'online' && (
+                                                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                    <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-lg p-2">
+                                                        <div className="text-center">
+                                                            <div className="text-lg">🌐</div>
+                                                            <div className="text-xs font-semibold">Online</div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             )}
@@ -392,15 +406,19 @@ const MyTicketsPage = () => {
                                                             <span>{dateTime.time}</span>
                                                         </div>
                                                     )}
-                                                    {ticket.event?.location?.venueName && (
+                                                    {(ticket.event?.location?.venueName || ticket.event?.templateType === 'online') && (
                                                         <div className="flex items-center">
                                                             <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
-                                                                <FaMapMarkerAlt className="text-blue-400 text-xs" />
+                                                                {ticket.event?.templateType === 'online' ? (
+                                                                    <FaGlobe className="text-green-400 text-xs" />
+                                                                ) : (
+                                                                    <FaMapMarkerAlt className="text-blue-400 text-xs" />
+                                                                )}
                                                             </div>
                                                             <span className="line-clamp-1">
-                                                                {ticket.event.location.type === 'online' 
-                                                                    ? '🌐 Trực tuyến'
-                                                                    : ticket.event.location.venueName
+                                                                {ticket.event?.templateType === 'online' 
+                                                                    ? `🌐 ${ticket.event.location.platform ? ticket.event.location.platform.toUpperCase() : 'Trực tuyến'}`
+                                                                    : (ticket.event.location.venueName || 'Chưa xác định')
                                                                 }
                                                             </span>
                                                         </div>
@@ -592,18 +610,52 @@ const MyTicketsPage = () => {
                                 {selectedTicket.event?.title}
                             </h2>
 
-                            {/* QR Code */}
-                            {qrCodes[selectedTicket._id] && (
-                                <div className="text-center mb-6">
-                                    <div className="bg-white/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-4 inline-block">
-                                        <img 
-                                            src={qrCodes[selectedTicket._id]} 
-                                            alt="QR Code" 
-                                            className="w-32 h-32 mx-auto"
-                                        />
+                            {/* QR Code for offline events or Meeting Link for online events */}
+                            {selectedTicket.event?.templateType === 'online' ? (
+                                // Hiển thị link tham gia cho sự kiện online
+                                selectedTicket.event?.location?.meetingLink && (
+                                    <div className="text-center mb-6">
+                                        <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 backdrop-blur-sm border border-green-500/30 rounded-xl p-4 inline-block">
+                                            <div className="w-32 h-32 mx-auto flex items-center justify-center">
+                                                <div className="text-center">
+                                                    <div className="text-4xl mb-2">🌐</div>
+                                                    <div className="text-xs text-green-300 font-semibold">Link tham gia</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="mt-3">
+                                            <a 
+                                                href={selectedTicket.event.location.meetingLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center bg-gradient-to-r from-green-500 to-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-green-600 hover:to-blue-600 transition-all duration-300 shadow-lg hover:shadow-green-500/25"
+                                            >
+                                                <span className="mr-2">🔗</span>
+                                                Tham gia ngay
+                                            </a>
+                                        </div>
+                                        <p className="text-sm text-green-300/80 mt-2">
+                                            {selectedTicket.event.location.platform ? 
+                                                `Nền tảng: ${selectedTicket.event.location.platform}` : 
+                                                'Nhấp vào link để tham gia sự kiện'
+                                            }
+                                        </p>
                                     </div>
-                                    <p className="text-sm text-blue-300/80 mt-2">Quét mã QR tại cổng vào</p>
-                                </div>
+                                )
+                            ) : (
+                                // Hiển thị QR code cho sự kiện offline
+                                qrCodes[selectedTicket._id] && (
+                                    <div className="text-center mb-6">
+                                        <div className="bg-white/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-4 inline-block">
+                                            <img 
+                                                src={qrCodes[selectedTicket._id]} 
+                                                alt="QR Code" 
+                                                className="w-32 h-32 mx-auto"
+                                            />
+                                        </div>
+                                        <p className="text-sm text-blue-300/80 mt-2">Quét mã QR tại cổng vào</p>
+                                    </div>
+                                )
                             )}
 
                             {/* Ticket Details */}
@@ -620,9 +672,23 @@ const MyTicketsPage = () => {
                                 </div>
 
                                 <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
-                                    <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Địa điểm</label>
+                                    <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">
+                                        {selectedTicket.event?.templateType === 'online' ? 'Nền tảng' : 'Địa điểm'}
+                                    </label>
                                     <p className="text-sm font-medium text-blue-200">
-                                        {selectedTicket.event?.location?.venueName || selectedTicket.event?.venue || 'Chưa xác định'}
+                                        {selectedTicket.event?.templateType === 'online' ? (
+                                            <div className="flex items-center">
+                                                <FaGlobe className="mr-2 text-green-400" />
+                                                <span>
+                                                    {selectedTicket.event?.location?.platform ? 
+                                                        selectedTicket.event.location.platform.toUpperCase() : 
+                                                        'Trực tuyến'
+                                                    }
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            selectedTicket.event?.location?.venueName || selectedTicket.event?.venue || 'Chưa xác định'
+                                        )}
                                     </p>
                                 </div>
 
@@ -650,6 +716,24 @@ const MyTicketsPage = () => {
                                     <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Mã vé</label>
                                     <p className="text-sm font-mono bg-gray-800/50 p-2 rounded-lg text-blue-200 border border-blue-500/20">#{selectedTicket._id}</p>
                                 </div>
+                                
+                                {/* Link tham gia cho sự kiện online */}
+                                {selectedTicket.event?.templateType === 'online' && selectedTicket.event?.location?.meetingLink && (
+                                    <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/30 rounded-xl p-3">
+                                        <label className="text-xs font-semibold text-green-300/80 uppercase tracking-wide flex items-center">
+                                            <FaLink className="mr-2" />
+                                            Link tham gia
+                                        </label>
+                                        <a 
+                                            href={selectedTicket.event.location.meetingLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-sm text-green-300 hover:text-green-200 break-all underline"
+                                        >
+                                            {selectedTicket.event.location.meetingLink}
+                                        </a>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Actions */}
