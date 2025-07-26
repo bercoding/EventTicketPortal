@@ -3,8 +3,9 @@ import { ticketService } from '../services/ticketService';
 import { toast } from 'react-toastify';
 import QRCode from 'qrcode';
 import { useSearchParams } from 'react-router-dom';
-import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTicketAlt, FaQrcode, FaTimes, FaExclamationTriangle, FaCheckCircle, FaInfoCircle, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTicketAlt, FaQrcode, FaTimes, FaExclamationTriangle, FaCheckCircle, FaInfoCircle, FaUndo, FaMoneyBillWave, FaExchangeAlt } from 'react-icons/fa';
 import RefundRequestForm from '../components/RefundRequestForm';
+import { Link } from 'react-router-dom'; // Added Link import
 
 const MyTicketsPage = () => {
     const [searchParams] = useSearchParams();
@@ -14,9 +15,9 @@ const MyTicketsPage = () => {
     const [error, setError] = useState('');
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [qrCodes, setQrCodes] = useState({});
-    const [showReturnModal, setShowReturnModal] = useState(null);
+    const [showReturnModal, setShowReturnModal] = useState(null); // Modal cũ - giữ lại để tránh lỗi
     const [isReturning, setIsReturning] = useState(false);
-    const [showRefundRequestModal, setShowRefundRequestModal] = useState(false);
+    const [showRefundRequestModal, setShowRefundRequestModal] = useState(null); // Modal mới
     const [newTickets, setNewTickets] = useState([]);
     const [selectedStatus, setSelectedStatus] = useState('all');
 
@@ -203,8 +204,34 @@ const MyTicketsPage = () => {
         );
     }
 
+    // Hàm kiểm tra xem vé có phải là vé mới không
+    const isNew = (ticket) => {
+        return newTickets.includes(ticket._id);
+    };
+
+    // Hàm xử lý khi nhấn nút "Trả vé" ở card
+    const handleTicketReturn = (e, ticket) => {
+        e.stopPropagation(); // Ngăn không mở modal chi tiết vé
+        
+        // Vé cần có trường booking để truyền vào form hoàn tiền
+        if (!ticket.booking) {
+            // Nếu không có thông tin booking, lấy ID vé làm ID booking
+            const modifiedTicket = {
+                ...ticket,
+                booking: {
+                    _id: ticket._id,
+                    bookingCode: ticket.bookingCode || ticket._id.substring(0, 8),
+                    totalAmount: ticket.price
+                }
+            };
+            setShowRefundRequestModal(modifiedTicket);
+        } else {
+            setShowRefundRequestModal(ticket);
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black py-12 px-4">
             {/* Header Section */}
             <div className="relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-cyan-600/20"></div>
@@ -277,437 +304,503 @@ const MyTicketsPage = () => {
                         </div>
                     </div>
 
-                    {tickets.length === 0 ? (
-                        <div className="text-center py-16">
-                            <div className="bg-gray-800/50 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-12 max-w-md mx-auto">
-                                <div className="text-6xl mb-6">🎫</div>
-                                <h3 className="text-2xl font-bold text-blue-200 mb-4">Chưa có vé nào</h3>
-                                <p className="text-blue-300/80 mb-6">
-                                    Bạn chưa mua vé cho sự kiện nào. Hãy khám phá các sự kiện thú vị!
-                                </p>
-                                <button className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-blue-500/25">
-                                    🎪 Khám phá sự kiện
-                                </button>
+                    {/* Phần hiển thị danh sách vé */}
+                    <div className="container mx-auto max-w-6xl">
+                        {tickets.length === 0 ? (
+                            <div className="col-span-3 py-20 text-center">
+                                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-8 inline-block max-w-lg mx-auto">
+                                    <FaTicketAlt className="text-6xl text-blue-400/50 mx-auto mb-4" />
+                                    <h3 className="text-xl text-blue-200 mb-2">Không tìm thấy vé nào</h3>
+                                    <p className="text-blue-400/80 mb-6">
+                                        {selectedStatus === 'all' ? 
+                                            'Bạn chưa mua vé nào. Hãy khám phá các sự kiện sắp diễn ra!' : 
+                                            `Không tìm thấy vé nào ở trạng thái "${getStatusText(selectedStatus)}"`
+                                        }
+                                    </p>
+                                    
+                                    {selectedStatus !== 'all' ? (
+                                        <button 
+                                            onClick={() => setSelectedStatus('all')}
+                                            className="bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 font-semibold py-3 px-6 rounded-xl border border-blue-500/30 transition-all duration-300"
+                                        >
+                                            Xem tất cả vé
+                                        </button>
+                                    ) : (
+                                        <Link 
+                                            to="/" 
+                                            className="bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 font-semibold py-3 px-6 rounded-xl border border-blue-500/30 transition-all duration-300 inline-block"
+                                        >
+                                            Khám phá sự kiện
+                                        </Link>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ) : (
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                            {filteredTickets.map(ticket => {
-                                const dateTime = formatDateTime(ticket.event?.startDate);
-                                const isNewTicket = newTickets.includes(ticket._id);
-                                return (
-                                    <div 
-                                        key={ticket._id} 
-                                        className={`group bg-gray-800/50 backdrop-blur-sm border border-blue-500/20 rounded-2xl overflow-hidden hover:border-blue-400/40 hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-300 transform hover:scale-105 cursor-pointer ${
-                                            ticket.status === 'returned' ? 'opacity-60' : ''
-                                        } ${isNewTicket ? 'ring-2 ring-blue-500 animate-pulse' : ''}`}
-                                        onClick={() => setSelectedTicket(ticket)}
-                                    >
-                                        {/* Ticket Header */}
-                                        <div className="relative">
-                                            <img 
-                                                src={
-                                                    (() => {
-                                                        // Handle old format: event.images = {logo: "url", banner: "url"}
-                                                        if (ticket.event?.images && typeof ticket.event.images === 'object' && !Array.isArray(ticket.event.images)) {
-                                                            const imageUrl = ticket.event.images.banner || ticket.event.images.logo;
-                                                            if (imageUrl) {
-                                                                return imageUrl.startsWith('http') 
-                                                                    ? imageUrl 
-                                                                    : `http://localhost:5001${imageUrl}`;
-                                                            }
-                                                        }
-                                                        
-                                                        // Handle new format: event.images = ["/uploads/events/filename.jpg"]
-                                                        if (ticket.event?.images && Array.isArray(ticket.event.images) && ticket.event.images.length > 0) {
-                                                            const imageUrl = ticket.event.images[0];
-                                                            return imageUrl.startsWith('http') 
-                                                                ? imageUrl 
-                                                                : `http://localhost:5001${imageUrl}`;
-                                                        }
-                                                        
-                                                        // Fallback to default image
-                                                        return 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
-                                                    })()
-                                                }
-                                                alt="Event" 
-                                                className="w-full h-64 md:h-72 lg:h-80 object-cover group-hover:scale-110 transition-transform duration-300"
-                                                onError={(e) => {
-                                                    e.target.src = 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
-                                                }}
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                            
-                                            {/* Status Badge */}
-                                            <div className="absolute top-4 right-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(ticket.status)} shadow-lg`}>
-                                                    {getStatusText(ticket.status)}
-                                                </span>
-                                            </div>
-                                            
-                                            {/* New Ticket Badge */}
-                                            {isNewTicket && (
-                                                <div className="absolute top-4 left-4">
-                                                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg">
-                                                        ✨ Vé mới
-                                                    </span>
-                                                </div>
-                                            )}
-                                            
-                                            {/* QR Code Preview */}
-                                            {qrCodes[ticket._id] && (
-                                                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                                    <div className="bg-white/90 backdrop-blur-sm rounded-lg p-2">
-                                                        <img 
-                                                            src={qrCodes[ticket._id]} 
-                                                            alt="QR Code" 
-                                                            className="w-12 h-12"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Ticket Body */}
-                                        <div className="p-6">
-                                            <div className="mb-4">
-                                                <h2 className="text-xl font-bold text-blue-200 mb-3 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
-                                                    {ticket.event?.title}
-                                                </h2>
-                                                
-                                                <div className="space-y-2 text-sm text-blue-300/80">
-                                                    {dateTime.date !== 'Chưa có ngày' && (
-                                                        <div className="flex items-center">
-                                                            <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
-                                                                <FaCalendarAlt className="text-blue-400 text-xs" />
-                                                            </div>
-                                                            <span className="line-clamp-1">{dateTime.date}</span>
-                                                        </div>
-                                                    )}
-                                                    {dateTime.time !== 'Chưa có giờ' && (
-                                                        <div className="flex items-center">
-                                                            <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
-                                                                <FaClock className="text-blue-400 text-xs" />
-                                                            </div>
-                                                            <span>{dateTime.time}</span>
-                                                        </div>
-                                                    )}
-                                                    {ticket.event?.location?.venueName && (
-                                                        <div className="flex items-center">
-                                                            <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
-                                                                <FaMapMarkerAlt className="text-blue-400 text-xs" />
-                                                            </div>
-                                                            <span className="line-clamp-1">
-                                                                {ticket.event.location.type === 'online' 
-                                                                    ? '🌐 Trực tuyến'
-                                                                    : ticket.event.location.venueName
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {filteredTickets.length > 0 ? (
+                                    filteredTickets.map((ticket) => {
+                                        const dateTime = formatDateTime(ticket.event?.startDate);
+                                        const isNewTicket = isNew(ticket);
+                                        
+                                        return (
+                                            <div 
+                                                key={ticket._id} 
+                                                className={`group bg-gray-800/50 backdrop-blur-sm border border-blue-500/20 rounded-2xl overflow-hidden hover:border-blue-400/40 hover:shadow-2xl hover:shadow-blue-500/20 transition-all duration-300 transform hover:scale-105 cursor-pointer ${
+                                                ticket.status === 'returned' ? 'opacity-60' : ''
+                                            } ${isNewTicket ? 'ring-2 ring-blue-500 animate-pulse' : ''}`}
+                                                onClick={() => setSelectedTicket(ticket)}
+                                            >
+                                                {/* Ticket Header */}
+                                                <div className="relative">
+                                                    <img 
+                                                        src={
+                                                            (() => {
+                                                                // Handle old format: event.images = {logo: "url", banner: "url"}
+                                                                if (ticket.event?.images && typeof ticket.event.images === 'object' && !Array.isArray(ticket.event.images)) {
+                                                                    const imageUrl = ticket.event.images.banner || ticket.event.images.logo;
+                                                                    if (imageUrl) {
+                                                                        return imageUrl.startsWith('http') 
+                                                                            ? imageUrl 
+                                                                            : `http://localhost:5001${imageUrl}`;
+                                                                    }
                                                                 }
+                                                                
+                                                                // Handle new format: event.images = ["/uploads/events/filename.jpg"]
+                                                                if (ticket.event?.images && Array.isArray(ticket.event.images) && ticket.event.images.length > 0) {
+                                                                    const imageUrl = ticket.event.images[0];
+                                                                    return imageUrl.startsWith('http') 
+                                                                        ? imageUrl 
+                                                                        : `http://localhost:5001${imageUrl}`;
+                                                                }
+                                                                
+                                                                // Fallback to default image
+                                                                return 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
+                                                            })()
+                                                        }
+                                                        alt="Event" 
+                                                        className="w-full h-64 md:h-72 lg:h-80 object-cover group-hover:scale-110 transition-transform duration-300"
+                                                        onError={(e) => {
+                                                            e.target.src = 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
+                                                        }}
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                                    
+                                                    {/* Status Badge */}
+                                                    <div className="absolute top-4 right-4">
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(ticket.status)} shadow-lg`}>
+                                                            {getStatusText(ticket.status)}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    {/* New Ticket Badge */}
+                                                    {isNewTicket && (
+                                                        <div className="absolute top-4 left-4">
+                                                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg">
+                                                                ✨ Vé mới
                                                             </span>
                                                         </div>
                                                     )}
+                                                    
+                                                    {/* QR Code Preview */}
+                                                    {qrCodes[ticket._id] && (
+                                                        <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                            <div className="bg-white/90 backdrop-blur-sm rounded-lg p-2">
+                                                                <img 
+                                                                    src={qrCodes[ticket._id]} 
+                                                                    alt="QR Code" 
+                                                                    className="w-12 h-12"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Ticket Body */}
+                                                <div className="p-6">
+                                                    <div className="mb-4">
+                                                        <h2 className="text-xl font-bold text-blue-200 mb-3 line-clamp-2 group-hover:text-blue-300 transition-colors duration-300">
+                                                            {ticket.event?.title}
+                                                        </h2>
+                                                        
+                                                        <div className="space-y-2 text-sm text-blue-300/80">
+                                                            {dateTime.date !== 'Chưa có ngày' && (
+                                                                <div className="flex items-center">
+                                                                    <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
+                                                                        <FaCalendarAlt className="text-blue-400 text-xs" />
+                                                                    </div>
+                                                                    <span className="line-clamp-1">{dateTime.date}</span>
+                                                                </div>
+                                                            )}
+                                                            {dateTime.time !== 'Chưa có giờ' && (
+                                                                <div className="flex items-center">
+                                                                    <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
+                                                                        <FaClock className="text-blue-400 text-xs" />
+                                                                    </div>
+                                                                    <span>{dateTime.time}</span>
+                                                                </div>
+                                                            )}
+                                                            {ticket.event?.location?.venueName && (
+                                                                <div className="flex items-center">
+                                                                    <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
+                                                                        <FaMapMarkerAlt className="text-blue-400 text-xs" />
+                                                                    </div>
+                                                                    <span className="line-clamp-1">
+                                                                        {ticket.event.location.type === 'online' 
+                                                                            ? '🌐 Trực tuyến'
+                                                                            : ticket.event.location.venueName
+                                                                        }
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Seat Information */}
+                                                    {ticket.seatNumber && (
+                                                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 mb-4">
+                                                            <div className="flex items-center text-blue-300">
+                                                                <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
+                                                                    <FaTicketAlt className="text-blue-400 text-xs" />
+                                                                </div>
+                                                                <span className="font-semibold">
+                                                                    {ticket.section} - Ghế {ticket.seatNumber}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Price and Actions */}
+                                                    <div className="border-t border-blue-500/20 p-4">
+                                                        <div className="flex justify-between items-center">
+                                                            <div>
+                                                                <span className="text-2xl font-bold text-green-400">
+                                                                    {ticket.price.toLocaleString()} VNĐ
+                                                                </span>
+                                                                <div className="text-xs text-blue-300/60">
+                                                                    #{ticket._id.slice(-8)}
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            {ticket.status === 'active' && canReturnTicket(ticket) && (
+                                                                <button 
+                                                                    onClick={(e) => handleTicketReturn(e, ticket)}
+                                                                    className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-3 py-2 rounded-lg text-sm font-semibold flex items-center"
+                                                                >
+                                                                    <FaMoneyBillWave className="mr-1.5" /> Yêu cầu hoàn tiền
+                                                                </button>
+                                                            )}
+                                                            
+                                                            {/* Đã sử dụng vé */}
+                                                            {ticket.status === 'used' && (
+                                                                <span className="bg-blue-500/30 text-blue-300 px-3 py-2 rounded-lg text-sm font-semibold flex items-center">
+                                                                    <FaTicketAlt className="mr-1.5" /> Đã sử dụng
+                                                                </span>
+                                                            )}
+                                                            
+                                                            {/* Vé đã trả/hủy */}
+                                                            {(ticket.status === 'returned' || ticket.status === 'cancelled' || ticket.status === 'refund_requested') && (
+                                                                <span className="bg-gray-600/30 text-gray-300 px-3 py-2 rounded-lg text-sm font-semibold flex items-center">
+                                                                    <FaExchangeAlt className="mr-1.5" /> {getStatusText(ticket.status)}
+                                                                </span>
+                                                            )}
+                                                            
+                                                            {/* Vé đang chờ */}
+                                                            {ticket.status === 'pending' && (
+                                                                <span className="bg-yellow-500/30 text-yellow-300 px-3 py-2 rounded-lg text-sm font-semibold flex items-center">
+                                                                    <FaClock className="mr-1.5" /> Đang chờ
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-
-                                            {/* Seat Information */}
-                                            {ticket.seatNumber && (
-                                                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 mb-4">
-                                                    <div className="flex items-center text-blue-300">
-                                                        <div className="w-5 h-5 bg-blue-500/20 rounded-full flex items-center justify-center mr-3">
-                                                            <FaTicketAlt className="text-blue-400 text-xs" />
-                                                        </div>
-                                                        <span className="font-semibold">
-                                                            {ticket.section} - Ghế {ticket.seatNumber}
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="col-span-3 py-20 text-center">
+                                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-8 inline-block max-w-lg mx-auto">
+                                            <FaTicketAlt className="text-6xl text-blue-400/50 mx-auto mb-4" />
+                                            <h3 className="text-xl text-blue-200 mb-2">Không tìm thấy vé nào</h3>
+                                            <p className="text-blue-400/80 mb-6">
+                                                {selectedStatus === 'all' ? 
+                                                    'Bạn chưa mua vé nào. Hãy khám phá các sự kiện sắp diễn ra!' : 
+                                                    `Không tìm thấy vé nào ở trạng thái "${getStatusText(selectedStatus)}"`
+                                                }
+                                            </p>
+                                            
+                                            {selectedStatus !== 'all' ? (
+                                                <button 
+                                                    onClick={() => setSelectedStatus('all')}
+                                                    className="bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 font-semibold py-3 px-6 rounded-xl border border-blue-500/30 transition-all duration-300"
+                                                >
+                                                    Xem tất cả vé
+                                                </button>
+                                            ) : (
+                                                <Link 
+                                                    to="/" 
+                                                    className="bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 font-semibold py-3 px-6 rounded-xl border border-blue-500/30 transition-all duration-300 inline-block"
+                                                >
+                                                    Khám phá sự kiện
+                                                </Link>
                                             )}
-
-                                            {/* Price and Actions */}
-                                            <div className="flex justify-between items-center">
-                                                <div>
-                                                    <span className="text-2xl font-bold text-green-400">
-                                                        {ticket.price.toLocaleString()} VNĐ
-                                                    </span>
-                                                    <div className="text-xs text-blue-300/60">
-                                                        #{ticket._id.slice(-8)}
-                                                    </div>
-                                                </div>
-                                                
-                                                {ticket.status === 'active' && canReturnTicket(ticket) && (
-                                                    <button 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            openReturnModal(ticket);
-                                                        }}
-                                                        className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-red-500/25"
-                                                    >
-                                                        Trả vé
-                                                    </button>
-                                                )}
-                                                {ticket.status === 'active' && !canReturnTicket(ticket) && (
-                                                    <div className="text-center text-xs text-yellow-300 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2">
-                                                        ⏰ Đã quá hạn trả vé
-                                                    </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Vô hiệu hóa modal trả vé cũ */}
+                    {false && showReturnModal && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className="bg-gray-800/90 backdrop-blur-sm border border-blue-500/30 rounded-2xl max-w-md w-full shadow-2xl shadow-blue-500/20">
+                                <div className="p-6">
+                                    <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-yellow-500/20 rounded-full border border-yellow-500/30">
+                                        <FaExclamationTriangle className="w-8 h-8 text-yellow-400" />
+                                    </div>
+                                    
+                                    <h3 className="text-xl font-bold text-blue-200 text-center mb-4">
+                                        Xác nhận trả vé
+                                    </h3>
+                                    
+                                    <div className="mb-6">
+                                        <div className="bg-gray-700/50 border border-blue-500/30 rounded-xl p-4 mb-4">
+                                            <h4 className="font-semibold text-blue-200 mb-2">{showReturnModal.event?.title}</h4>
+                                            <div className="text-sm text-blue-300/80 space-y-1">
+                                                <p>📅 {formatDateTime(showReturnModal.event?.startDate).date}</p>
+                                                <p>🕐 {formatDateTime(showReturnModal.event?.startDate).time}</p>
+                                                {showReturnModal.seatNumber && (
+                                                    <p>🪑 {showReturnModal.section} - Ghế {showReturnModal.seatNumber}</p>
                                                 )}
                                             </div>
                                         </div>
+                                        
+                                        <div className="border-l-4 border-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-4">
+                                            <div className="text-sm">
+                                                <h5 className="font-semibold text-yellow-300 mb-2">Thông tin hoàn tiền:</h5>
+                                                <div className="space-y-1 text-yellow-200">
+                                                    <div className="flex justify-between">
+                                                        <span>Giá gốc:</span>
+                                                        <span className="font-semibold">{showReturnModal.price.toLocaleString()} VNĐ</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span>Phí xử lý (25%):</span>
+                                                        <span className="font-semibold text-red-400">-{calculateRefund(showReturnModal.price).feeAmount.toLocaleString()} VNĐ</span>
+                                                    </div>
+                                                    <div className="border-t border-yellow-500/30 pt-1 mt-2">
+                                                        <div className="flex justify-between">
+                                                            <span className="font-semibold">Số tiền hoàn:</span>
+                                                            <span className="font-bold text-green-400">{calculateRefund(showReturnModal.price).refundAmount.toLocaleString()} VNĐ</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                                            <p className="text-sm text-blue-300">
+                                                💡 <strong>Lưu ý:</strong> Số tiền hoàn sẽ được thêm vào ví điện tử của bạn và có thể sử dụng cho các giao dịch tiếp theo.
+                                            </p>
+                                        </div>
                                     </div>
-                                );
-                            })}
+                                    
+                                    <div className="flex space-x-3">
+                                        <button 
+                                            onClick={() => setShowReturnModal(null)}
+                                            disabled={isReturning}
+                                            className="flex-1 bg-gray-700/50 hover:bg-gray-600/50 text-blue-200 font-semibold py-3 px-4 rounded-xl border border-blue-500/30 transition-all duration-300 disabled:opacity-50"
+                                        >
+                                            Hủy
+                                        </button>
+                                        <button 
+                                            onClick={() => handleReturnTicket(showReturnModal._id)}
+                                            disabled={isReturning}
+                                            className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-red-500/25"
+                                        >
+                                            {isReturning ? (
+                                                <>
+                                                    <div className="animate-spin -ml-1 mr-2 h-4 w-4 text-white border-2 border-white border-t-transparent rounded-full"></div>
+                                                    Đang xử lý...
+                                                </>
+                                            ) : (
+                                                'Xác nhận trả vé'
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Ticket Detail Modal */}
+                    {selectedTicket && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className="bg-gray-800/90 backdrop-blur-sm border border-blue-500/30 rounded-2xl max-w-md w-full max-h-screen overflow-y-auto shadow-2xl shadow-blue-500/20">
+                                {/* Modal Header */}
+                                <div className="relative">
+                                    <img 
+                                        src={
+                                            (() => {
+                                                // Handle old format: event.images = {logo: "url", banner: "url"}
+                                                if (selectedTicket.event?.images && typeof selectedTicket.event.images === 'object' && !Array.isArray(selectedTicket.event.images)) {
+                                                    const imageUrl = selectedTicket.event.images.banner || selectedTicket.event.images.logo;
+                                                    if (imageUrl) {
+                                                        return imageUrl.startsWith('http') 
+                                                            ? imageUrl 
+                                                            : `http://localhost:5001${imageUrl}`;
+                                                    }
+                                                }
+                                                
+                                                // Handle new format: event.images = ["/uploads/events/filename.jpg"]
+                                                if (selectedTicket.event?.images && Array.isArray(selectedTicket.event.images) && selectedTicket.event.images.length > 0) {
+                                                    const imageUrl = selectedTicket.event.images[0];
+                                                    return imageUrl.startsWith('http') 
+                                                        ? imageUrl 
+                                                        : `http://localhost:5001${imageUrl}`;
+                                                }
+                                                
+                                                // Fallback to default image
+                                                return 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
+                                            })()
+                                        }
+                                        alt="Event" 
+                                        className="w-full h-64 md:h-72 object-cover rounded-t-2xl"
+                                        onError={(e) => {
+                                            e.target.src = 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
+                                        }}
+                                    />
+                                    <button 
+                                        onClick={() => setSelectedTicket(null)}
+                                        className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm text-white rounded-full p-2 hover:bg-black/70 transition-all duration-300"
+                                    >
+                                        <FaTimes className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="p-6">
+                                    {/* Event Title */}
+                                    <h2 className="text-2xl font-bold text-blue-200 mb-4">
+                                        {selectedTicket.event?.title}
+                                    </h2>
+
+                                    {/* QR Code */}
+                                    {qrCodes[selectedTicket._id] && (
+                                        <div className="text-center mb-6">
+                                            <div className="bg-white/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-4 inline-block">
+                                                <img 
+                                                    src={qrCodes[selectedTicket._id]} 
+                                                    alt="QR Code" 
+                                                    className="w-32 h-32 mx-auto"
+                                                />
+                                            </div>
+                                            <p className="text-sm text-blue-300/80 mt-2">Quét mã QR tại cổng vào</p>
+                                        </div>
+                                    )}
+
+                                    {/* Ticket Details */}
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                                <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Ngày</label>
+                                                <p className="text-sm font-medium text-blue-200">{formatDateTime(selectedTicket.event?.startDate).date}</p>
+                                            </div>
+                                            <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                                <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Giờ</label>
+                                                <p className="text-sm font-medium text-blue-200">{formatDateTime(selectedTicket.event?.startDate).time}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                            <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Địa điểm</label>
+                                            <p className="text-sm font-medium text-blue-200">
+                                                {selectedTicket.event?.location?.venueName || selectedTicket.event?.venue || 'Chưa xác định'}
+                                            </p>
+                                        </div>
+
+                                        {selectedTicket.seatNumber && (
+                                            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                                                <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Ghế ngồi</label>
+                                                <p className="text-sm font-medium text-blue-200">{selectedTicket.section} - Ghế {selectedTicket.seatNumber}</p>
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                                <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Giá vé</label>
+                                                <p className="text-lg font-bold text-green-400">{selectedTicket.price.toLocaleString()} VNĐ</p>
+                                            </div>
+                                            <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                                <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Trạng thái</label>
+                                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedTicket.status)}`}>
+                                                    {getStatusText(selectedTicket.status)}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
+                                            <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Mã vé</label>
+                                            <p className="text-sm font-mono bg-gray-800/50 p-2 rounded-lg text-blue-200 border border-blue-500/20">#{selectedTicket._id}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="mt-6 space-y-3">
+                                        {selectedTicket.status === 'active' && canReturnTicket(selectedTicket) && (
+                                            <button 
+                                                onClick={() => {
+                                                    // Vé cần có trường booking để truyền vào form hoàn tiền
+                                                    if (!selectedTicket.booking) {
+                                                        // Nếu không có thông tin booking, lấy ID vé làm ID booking
+                                                        const modifiedTicket = {
+                                                            ...selectedTicket,
+                                                            booking: {
+                                                                _id: selectedTicket._id,
+                                                                bookingCode: selectedTicket.bookingCode || selectedTicket._id.substring(0, 8),
+                                                                totalAmount: selectedTicket.price
+                                                            }
+                                                        };
+                                                        setSelectedTicket(null);
+                                                        setShowRefundRequestModal(modifiedTicket);
+                                                    } else {
+                                                        setSelectedTicket(null);
+                                                        setShowRefundRequestModal(selectedTicket);
+                                                    }
+                                                }}
+                                                className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 shadow-lg hover:shadow-red-500/25"
+                                            >
+                                                <FaMoneyBillWave className="inline mr-2" /> Yêu cầu hoàn tiền
+                                            </button>
+                                        )}
+                                        <button 
+                                            onClick={() => setSelectedTicket(null)}
+                                            className="w-full bg-gray-700/50 hover:bg-gray-600/50 text-blue-200 font-semibold py-3 px-4 rounded-xl border border-blue-500/30 transition-all duration-300"
+                                        >
+                                            Đóng
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Refund Request Modal - Form hoàn tiền mới */}
+                    {showRefundRequestModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+                            <div className="bg-gray-800 rounded-2xl shadow-2xl border border-blue-500/30 w-full max-w-2xl overflow-hidden">
+                                <RefundRequestForm 
+                                    booking={showRefundRequestModal.booking}
+                                    onSuccess={() => {
+                                        setShowRefundRequestModal(false);
+                                        fetchTickets();
+                                        toast.success('Yêu cầu hoàn tiền đã được gửi thành công');
+                                    }}
+                                    onCancel={() => setShowRefundRequestModal(false)}
+                                />
+                            </div>
                         </div>
                     )}
                 </div>
             </div>
-
-            {/* Return Ticket Modal */}
-            {showReturnModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-gray-800/90 backdrop-blur-sm border border-blue-500/30 rounded-2xl max-w-md w-full shadow-2xl shadow-blue-500/20">
-                        <div className="p-6">
-                            <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-yellow-500/20 rounded-full border border-yellow-500/30">
-                                <FaExclamationTriangle className="w-8 h-8 text-yellow-400" />
-                            </div>
-                            
-                            <h3 className="text-xl font-bold text-blue-200 text-center mb-4">
-                                Xác nhận trả vé
-                            </h3>
-                            
-                            <div className="mb-6">
-                                <div className="bg-gray-700/50 border border-blue-500/30 rounded-xl p-4 mb-4">
-                                    <h4 className="font-semibold text-blue-200 mb-2">{showReturnModal.event?.title}</h4>
-                                    <div className="text-sm text-blue-300/80 space-y-1">
-                                        <p>📅 {formatDateTime(showReturnModal.event?.startDate).date}</p>
-                                        <p>🕐 {formatDateTime(showReturnModal.event?.startDate).time}</p>
-                                        {showReturnModal.seatNumber && (
-                                            <p>🪑 {showReturnModal.section} - Ghế {showReturnModal.seatNumber}</p>
-                                        )}
-                                    </div>
-                                </div>
-                                
-                                <div className="border-l-4 border-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-4">
-                                    <div className="text-sm">
-                                        <h5 className="font-semibold text-yellow-300 mb-2">Thông tin hoàn tiền:</h5>
-                                        <div className="space-y-1 text-yellow-200">
-                                            <div className="flex justify-between">
-                                                <span>Giá gốc:</span>
-                                                <span className="font-semibold">{showReturnModal.price.toLocaleString()} VNĐ</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span>Phí xử lý (25%):</span>
-                                                <span className="font-semibold text-red-400">-{calculateRefund(showReturnModal.price).feeAmount.toLocaleString()} VNĐ</span>
-                                            </div>
-                                            <div className="border-t border-yellow-500/30 pt-1 mt-2">
-                                                <div className="flex justify-between">
-                                                    <span className="font-semibold">Số tiền hoàn:</span>
-                                                    <span className="font-bold text-green-400">{calculateRefund(showReturnModal.price).refundAmount.toLocaleString()} VNĐ</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
-                                    <p className="text-sm text-blue-300">
-                                        💡 <strong>Lưu ý:</strong> Số tiền hoàn sẽ được thêm vào ví điện tử của bạn và có thể sử dụng cho các giao dịch tiếp theo.
-                                    </p>
-                                </div>
-                            </div>
-                            
-                            <div className="flex space-x-3">
-                                <button 
-                                    onClick={() => setShowReturnModal(null)}
-                                    disabled={isReturning}
-                                    className="flex-1 bg-gray-700/50 hover:bg-gray-600/50 text-blue-200 font-semibold py-3 px-4 rounded-xl border border-blue-500/30 transition-all duration-300 disabled:opacity-50"
-                                >
-                                    Hủy
-                                </button>
-                                <button 
-                                    onClick={() => handleReturnTicket(showReturnModal._id)}
-                                    disabled={isReturning}
-                                    className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-red-500/25"
-                                >
-                                    {isReturning ? (
-                                        <>
-                                            <div className="animate-spin -ml-1 mr-2 h-4 w-4 text-white border-2 border-white border-t-transparent rounded-full"></div>
-                                            Đang xử lý...
-                                        </>
-                                    ) : (
-                                        'Xác nhận trả vé'
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Ticket Detail Modal */}
-            {selectedTicket && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-gray-800/90 backdrop-blur-sm border border-blue-500/30 rounded-2xl max-w-md w-full max-h-screen overflow-y-auto shadow-2xl shadow-blue-500/20">
-                        {/* Modal Header */}
-                        <div className="relative">
-                            <img 
-                                src={
-                                    (() => {
-                                        // Handle old format: event.images = {logo: "url", banner: "url"}
-                                        if (selectedTicket.event?.images && typeof selectedTicket.event.images === 'object' && !Array.isArray(selectedTicket.event.images)) {
-                                            const imageUrl = selectedTicket.event.images.banner || selectedTicket.event.images.logo;
-                                            if (imageUrl) {
-                                                return imageUrl.startsWith('http') 
-                                                    ? imageUrl 
-                                                    : `http://localhost:5001${imageUrl}`;
-                                            }
-                                        }
-                                        
-                                        // Handle new format: event.images = ["/uploads/events/filename.jpg"]
-                                        if (selectedTicket.event?.images && Array.isArray(selectedTicket.event.images) && selectedTicket.event.images.length > 0) {
-                                            const imageUrl = selectedTicket.event.images[0];
-                                            return imageUrl.startsWith('http') 
-                                                ? imageUrl 
-                                                : `http://localhost:5001${imageUrl}`;
-                                        }
-                                        
-                                        // Fallback to default image
-                                        return 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
-                                    })()
-                                }
-                                alt="Event" 
-                                className="w-full h-64 md:h-72 object-cover rounded-t-2xl"
-                                onError={(e) => {
-                                    e.target.src = 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80';
-                                }}
-                            />
-                            <button 
-                                onClick={() => setSelectedTicket(null)}
-                                className="absolute top-4 right-4 bg-black/50 backdrop-blur-sm text-white rounded-full p-2 hover:bg-black/70 transition-all duration-300"
-                            >
-                                <FaTimes className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="p-6">
-                            {/* Event Title */}
-                            <h2 className="text-2xl font-bold text-blue-200 mb-4">
-                                {selectedTicket.event?.title}
-                            </h2>
-
-                            {/* QR Code */}
-                            {qrCodes[selectedTicket._id] && (
-                                <div className="text-center mb-6">
-                                    <div className="bg-white/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-4 inline-block">
-                                        <img 
-                                            src={qrCodes[selectedTicket._id]} 
-                                            alt="QR Code" 
-                                            className="w-32 h-32 mx-auto"
-                                        />
-                                    </div>
-                                    <p className="text-sm text-blue-300/80 mt-2">Quét mã QR tại cổng vào</p>
-                                </div>
-                            )}
-
-                            {/* Ticket Details */}
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
-                                        <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Ngày</label>
-                                        <p className="text-sm font-medium text-blue-200">{formatDateTime(selectedTicket.event?.startDate).date}</p>
-                                    </div>
-                                    <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
-                                        <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Giờ</label>
-                                        <p className="text-sm font-medium text-blue-200">{formatDateTime(selectedTicket.event?.startDate).time}</p>
-                                    </div>
-                                </div>
-
-                                <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
-                                    <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Địa điểm</label>
-                                    <p className="text-sm font-medium text-blue-200">
-                                        {selectedTicket.event?.location?.venueName || selectedTicket.event?.venue || 'Chưa xác định'}
-                                    </p>
-                                </div>
-
-                                {selectedTicket.seatNumber && (
-                                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
-                                        <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Ghế ngồi</label>
-                                        <p className="text-sm font-medium text-blue-200">{selectedTicket.section} - Ghế {selectedTicket.seatNumber}</p>
-                                    </div>
-                                )}
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
-                                        <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Giá vé</label>
-                                        <p className="text-lg font-bold text-green-400">{selectedTicket.price.toLocaleString()} VNĐ</p>
-                                    </div>
-                                    <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
-                                        <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Trạng thái</label>
-                                        <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedTicket.status)}`}>
-                                            {getStatusText(selectedTicket.status)}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="bg-gray-700/30 border border-blue-500/20 rounded-xl p-3">
-                                    <label className="text-xs font-semibold text-blue-300/60 uppercase tracking-wide">Mã vé</label>
-                                    <p className="text-sm font-mono bg-gray-800/50 p-2 rounded-lg text-blue-200 border border-blue-500/20">#{selectedTicket._id}</p>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="mt-6 space-y-3">
-                                {selectedTicket.status === 'active' && canReturnTicket(selectedTicket) && (
-                                    <button 
-                                        onClick={() => {
-                                            // Vé cần có trường booking để truyền vào form hoàn tiền
-                                            if (!selectedTicket.booking) {
-                                                // Nếu không có thông tin booking, lấy ID vé làm ID booking
-                                                const modifiedTicket = {
-                                                    ...selectedTicket,
-                                                    booking: {
-                                                        _id: selectedTicket._id,
-                                                        bookingCode: selectedTicket.bookingCode || selectedTicket._id.substring(0, 8),
-                                                        totalAmount: selectedTicket.price
-                                                    }
-                                                };
-                                                setSelectedTicket(null);
-                                                setShowRefundRequestModal(modifiedTicket);
-                                            } else {
-                                                setSelectedTicket(null);
-                                                setShowRefundRequestModal(selectedTicket);
-                                            }
-                                        }}
-                                        className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 shadow-lg hover:shadow-red-500/25"
-                                    >
-                                        <FaMoneyBillWave className="inline mr-2" /> Yêu cầu hoàn tiền
-                                    </button>
-                                )}
-                                <button 
-                                    onClick={() => setSelectedTicket(null)}
-                                    className="w-full bg-gray-700/50 hover:bg-gray-600/50 text-blue-200 font-semibold py-3 px-4 rounded-xl border border-blue-500/30 transition-all duration-300"
-                                >
-                                    Đóng
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Refund Request Modal */}
-            {showRefundRequestModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-                    <div className="bg-gray-800 rounded-2xl shadow-2xl border border-blue-500/30 w-full max-w-2xl overflow-hidden">
-                        <RefundRequestForm 
-                            booking={showRefundRequestModal.booking}
-                            onSuccess={() => {
-                                setShowRefundRequestModal(false);
-                                fetchTickets();
-                                toast.success('Yêu cầu hoàn tiền đã được gửi thành công');
-                            }}
-                            onCancel={() => setShowRefundRequestModal(false)}
-                        />
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

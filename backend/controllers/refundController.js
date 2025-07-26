@@ -163,6 +163,58 @@ exports.createRefundRequest = async (req, res) => {
           ticketInfo.status = 'refund_requested';
           await ticketInfo.save();
           console.log('✅ Updated ticket status to refund_requested');
+
+          // Cập nhật lại seatingMap nếu có thông tin ghế
+          if (ticketInfo.seat && event.seatingMap) {
+            try {
+              // Tìm section, row và seat tương ứng trong seatingMap
+              const { section: sectionName, row: rowName, seatNumber } = ticketInfo.seat;
+              
+              console.log(`🔄 Updating seat availability for: ${sectionName}, ${rowName}, ${seatNumber}`);
+              
+              // Cập nhật trạng thái chỗ ngồi thành available (true)
+              if (event.seatingMap && event.seatingMap.sections) {
+                const sectionIndex = event.seatingMap.sections.findIndex(s => s.name === sectionName);
+                if (sectionIndex !== -1) {
+                  const section = event.seatingMap.sections[sectionIndex];
+                  const rowIndex = section.rows.findIndex(r => r.name === rowName);
+                  
+                  if (rowIndex !== -1) {
+                    const row = section.rows[rowIndex];
+                    const seatIndex = row.seats.findIndex(s => s.number === seatNumber);
+                    
+                    if (seatIndex !== -1) {
+                      // Đánh dấu ghế là available
+                      event.seatingMap.sections[sectionIndex].rows[rowIndex].seats[seatIndex].available = true;
+                      await Event.updateOne(
+                        { _id: event._id },
+                        { $set: { 'seatingMap.sections': event.seatingMap.sections } }
+                      );
+                      console.log(`✅ Seat ${sectionName}-${rowName}-${seatNumber} marked as available`);
+                      
+                      // Cập nhật availableSeats của event
+                      await Event.updateOne(
+                        { _id: event._id },
+                        { $inc: { availableSeats: 1 } }
+                      );
+                      console.log('✅ Increased available seats count');
+                    } else {
+                      console.log(`⚠️ Seat number ${seatNumber} not found in row ${rowName}`);
+                    }
+                  } else {
+                    console.log(`⚠️ Row ${rowName} not found in section ${sectionName}`);
+                  }
+                } else {
+                  console.log(`⚠️ Section ${sectionName} not found in seating map`);
+                }
+              } else {
+                console.log('⚠️ No seating map found for this event');
+              }
+            } catch (seatUpdateError) {
+              console.error('❌ Error updating seat availability:', seatUpdateError);
+              // Không dừng quá trình, tiếp tục xử lý
+            }
+          }
         } catch (ticketError) {
           console.error('❌ Error updating ticket status:', ticketError);
           // Không throw error, vì vé này vẫn sẽ được xử lý bởi admin
@@ -276,13 +328,15 @@ exports.processRefundRequest = async (req, res) => {
     }
     
     // Tìm và cập nhật yêu cầu hoàn tiền, populate thông tin người dùng để gửi email
-    const refundRequest = await RefundRequest.findById(id).populate({
-      path: 'user',
-      select: 'email fullName username'
-    }).populate({
-      path: 'event',
-      select: 'title'
-    });
+    const refundRequest = await RefundRequest.findById(id)
+      .populate({
+        path: 'user',
+        select: 'email fullName username'
+      })
+      .populate({
+        path: 'event',
+        select: 'title seatingMap availableSeats'
+      });
     
     if (!refundRequest) {
       return res.status(404).json({
@@ -304,13 +358,80 @@ exports.processRefundRequest = async (req, res) => {
       refundRequest.completedAt = new Date();
       refundRequest.completedBy = adminId;
       
-      // Cập nhật trạng thái booking nếu có
+      // Cập nhật trạng thái booking và ticket
       try {
-        await Booking.findByIdAndUpdate(refundRequest.booking, {
-          status: 'refunded'
-        });
+        // Cập nhật booking status
+        const booking = await Booking.findById(refundRequest.booking);
+        if (booking) {
+          booking.status = 'refunded';
+          await booking.save();
+          console.log(`✅ Updated booking ${booking._id} status to refunded`);
+          
+          // Nếu booking có tickets, cập nhật trạng thái của các vé
+          if (booking.tickets && booking.tickets.length > 0) {
+            for (const ticketId of booking.tickets) {
+              const ticket = await Ticket.findById(ticketId);
+              
+              if (ticket) {
+                // Cập nhật trạng thái vé thành 'returned'
+                ticket.status = 'returned';
+                await ticket.save();
+                console.log(`✅ Updated ticket ${ticket._id} status to returned`);
+                
+                // Cập nhật lại seatingMap nếu có thông tin ghế
+                if (ticket.seat) {
+                  try {
+                    const event = await Event.findById(ticket.event);
+                    if (event && event.seatingMap) {
+                      // Tìm section, row và seat tương ứng trong seatingMap
+                      const { section: sectionName, row: rowName, seatNumber } = ticket.seat;
+                      
+                      console.log(`🔄 Updating seat availability for: ${sectionName}, ${rowName}, ${seatNumber}`);
+                      
+                      // Cập nhật trạng thái chỗ ngồi thành available (true)
+                      if (event.seatingMap && event.seatingMap.sections) {
+                        const sectionIndex = event.seatingMap.sections.findIndex(s => s.name === sectionName);
+                        if (sectionIndex !== -1) {
+                          const section = event.seatingMap.sections[sectionIndex];
+                          const rowIndex = section.rows.findIndex(r => r.name === rowName);
+                          
+                          if (rowIndex !== -1) {
+                            const row = section.rows[rowIndex];
+                            const seatIndex = row.seats.findIndex(s => s.number === seatNumber);
+                            
+                            if (seatIndex !== -1) {
+                              // Đánh dấu ghế là available
+                              event.seatingMap.sections[sectionIndex].rows[rowIndex].seats[seatIndex].available = true;
+                              await Event.updateOne(
+                                { _id: event._id },
+                                { $set: { 'seatingMap.sections': event.seatingMap.sections } }
+                              );
+                              console.log(`✅ Seat ${sectionName}-${rowName}-${seatNumber} marked as available`);
+                              
+                              // Cập nhật availableSeats của event
+                              await Event.updateOne(
+                                { _id: event._id },
+                                { $inc: { availableSeats: 1 } }
+                              );
+                              console.log('✅ Increased available seats count');
+                            }
+                          }
+                        }
+                      }
+                    }
+                  } catch (seatUpdateError) {
+                    console.error('❌ Error updating seat availability:', seatUpdateError);
+                    // Không dừng quá trình, tiếp tục xử lý
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          console.log(`⚠️ Booking ${refundRequest.booking} not found`);
+        }
       } catch (error) {
-        console.error('Lỗi khi cập nhật trạng thái booking:', error);
+        console.error('❌ Lỗi khi cập nhật trạng thái booking/ticket:', error);
         // Không dừng quá trình, tiếp tục xử lý
       }
       
@@ -338,11 +459,23 @@ exports.processRefundRequest = async (req, res) => {
       refundRequest.rejectedBy = adminId;
       refundRequest.rejectionReason = req.body.rejectionReason;
       
-      // Cập nhật trạng thái booking nếu có
+      // Cập nhật trạng thái booking và ticket về active
       try {
-        await Booking.findByIdAndUpdate(refundRequest.booking, {
-          status: 'confirmed'
-        });
+        const booking = await Booking.findById(refundRequest.booking);
+        if (booking) {
+          booking.status = 'confirmed';
+          await booking.save();
+          
+          if (booking.tickets && booking.tickets.length > 0) {
+            for (const ticketId of booking.tickets) {
+              const ticket = await Ticket.findById(ticketId);
+              if (ticket && ticket.status === 'refund_requested') {
+                ticket.status = 'active';
+                await ticket.save();
+              }
+            }
+          }
+        }
       } catch (error) {
         console.error('Lỗi khi cập nhật trạng thái booking:', error);
         // Không dừng quá trình, tiếp tục xử lý
