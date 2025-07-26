@@ -35,6 +35,9 @@ const ComplaintManagement = () => {
     // Thêm state để lưu trữ thông tin nhập để tìm kiếm
     const [searchInput, setSearchInput] = useState('');
 
+    // Thêm biến state để lưu email được trích xuất hoặc tìm thấy
+    const [extractedEmail, setExtractedEmail] = useState('');
+
     const fetchComplaints = useCallback(async () => {
         setLoading(true);
         setError('');
@@ -133,19 +136,27 @@ const ComplaintManagement = () => {
         }
     };
 
-    // Mở modal để xem chi tiết và giải quyết khiếu nại
+    // Sửa hàm openModal để trích xuất email từ nội dung khiếu nại
     const openModal = (complaint) => {
-        // Hiển thị thông tin chi tiết về khiếu nại để debug
-        console.log('📝 Chi tiết khiếu nại đầy đủ:', complaint);
-        console.log('👤 Thuộc tính user:', complaint.user);
-        
-        // JSON stringify để xem cấu trúc dữ liệu đầy đủ
-        console.log('📊 Dữ liệu JSON đầy đủ:', JSON.stringify(complaint, null, 2));
-        
-        // Lưu complaint và reset resolution
-        setSelectedComplaint(complaint);
-        setResolution('');
-        setIsModalOpen(true);
+      setSelectedComplaint(complaint);
+      setIsModalOpen(true);
+      setResolution('');
+      
+      // Tự động trích xuất email từ nội dung khiếu nại
+      const description = complaint.description || '';
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+      const emails = description.match(emailRegex) || [];
+      
+      // Ưu tiên email từ nội dung, nếu không có thì lấy từ người dùng
+      let foundEmail = '';
+      if (emails.length > 0) {
+        foundEmail = emails[0];
+      } else if (complaint.user && complaint.user.email) {
+        foundEmail = complaint.user.email;
+      }
+      
+      setExtractedEmail(foundEmail);
+      console.log('📧 Email được trích xuất:', foundEmail);
     };
 
     const closeModal = () => {
@@ -202,7 +213,7 @@ const ComplaintManagement = () => {
         });
     };
     
-    // Đơn giản hóa lại hàm xử lý hành động nhanh để mở khóa tài khoản
+    // Sửa hàm xử lý hành động nhanh để mở khóa tài khoản
     const handleQuickUnban = async () => {
       if (!selectedComplaint) {
         toast.error('Không có thông tin khiếu nại');
@@ -210,19 +221,12 @@ const ComplaintManagement = () => {
       }
 
       try {
-        // Lấy mô tả khiếu nại để tìm thông tin người dùng
-        const description = selectedComplaint.description || '';
+        // Sử dụng email đã được trích xuất hoặc từ người dùng
+        let emailToUnban = extractedEmail;
         
-        // Tìm các pattern có thể là email trong mô tả khiếu nại
-        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        const emails = description.match(emailRegex) || [];
-        
-        // Lấy thông tin từ email đầu tiên tìm thấy hoặc từ người tạo khiếu nại
-        let emailToUnban = emails.length > 0 ? emails[0] : (selectedComplaint.user?.email || '');
-        
-        // Nếu không tìm được email, yêu cầu nhập thủ công
+        // Nếu không có email, yêu cầu nhập thủ công
         if (!emailToUnban) {
-          const userInput = window.prompt('Không tìm thấy email trong nội dung. Vui lòng nhập email người dùng cần mở khóa:');
+          const userInput = window.prompt('Vui lòng nhập email người dùng cần mở khóa:');
           
           if (!userInput || !userInput.trim()) {
             toast.warning('Bạn chưa nhập email, hành động đã bị hủy.');
@@ -255,6 +259,8 @@ const ComplaintManagement = () => {
         );
         
         console.log('✅ Kết quả mở khóa:', unbanResponse.data);
+        
+        // Luôn thông báo thành công, không quan trọng tài khoản đã active hay chưa
         toast.success(`Đã mở khóa tài khoản ${emailToUnban} thành công!`);
         
         // Giải quyết khiếu nại
@@ -653,35 +659,31 @@ const ComplaintManagement = () => {
             {isModalOpen && selectedComplaint && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={closeModal}>
                     <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 transform transition-all" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-between items-start">
-                            <h3 className="text-xl font-semibold text-gray-900">
-                                {activeTab === 'ban-appeals' || selectedComplaint.subject?.includes('Kháng cáo') ? (
-                                    <>
-                                        <FaUserSlash className="inline mr-2 text-red-500" />
-                                        Giải quyết kháng cáo ban
-                                    </>
-                                ) : (
-                                    'Giải quyết khiếu nại'
-                                )}
-                            </h3>
-                            <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-medium text-gray-900">{selectedComplaint.subject}</h3>
+                            <button onClick={closeModal} className="text-gray-400 hover:text-gray-500">
                                 <FaTimes />
                             </button>
                         </div>
-                       
-                        {/* Phía dưới Modal Title, thêm một form đơn giản để hiển thị thông tin người dùng */}
-                        {selectedComplaint && (
-                            <div className="mt-4 space-y-4 text-sm text-gray-600">
-                                <p><span className="font-semibold">Người dùng:</span> {selectedComplaint.user?.username || 'N/A'}</p>
-                                <p><span className="font-semibold">Email:</span> {selectedComplaint.user?.email || 'N/A'}</p>
-                                <p><span className="font-semibold">Chủ đề:</span> {selectedComplaint.subject}</p>
-                                <p><span className="font-semibold">Mô tả:</span></p>
-                                <p className="p-2 bg-gray-50 border rounded-md">{selectedComplaint.description}</p>
-                                {selectedComplaint.relatedEvent && <p><span className="font-semibold">Sự kiện liên quan:</span> {selectedComplaint.relatedEvent.title}</p>}
-                                {selectedComplaint.relatedUser && <p><span className="font-semibold">Người dùng liên quan:</span> {selectedComplaint.relatedUser.username}</p>}
+                        
+                        <div className="mb-4">
+                            <p className="text-sm font-medium text-gray-500">Thông tin khiếu nại:</p>
+                            <div className="mt-1 bg-gray-50 p-3 rounded-md border border-gray-200">
+                                <p className="text-gray-700 mb-2">
+                                    <span className="font-medium">Người dùng:</span> {selectedComplaint.user?.username || 'Không có thông tin'}
+                                </p>
+                                <p className="text-gray-700 mb-2">
+                                    <span className="font-medium">Email:</span> {extractedEmail || 'Không tìm thấy email'}
+                                </p>
+                                <p className="text-gray-700 mb-2">
+                                    <span className="font-medium">Ngày tạo:</span> {new Date(selectedComplaint.createdAt).toLocaleDateString('vi-VN')}
+                                </p>
+                                <p className="text-gray-700">
+                                    <span className="font-medium">Mô tả:</span> {selectedComplaint.description}
+                                </p>
                             </div>
-                        )}
-
+                        </div>
+                        
                         {/* Hiển thị các nút hành động đặc biệt cho kháng cáo ban */}
                         {(activeTab === 'ban-appeals' || selectedComplaint?.subject?.includes('Kháng cáo')) && (
                             <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">

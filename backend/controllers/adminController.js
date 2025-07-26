@@ -160,12 +160,14 @@ exports.unbanUserByEmail = async (req, res) => {
       return res.status(404).json({ message: `User with email ${email} not found` });
     }
     
-    console.log('✅ Đã tìm thấy user:', user.username, user._id);
+    console.log('✅ Đã tìm thấy user:', user.username, user._id, 'Status:', user.status);
     
     // Kiểm tra nếu tài khoản đã được kích hoạt
     if (user.status === 'active') {
-      console.log('⚠️ Tài khoản đã đang hoạt động:', user.email);
+      console.log('ℹ️ Tài khoản đã đang hoạt động:', user.email);
+      // Trả về thành công ngay cả khi tài khoản đã active
       return res.json({ 
+        success: true,
         message: 'User is already active',
         user: {
           _id: user._id,
@@ -176,7 +178,7 @@ exports.unbanUserByEmail = async (req, res) => {
       });
     }
     
-    // Update trạng thái user
+    // Update trạng thái user nếu đang bị khóa
     user.status = 'active';
     user.banReason = null;
     user.banDate = null;
@@ -203,6 +205,7 @@ exports.unbanUserByEmail = async (req, res) => {
     }
     
     res.json({ 
+      success: true,
       message: 'User unbanned successfully', 
       user: {
         _id: user._id,
@@ -213,7 +216,11 @@ exports.unbanUserByEmail = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error unbanning user by email:', error);
-    res.status(500).json({ message: 'Error unbanning user', error: error.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error unbanning user', 
+      error: error.message 
+    });
   }
 };
 
