@@ -101,7 +101,7 @@ const NavigationBar = () => {
           </div>
 
           {/* User menu */}
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative flex" ref={dropdownRef}>
             {user ? (
               <div className="flex items-center space-x-4">
                 {/* Owner request status */}
