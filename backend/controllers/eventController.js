@@ -198,6 +198,18 @@ const createEvent = asyncHandler(async (req, res) => {
       .populate('organizers', 'username email fullName avatar')
       .populate('location.venue', 'name address')
       .populate('ticketTypes');
+
+    // --- Emit socket event để thông báo cho admin ---
+    const io = req.app.get('io');
+    if (io) {
+      // Emit chỉ cho admin room về sự kiện mới
+      io.to('admin_room').emit('new_event_created', {
+        event: populatedEvent,
+        message: 'Có sự kiện mới cần duyệt'
+      });
+      console.log('✅ Emitted new_event_created to admin room');
+    }
+    // --- End socket emission ---
       
     res.status(201).json({
       success: true,
@@ -244,6 +256,17 @@ const updateEvent = asyncHandler(async (req, res) => {
     )
     .populate('organizers', 'username email fullName avatar')
     .populate('ticketTypes');
+    
+    // --- Emit socket event để thông báo cho admin về sự kiện được cập nhật ---
+    const io = req.app.get('io');
+    if (io) {
+      io.to('admin_room').emit('event_updated', {
+        event: updatedEvent,
+        message: 'Sự kiện đã được cập nhật'
+      });
+      console.log('✅ Emitted event_updated to admin room');
+    }
+    // --- End socket emission ---
     
     res.json({
       success: true,
@@ -919,6 +942,18 @@ const createEventWithSeating = asyncHandler(async (req, res) => {
       .populate('location.venue', 'name address')
       .populate('ticketTypes')
       .lean();
+
+    // --- Emit socket event để thông báo cho admin ---
+    const io = req.app.get('io');
+    if (io) {
+      // Emit chỉ cho admin room về sự kiện mới
+      io.to('admin_room').emit('new_event_created', {
+        event: populatedEvent,
+        message: 'Có sự kiện mới cần duyệt'
+      });
+      console.log('✅ Emitted new_event_created to admin room');
+    }
+    // --- End socket emission ---
 
     res.status(201).json({
       success: true,

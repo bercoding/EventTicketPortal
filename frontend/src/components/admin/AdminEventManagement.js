@@ -1,16 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { adminAPI } from '../../services/api';
+import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 
 const AdminEventManagement = () => {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
+    const { socket } = useSocket();
+    const { user } = useAuth();
 
     useEffect(() => {
         fetchEvents();
     }, [filter]);
+
+    // Thêm useEffect để tự động refresh khi filter thay đổi thành pending
+    useEffect(() => {
+        if (filter === 'pending') {
+            fetchEvents();
+        }
+    }, [filter]);
+
+    // Thêm useEffect để tự động refresh khi có sự kiện mới
+    useEffect(() => {
+        if (filter === 'pending') {
+            fetchEvents();
+        }
+    }, [filter]);
+
+    // Thêm useEffect để lắng nghe sự kiện realtime
+    useEffect(() => {
+        if (socket && user && user.role === 'admin') {
+            // Join admin room khi component mount và user là admin
+            socket.emit('join_admin_room');
+            console.log('👑 Admin joined admin room');
+            
+            // Lắng nghe sự kiện khi có sự kiện mới được tạo
+            socket.on('new_event_created', (newEvent) => {
+                console.log('🎉 New event created:', newEvent);
+                toast.info('Có sự kiện mới cần duyệt!', {
+                    position: "top-right",
+                    autoClose: 5000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                });
+                // Tự động chuyển sang filter pending và refresh
+                setFilter('pending');
+                // Thêm delay nhỏ để đảm bảo filter đã được cập nhật
+                setTimeout(() => {
+                    fetchEvents();
+                }, 100);
+            });
+
+            // Lắng nghe sự kiện khi có sự kiện được cập nhật
+            socket.on('event_updated', (updatedEvent) => {
+                console.log('🔄 Event updated:', updatedEvent);
+                // Refresh danh sách sự kiện
+                fetchEvents();
+            });
+
+            return () => {
+                socket.off('new_event_created');
+                socket.off('event_updated');
+            };
+        }
+    }, [socket, user]);
 
     const fetchEvents = async () => {
         try {
