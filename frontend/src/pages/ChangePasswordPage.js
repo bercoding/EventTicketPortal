@@ -44,18 +44,16 @@ const ChangePasswordPage = () => {
     };
 
     return (
-        <div className="container mx-auto p-4 md:p-8 max-w-lg">
-            <div className="bg-white shadow-xl rounded-lg p-6 md:p-8">
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8 text-center flex items-center justify-center">
-                    <FaKey className="mr-3 text-gray-500" /> Đổi Mật Khẩu
+        <div className="bg-gradient-to-br from-[#0a192f] to-[#101820] min-h-screen w-full flex items-center justify-center p-4">
+            <div className="bg-[#101820] shadow-2xl rounded-2xl p-8 md:p-10 max-w-lg w-full border border-[#22304a]">
+                <h1 className="text-3xl md:text-4xl font-bold text-gray-100 mb-8 text-center flex items-center justify-center gap-3">
+                    <FaKey className="text-blue-400" /> Đổi Mật Khẩu
                 </h1>
-                
-                {passwordError && <div className="mb-4 p-3 bg-red-100 text-red-700 border border-red-300 rounded-md text-sm">{passwordError}</div>}
-                {passwordSuccess && <div className="mb-4 p-3 bg-green-100 text-green-700 border border-green-300 rounded-md text-sm">{passwordSuccess}</div>}
-                
-                <form onSubmit={handleChangePasswordSubmit} className="space-y-5">
+                {passwordError && <div className="mb-4 p-3 bg-red-900/80 text-red-200 border border-red-400 rounded-md text-sm">{passwordError}</div>}
+                {passwordSuccess && <div className="mb-4 p-3 bg-green-900/80 text-green-200 border border-green-400 rounded-md text-sm">{passwordSuccess}</div>}
+                <form onSubmit={handleChangePasswordSubmit} className="space-y-6">
                     <div>
-                        <label htmlFor="oldPassword"className="block text-sm font-medium text-gray-600 mb-1">Mật khẩu cũ</label>
+                        <label htmlFor="oldPassword" className="block text-sm font-medium text-gray-300 mb-1">Mật khẩu cũ</label>
                         <input 
                             type="password"
                             id="oldPassword"
@@ -63,12 +61,12 @@ const ChangePasswordPage = () => {
                             value={oldPassword}
                             onChange={(e) => { setOldPassword(e.target.value); setPasswordError(''); setPasswordSuccess(''); }}
                             required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                            className="w-full p-3 bg-[#181f2e] border border-[#22304a] rounded-lg text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 placeholder-gray-500"
                             placeholder="Nhập mật khẩu cũ của bạn"
                         />
                     </div>
                     <div>
-                        <label htmlFor="newPassword"className="block text-sm font-medium text-gray-600 mb-1">Mật khẩu mới</label>
+                        <label htmlFor="newPassword" className="block text-sm font-medium text-gray-300 mb-1">Mật khẩu mới</label>
                         <input 
                             type="password"
                             id="newPassword"
@@ -76,12 +74,12 @@ const ChangePasswordPage = () => {
                             value={newPassword}
                             onChange={(e) => { setNewPassword(e.target.value); setPasswordError(''); setPasswordSuccess(''); }}
                             required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                            className="w-full p-3 bg-[#181f2e] border border-[#22304a] rounded-lg text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 placeholder-gray-500"
                             placeholder="Nhập mật khẩu mới (ít nhất 6 ký tự)"
                         />
                     </div>
                     <div>
-                        <label htmlFor="confirmNewPassword"className="block text-sm font-medium text-gray-600 mb-1">Xác nhận mật khẩu mới</label>
+                        <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-gray-300 mb-1">Xác nhận mật khẩu mới</label>
                         <input 
                             type="password"
                             id="confirmNewPassword"
@@ -89,21 +87,21 @@ const ChangePasswordPage = () => {
                             value={confirmNewPassword}
                             onChange={(e) => { setConfirmNewPassword(e.target.value); setPasswordError(''); setPasswordSuccess(''); }}
                             required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                            className="w-full p-3 bg-[#181f2e] border border-[#22304a] rounded-lg text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 placeholder-gray-500"
                             placeholder="Nhập lại mật khẩu mới"
                         />
                     </div>
                     <button 
                         type="submit"
                         disabled={passwordLoading}
-                        className="w-full flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-sm transition duration-150 disabled:opacity-50"
+                        className="w-full flex items-center justify-center bg-gradient-to-r from-blue-700 to-indigo-800 hover:from-blue-800 hover:to-indigo-900 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition duration-150 disabled:opacity-50 gap-2"
                     >
-                        <FaSave className="mr-2" /> {passwordLoading ? 'Đang xử lý...' : 'Xác nhận đổi mật khẩu'}
+                        <FaSave /> {passwordLoading ? 'Đang xử lý...' : 'Xác nhận đổi mật khẩu'}
                     </button>
                 </form>
                 <button 
-                    onClick={() => navigate(-1)} // Quay lại trang trước đó (ProfilePage)
-                    className="mt-4 w-full text-center text-blue-600 hover:text-blue-700"
+                    onClick={() => navigate(-1)}
+                    className="mt-6 w-full text-center text-blue-400 hover:text-blue-200 font-medium transition-colors"
                 >
                     Quay lại Hồ sơ
                 </button>

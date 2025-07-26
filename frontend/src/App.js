@@ -45,6 +45,7 @@ import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminEventManagement from './components/admin/AdminEventManagement';
 import ComplaintManagement from './components/admin/ComplaintManagement';
+import RefundManagement from './components/admin/RefundManagement';
 import PostManagement from './components/admin/PostManagement';
 import ViolationReports from './components/admin/ViolationReports';
 import RevenueReport from './components/admin/RevenueReport';
@@ -195,6 +196,7 @@ const App = () => {
                                                 <Route path="events" element={<AdminEventManagement />} />
                                                 <Route path="featured-events" element={<AdminEventManagement />} />
                                                 <Route path="complaints" element={<ComplaintManagement />} />
+                                                <Route path="refunds" element={<RefundManagement />} />
                                                 <Route path="posts" element={<PostManagement />} />
                                                 <Route path="revenue" element={<RevenueReport />} />
                                                 <Route path="owner-requests" element={<OwnerRequests />} />

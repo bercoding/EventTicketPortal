@@ -60,13 +60,7 @@ const useManageEventLogic = (eventId) => {
       guests: '',
       specialExperiences: ''
     },
-    payment: {
-      bankName: '',
-      accountNumber: '',
-      accountHolderName: '',
-      branch: '',
-      swiftBic: ''
-    }
+
   });
 
   useEffect(() => {
@@ -127,13 +121,6 @@ const useManageEventLogic = (eventId) => {
           mainProgram: eventData.detailedDescription?.mainProgram || '',
           guests: eventData.detailedDescription?.guests || '',
           specialExperiences: eventData.detailedDescription?.specialExperiences || ''
-        },
-        payment: {
-          bankName: eventData.payment?.bankName || '',
-          accountNumber: eventData.payment?.accountNumber || '',
-          accountHolderName: eventData.payment?.accountHolderName || '',
-          branch: eventData.payment?.branch || '',
-          swiftBic: eventData.payment?.swiftBic || ''
         }
       });
     } catch (error) {

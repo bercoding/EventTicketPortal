@@ -501,6 +501,21 @@ export const userProfileAPI = {
       throw error.response?.data || error;
     }
   },
+
+  // Verify ID Card
+  verifyIdCard: async (formData) => {
+    try {
+      const response = await api.post('/users/verify-id-card', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Verify ID card failed:', error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
 };
 
 // Booking API
@@ -531,36 +546,38 @@ export const adminAPI = {
   getDashboardStats: () => api.get('/admin/dashboard/stats'),
 
   // User management
-  getUsers: (params) => api.get('/admin/users', { params }),
-  banUser: (userId, data) => api.post(`/admin/users/${userId}/ban`, data),
+  getUsers: (page, limit, searchTerm) => api.get(`/admin/users?page=${page}&limit=${limit}&search=${searchTerm || ''}`),
+  updateUserStatus: (userId, status) => api.put(`/admin/users/${userId}/status`, { status }),
+  banUser: (userId, banReason, duration) => api.post(`/admin/users/${userId}/ban`, { banReason, duration }),
   unbanUser: (userId) => api.post(`/admin/users/${userId}/unban`),
 
   // Event management
-  getEvents: (params) => api.get('/admin/events', { params }),
+  getEvents: (page, limit, status) => api.get(`/admin/events?page=${page}&limit=${limit}&status=${status || ''}`),
   getDebugEvents: () => api.get('/admin/debug/events'),
   approveEvent: (eventId) => api.post(`/admin/events/${eventId}/approve`),
-  rejectEvent: (eventId, data) => api.post(`/admin/events/${eventId}/reject`, data),
+  rejectEvent: (eventId, reason) => api.post(`/admin/events/${eventId}/reject`, { reason }),
 
   // Complaint management
-  getComplaints: (params) => api.get('/admin/complaints', { params }),
-  resolveComplaint: (complaintId, data) => api.post(`/admin/complaints/${complaintId}/resolve`, data),
+  getComplaints: (page = 1, limit = 10, status = '', type = '', search = '') => 
+    api.get(`/admin/complaints?page=${page}&limit=${limit}&status=${status}&type=${type}&search=${search}`),
+  resolveComplaint: (complaintId, resolution) => api.post(`/admin/complaints/${complaintId}/resolve`, resolution),
 
   // Post management
-  getPosts: (params) => api.get('/admin/posts', { params }),
+  getPosts: (page, limit, status) => api.get(`/admin/posts?page=${page}&limit=${limit}&status=${status || ''}`),
   moderatePost: (postId, data) => api.post(`/admin/posts/${postId}/moderate`, data),
   deletePost: (postId) => api.delete(`/admin/posts/${postId}`),
 
   // Violation reports
-  getViolationReports: (params) => api.get('/admin/violation-reports', { params }),
-  resolveViolationReport: (reportId, data) => api.post(`/admin/violation-reports/${reportId}/resolve`, data),
+  getViolationReports: (page, limit, status) => api.get(`/admin/reports?page=${page}&limit=${limit}&status=${status || ''}`),
+  resolveViolationReport: (reportId, resolution) => api.post(`/admin/reports/${reportId}/resolve`, { resolution }),
 
   // Revenue
   getRevenue: (params) => api.get('/admin/revenue', { params }),
 
   // Owner requests
-  getOwnerRequests: (params) => api.get('/admin/owner-requests', { params }),
+  getOwnerRequests: (page, limit, status) => api.get(`/admin/owner-requests?page=${page}&limit=${limit}&status=${status || ''}`),
   approveOwnerRequest: (requestId) => api.post(`/admin/owner-requests/${requestId}/approve`),
-  rejectOwnerRequest: (requestId, data) => api.post(`/admin/owner-requests/${requestId}/reject`, data),
+  rejectOwnerRequest: (requestId, reason) => api.post(`/admin/owner-requests/${requestId}/reject`, { reason }),
 };
 
 // Tickets API

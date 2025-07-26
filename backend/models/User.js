@@ -100,6 +100,55 @@ const userSchema = new mongoose.Schema({
     resetPasswordOTPExpires: {
         type: Date
     },
+    // Thông tin xác thực CCCD
+    idVerification: {
+        verified: {
+            type: Boolean,
+            default: false
+        },
+        verifiedAt: {
+            type: Date
+        },
+        frontIdImage: {
+            type: String
+        },
+        backIdImage: {
+            type: String
+        },
+        idNumber: {
+            type: String
+        },
+        idFullName: {
+            type: String
+        },
+        idDateOfBirth: {
+            type: Date
+        },
+        idAddress: {
+            type: String
+        },
+        idIssueDate: {
+            type: Date
+        },
+        idIssuePlace: {
+            type: String
+        },
+        gender: {
+            type: String
+        },
+        nationality: {
+            type: String,
+            default: 'Việt Nam'
+        },
+        verificationMethod: {
+            type: String,
+            enum: ['vnpt_ekyc', 'manual', 'other'],
+            default: 'other'
+        },
+        verificationNote: {
+            type: String
+        }
+    },
     friends: [{ 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'User' 

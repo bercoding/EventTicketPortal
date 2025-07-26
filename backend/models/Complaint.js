@@ -7,6 +7,12 @@ const complaintSchema = new mongoose.Schema({
         required: true,
         index: true
     },
+    // Thêm trường bannedUser để lưu ID của người bị khóa tài khoản (người cần mở khóa)
+    bannedUser: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        index: true
+    },
     subject: {
         type: String,
         required: [true, 'Chủ đề khiếu nại là bắt buộc'],

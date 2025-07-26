@@ -63,6 +63,13 @@ const AdminLayout = () => {
             countKey: 'pendingComplaints'
         },
         {
+            name: 'Quản lý Hoàn tiền',
+            path: '/admin/refunds',
+            icon: FaDollarSign,
+            description: 'Xử lý yêu cầu hoàn tiền',
+            countKey: 'pendingRefunds'
+        },
+        {
             name: 'Quản lý Posts',
             path: '/admin/posts',
             icon: FaFileAlt,

@@ -71,6 +71,7 @@ app.use('/api/content', contentRoutes);
 app.use('/api/notifications', notificationRouter); // Sử dụng notification routes
 app.use('/api/chatbox', chatboxRouter); // Sử dụng chatbox routes
 app.use('/api/owner', require('./routes/owner')); // Sử dụng owner routes
+app.use('/api/refunds', require('./routes/refund')); // Sử dụng refund routes
 
 app.use(express.static('public', {
   maxAge: '1d',

@@ -2,6 +2,9 @@ const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 
+// Sử dụng API thật cho xác thực CCCD
+const { verifyIdCard, validateIdCardData } = require('../services/ekycService');
+
 // @desc    Get current user profile
 // @route   GET /api/users/profile/me
 // @access  Private
@@ -523,11 +526,235 @@ const purchaseSimpleTickets = asyncHandler(async (req, res) => {
     }
 });
 
+// @desc    Verify ID card using VNPT eKYC
+// @route   POST /api/users/verify-id-card
+// @access  Private
+const verifyIdCardController = asyncHandler(async (req, res) => {
+    try {
+        if (!req.files || !req.files.frontIdImage || !req.files.backIdImage) {
+            res.status(400);
+            throw new Error('Vui lòng tải lên cả mặt trước và mặt sau CCCD');
+        }
+
+        const frontIdPath = req.files.frontIdImage[0].path;
+        const backIdPath = req.files.backIdImage[0].path;
+
+        console.log('ID verification started');
+        console.log(`Front ID image path: ${frontIdPath}`);
+        console.log(`Back ID image path: ${backIdPath}`);
+
+        // Log file info to debug
+        const fs = require('fs');
+        const frontIdStats = fs.statSync(frontIdPath);
+        const backIdStats = fs.statSync(backIdPath);
+        console.log(`Front ID file size: ${frontIdStats.size} bytes`);
+        console.log(`Back ID file size: ${backIdStats.size} bytes`);
+
+        try {
+            // Bước 1: Xác thực mặt trước CCCD
+            const frontIdResult = await verifyIdCard(frontIdPath, 'front');
+            
+            // Bước 2: Xác thực mặt sau CCCD nếu mặt trước thành công
+            let backIdResult = null;
+            if (frontIdResult.success) {
+                backIdResult = await verifyIdCard(backIdPath, 'back');
+            } else {
+                throw new Error('Không thể nhận dạng mặt trước CCCD: ' + (frontIdResult.message || 'Lỗi không xác định'));
+            }
+            
+            // Bước 3: Đối chiếu thông tin giữa 2 mặt CCCD
+            if (frontIdResult.success && backIdResult.success) {
+                const validationResult = validateIdCardData(frontIdResult.data, backIdResult.data);
+                
+                if (!validationResult.isValid) {
+                    throw new Error(validationResult.message);
+                }
+                
+                // Bước 4: Lưu thông tin vào DB
+                const user = await User.findById(req.user.id);
+                if (!user) {
+                    res.status(404);
+                    throw new Error('User not found');
+                }
+                
+                // Kết hợp dữ liệu từ cả hai mặt của CCCD
+                const frontData = frontIdResult.data;
+                const backData = backIdResult.data;
+                
+                // Parse ngày tháng từ chuỗi nếu cần
+                const parseDateString = (dateString) => {
+                    if (!dateString) return null;
+                    // Format phổ biến từ API: DD/MM/YYYY hoặc YYYY-MM-DD
+                    let parts;
+                    if (dateString.includes('/')) {
+                        parts = dateString.split('/');
+                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                    } else if (dateString.includes('-')) {
+                        return new Date(dateString);
+                    }
+                    return null;
+                };
+                
+                // Lưu thông tin vào hồ sơ người dùng
+                user.idVerification = {
+                    verified: true,
+                    verifiedAt: new Date(),
+                    frontIdImage: frontIdPath.replace(/^.*[\\\/]/, ''), // Chỉ lưu tên file
+                    backIdImage: backIdPath.replace(/^.*[\\\/]/, ''),   // Chỉ lưu tên file
+                    idNumber: frontData.id,
+                    idFullName: frontData.name,
+                    idDateOfBirth: parseDateString(frontData.birth_day || frontData.dob),
+                    idAddress: frontData.home || frontData.address,
+                    idIssueDate: parseDateString(backData.issue_date),
+                    idIssuePlace: backData.issue_place,
+                    gender: frontData.gender || frontData.sex,
+                    nationality: frontData.nationality || 'Việt Nam',
+                    verificationMethod: 'vnpt_ekyc',
+                    rawOcrData: {
+                        front: frontData,
+                        back: backData
+                    }
+                };
+                
+                await user.save();
+                
+                // Trả về kết quả thành công
+                res.json({
+                    success: true,
+                    message: 'Xác thực CCCD thành công',
+                    data: {
+                        verified: true,
+                        verifiedAt: user.idVerification.verifiedAt,
+                        name: user.idVerification.idFullName,
+                        idNumber: user.idVerification.idNumber
+                    }
+                });
+            } else {
+                throw new Error('Không thể nhận dạng mặt sau CCCD: ' + (backIdResult?.message || 'Lỗi không xác định'));
+            }
+            
+        } catch (aiError) {
+            console.error('VNPT eKYC verification error:', aiError);
+            res.status(400).json({
+                success: false,
+                message: aiError.message || 'Xác thực thất bại, vui lòng thử lại với ảnh khác',
+                error: aiError.message
+            });
+        }
+    } catch (error) {
+        console.error('ID verification error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi xử lý xác thực CCCD',
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @desc    Lưu kết quả xác thực CCCD từ VNPT eKYC SDK Web
+ * @route   POST /api/users/save-id-verification
+ * @access  Private
+ */
+const saveIdVerification = asyncHandler(async (req, res) => {
+  try {
+    console.log('Nhận kết quả xác thực CCCD từ VNPT eKYC SDK Web');
+    
+    const ekycResult = req.body;
+    if (!ekycResult || !ekycResult.ocr) {
+      return res.status(400).json({ success: false, message: 'Dữ liệu xác thực không hợp lệ' });
+    }
+
+    // Kiểm tra kết quả xác thực
+    const idVerified = 
+      ekycResult.liveness_card_front?.liveness === 'success' && 
+      ekycResult.liveness_card_back?.liveness === 'success' && 
+      ekycResult.liveness_face?.liveness === 'success' &&
+      ekycResult.compare?.msg === 'MATCH';
+    
+    if (!idVerified) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Xác thực CCCD thất bại. Vui lòng kiểm tra lại ảnh và thử lại.'
+      });
+    }
+    
+    // Lấy thông tin từ kết quả OCR
+    const ocrData = ekycResult.ocr;
+    const frontData = {
+      id: ocrData.id,
+      name: ocrData.name,
+      birth_day: ocrData.birth_day,
+      gender: ocrData.gender,
+      nationality: ocrData.nationality || 'Việt Nam',
+      home: ocrData.home || ocrData.origin_location
+    };
+    
+    const backData = {
+      issue_date: ocrData.issue_date,
+      issue_place: ocrData.issue_place
+    };
+    
+    // Định dạng ngày tháng
+    const parseDateString = (dateStr) => {
+      if (!dateStr) return null;
+      // Kiểm tra định dạng dd/mm/yyyy
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        return new Date(parts[2], parts[1] - 1, parts[0]);
+      }
+      return new Date(dateStr);
+    };
+    
+    // Lưu thông tin vào User model
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+    }
+    
+    // Cập nhật thông tin xác thực
+    user.idVerification = {
+      verified: true, 
+      verifiedAt: new Date(),
+      frontIdImage: ekycResult.base64_doc_img ? `data:image/jpeg;base64,${ekycResult.base64_doc_img}` : null,
+      backIdImage: ekycResult.base64_face_img ? `data:image/jpeg;base64,${ekycResult.base64_face_img}` : null,
+      idNumber: frontData.id,
+      idFullName: frontData.name,
+      idDateOfBirth: parseDateString(frontData.birth_day),
+      idAddress: frontData.home,
+      idIssueDate: parseDateString(backData.issue_date),
+      idIssuePlace: backData.issue_place,
+      gender: frontData.gender,
+      nationality: frontData.nationality,
+      verificationMethod: 'vnpt_ekyc_sdk',
+      rawOcrData: ekycResult
+    };
+    
+    await user.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Xác thực CCCD thành công', 
+      data: { 
+        verified: true, 
+        verifiedAt: user.idVerification.verifiedAt, 
+        name: user.idVerification.idFullName, 
+        idNumber: user.idVerification.idNumber 
+      } 
+    });
+  } catch (error) {
+    console.error('Lỗi khi lưu kết quả xác thực:', error);
+    res.status(500).json({ success: false, message: `Lỗi khi lưu kết quả xác thực: ${error.message}` });
+  }
+});
+
 module.exports = {
     getCurrentUserProfile,
     updateUserProfile,
     updateUserAvatar,
     changePassword,
     submitOwnerRequest,
-    getOwnerRequestStatus
+    getOwnerRequestStatus,
+    verifyIdCardController,
+    saveIdVerification
 }; 

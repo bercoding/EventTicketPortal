@@ -85,9 +85,6 @@ const ProfilePage = () => {
             setLoading(true);
             try {
                 const response = await userProfileAPI.getCurrentUserProfile();
-                console.log('Profile response:', response);
-                
-                // Xử lý response data
                 let userData = null;
                 if (response && response.data) {
                     userData = response.data;
@@ -96,19 +93,16 @@ const ProfilePage = () => {
                 } else {
                     userData = response;
                 }
-                
                 setProfileData(userData);
                 if (userData && JSON.stringify(userData) !== JSON.stringify(user)) {
                      setUser(userData); 
                 }
                 setAvatarPreview(userData?.avatar); 
             } catch (err) {
-                console.error('Error fetching profile:', err);
                 setError(err.response?.data?.message || err.message || 'Không thể tải thông tin cá nhân.');
             }
             setLoading(false);
         };
-
         if (user) {
             fetchProfile();
         } else {
@@ -134,7 +128,7 @@ const ProfilePage = () => {
             setAvatarFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
-                setAvatarPreview(reader.result); // reader.result là base64, dùng trực tiếp cho preview
+                setAvatarPreview(reader.result);
             };
             reader.readAsDataURL(file);
             setError('');
@@ -150,35 +144,24 @@ const ProfilePage = () => {
         try {
             const { fullName, bio, dateOfBirth, phoneNumber } = profileData;
             const dataToUpdate = { fullName, bio, dateOfBirth, phoneNumber };
-            
-            console.log('Updating profile with data:', dataToUpdate);
             const response = await userProfileAPI.updateUserProfile(dataToUpdate);
-            console.log('Profile update response:', response);
-            
-            // Xử lý response dựa trên format backend trả về
             let updatedData = response;
             if (response && response.data) {
                 updatedData = response.data;
             } else if (response && response.success && response.data) {
                 updatedData = response.data;
             }
-            
             setProfileData(updatedData);
             setUser(updatedData);
             setSuccess('Cập nhật thông tin thành công!');
             setEditMode(false);
         } catch (err) {
-            console.error('Profile update error:', err);
-            
-            // Xử lý các loại lỗi khác nhau
             if (err.response?.status === 401) {
-                // Thử refresh authentication trước khi báo lỗi
                 try {
                     await checkUser();
                     setError('Phiên đăng nhập đã được làm mới. Vui lòng thử lại.');
                 } catch (refreshError) {
                     setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-                    // Redirect to login after 2 seconds
                     setTimeout(() => {
                         window.location.href = '/login';
                     }, 2000);
@@ -194,11 +177,10 @@ const ProfilePage = () => {
         setLoading(false);
     };
 
-    // Chuẩn hóa đường dẫn avatar
     const getAvatarUrl = (avatar) => {
       if (!avatar) return null;
       if (avatar.startsWith('http')) return avatar;
-      return `http://localhost:5001/${avatar.replace(/^\/+/, '')}`;
+      return `http://localhost:5001/${avatar.replace(/^\/+/,'')}`;
     };
 
     const handleSubmitAvatar = async () => {
@@ -211,10 +193,8 @@ const ProfilePage = () => {
         setSuccess('');
         const formData = new FormData();
         formData.append('avatar', avatarFile);
-
         try {
             const response = await userProfileAPI.updateUserAvatar(formData);
-            // Sau khi upload xong, gọi lại API lấy profile mới nhất để đảm bảo đồng bộ
             const profileRes = await userProfileAPI.getCurrentUserProfile();
             const userData = profileRes?.data || profileRes;
             setProfileData(userData);
@@ -231,29 +211,22 @@ const ProfilePage = () => {
     if (loading && !profileData) {
         return <div className="flex justify-center items-center h-screen"><p className="text-xl text-gray-500">Đang tải thông tin cá nhân...</p></div>;
     }
-
     if (!profileData && error && !loading) { 
         return <div className="flex justify-center items-center h-screen"><p className="text-xl text-red-500">{error}</p></div>;
     }
-    
     if (!profileData && !loading) { 
         return <div className="flex justify-center items-center h-screen"><p className="text-xl text-gray-500">Không thể tải dữ liệu người dùng.</p></div>;
     }
-    
     const formattedDateOfBirth = profileData?.dateOfBirth ? new Date(profileData.dateOfBirth).toISOString().split('T')[0] : '';
-
     return (
-        <div className="container mx-auto p-4 md:p-8 max-w-4xl">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-8 text-center">Hồ Sơ Cá Nhân</h1>
-            
-            {error && <div className="mb-4 p-3 bg-red-100 text-red-700 border border-red-300 rounded-md text-sm">{error}</div>}
-            {success && <div className="mb-4 p-3 bg-green-100 text-green-700 border border-green-300 rounded-md text-sm">{success}</div>}
-
-            <div className="bg-white shadow-xl rounded-lg overflow-hidden md:flex mb-8">
-                {/* Avatar Section */}
-                <div className="md:w-1/3 bg-gradient-to-br from-green-500 to-blue-600 p-6 md:p-8 text-center flex flex-col items-center justify-center">
+        <div className="bg-gradient-to-br from-[#0a192f] to-[#101820] min-h-screen w-full">
+          <div className="p-4 md:p-8 max-w-4xl mx-auto">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-100 mb-8 text-center">Hồ Sơ Cá Nhân</h1>
+            {error && <div className="mb-4 p-3 bg-red-900/80 text-red-200 border border-red-400 rounded-md text-sm">{error}</div>}
+            {success && <div className="mb-4 p-3 bg-green-900/80 text-green-200 border border-green-400 rounded-md text-sm">{success}</div>}
+            <div className="bg-[#101820] shadow-xl rounded-lg overflow-hidden md:flex mb-8 border border-[#22304a]">
+                <div className="md:w-1/3 bg-gradient-to-br from-blue-900/80 to-indigo-900/80 p-6 md:p-8 text-center flex flex-col items-center justify-center">
                     {(() => {
-                        // Nếu là file local (base64) thì dùng trực tiếp, nếu là string thì chuẩn hóa
                         if (avatarPreview) {
                             const isBase64 = typeof avatarPreview === 'string' && avatarPreview.startsWith('data:image');
                             const src = isBase64 ? avatarPreview : getAvatarUrl(avatarPreview);
@@ -301,14 +274,12 @@ const ProfilePage = () => {
                             </button>
                         </div>
                     )}
-                    <p className="text-white text-xl font-semibold mt-4">{profileData?.fullName || profileData?.username}</p>
-                    <p className="text-gray-200 text-sm">{profileData?.email}</p>
+                    <p className="text-gray-100 text-xl font-semibold mt-4">{profileData?.fullName || profileData?.username}</p>
+                    <p className="text-gray-300 text-sm">{profileData?.email}</p>
                 </div>
-
-                {/* Profile Info Section */}
                 <div className="md:w-2/3 p-6 md:p-8">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-semibold text-gray-700">Thông tin chi tiết</h2>
+                        <h2 className="text-2xl font-semibold text-gray-100">Thông tin chi tiết</h2>
                         <div className="flex items-center space-x-2">
                             {!editMode ? (
                                 <button 
@@ -346,11 +317,10 @@ const ProfilePage = () => {
                             </Link>
                         </div>
                     </div>
-
                     {profileData && (
                         <form onSubmit={handleSubmitProfile} className="space-y-5">
                             <div>
-                                <label htmlFor="username" className="block text-sm font-medium text-gray-600 mb-1">Tên đăng nhập</label>
+                                <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">Tên đăng nhập</label>
                                 {editMode ? (
                                     <input 
                                         type="text" 
@@ -361,11 +331,11 @@ const ProfilePage = () => {
                                         className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
                                     />
                                 ) : (
-                                    <p className="text-gray-800 text-base bg-gray-50 p-2.5 rounded-lg">{profileData.username}</p>
+                                    <p className="text-gray-100 text-base bg-[#181f2e] p-2.5 rounded-lg">{profileData.username}</p>
                                 )}
                             </div>
                             <div>
-                                <label htmlFor="fullName" className="block text-sm font-medium text-gray-600 mb-1">Họ và tên</label>
+                                <label htmlFor="fullName" className="block text-sm font-medium text-gray-300 mb-1">Họ và tên</label>
                                 {editMode ? (
                                     <input 
                                         type="text" 
@@ -377,11 +347,11 @@ const ProfilePage = () => {
                                         placeholder="Nhập họ và tên của bạn"
                                     />
                                 ) : (
-                                    <p className="text-gray-800 text-base bg-gray-50 p-2.5 rounded-lg">{profileData.fullName || 'Chưa cập nhật'}</p>
+                                    <p className="text-gray-100 text-base bg-[#181f2e] p-2.5 rounded-lg">{profileData.fullName || 'Chưa cập nhật'}</p>
                                 )}
                             </div>
                             <div>
-                                <label htmlFor="bio" className="block text-sm font-medium text-gray-600 mb-1">Tiểu sử</label>
+                                <label htmlFor="bio" className="block text-sm font-medium text-gray-300 mb-1">Tiểu sử</label>
                                 {editMode ? (
                                     <textarea 
                                         name="bio"
@@ -393,27 +363,11 @@ const ProfilePage = () => {
                                         placeholder="Giới thiệu ngắn về bạn..."
                                     ></textarea>
                                 ) : (
-                                    <p className="text-gray-800 text-base bg-gray-50 p-2.5 rounded-lg min-h-[60px] whitespace-pre-wrap">{profileData.bio || 'Chưa cập nhật'}</p>
+                                    <p className="text-gray-100 text-base bg-[#181f2e] p-2.5 rounded-lg min-h-[60px] whitespace-pre-wrap">{profileData.bio || 'Chưa cập nhật'}</p>
                                 )}
                             </div>
                             <div>
-                                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-600 mb-1">Số điện thoại</label>
-                                {editMode ? (
-                                    <input 
-                                        type="tel" 
-                                        name="phoneNumber"
-                                        id="phoneNumber"
-                                        value={profileData.phoneNumber || ''}
-                                        onChange={handleInputChange}
-                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                                        placeholder="Nhập số điện thoại"
-                                    />
-                                ) : (
-                                    <p className="text-gray-800 text-base bg-gray-50 p-2.5 rounded-lg">{profileData.phoneNumber || 'Chưa cập nhật'}</p>
-                                )}
-                            </div>
-                             <div>
-                                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-600 mb-1">Ngày sinh</label>
+                                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-300 mb-1">Ngày sinh</label>
                                 {editMode ? (
                                     <input 
                                         type="date" 
@@ -424,26 +378,25 @@ const ProfilePage = () => {
                                         className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150"
                                     />
                                 ) : (
-                                    <p className="text-gray-800 text-base bg-gray-50 p-2.5 rounded-lg">
+                                    <p className="text-gray-100 text-base bg-[#181f2e] p-2.5 rounded-lg">
                                         {profileData.dateOfBirth ? new Date(profileData.dateOfBirth).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
                                     </p>
                                 )}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
-                                <p className="text-gray-800 text-base bg-gray-100 p-2.5 rounded-lg cursor-not-allowed">{profileData.email} (Không thể thay đổi)</p>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                                <p className="text-gray-100 text-base bg-[#222b3a] p-2.5 rounded-lg cursor-not-allowed">{profileData.email} (Không thể thay đổi)</p>
                             </div>
                         </form>
                     )}
                 </div>
             </div>
-
             <div className="w-full max-w-4xl mx-auto mt-8">
                 <OwnerStatus />
             </div>
+          </div>
         </div>
     );
 };
 
-
-export default ProfilePage; 
+export default ProfilePage;
