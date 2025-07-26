@@ -349,45 +349,120 @@ exports.getEvents = async (req, res) => {
   }
 };
 
-// Get all complaints
+// Get all complaints with pagination and filtering
 exports.getComplaints = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, category, priority, subject } = req.query;
-    const filter = {};
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const status = req.query.status;
+    const type = req.query.type;
+    const searchTerm = req.query.search;
+
+    console.log('📊 Đang lấy danh sách khiếu nại với tham số:', { page, limit, status, type, searchTerm });
+
+    let query = {};
     
-    if (status) filter.status = status;
-    if (category) filter.category = category;
-    if (priority) filter.priority = priority;
-    
-    // Thêm lọc theo subject cho kháng cáo ban
-    if (subject) {
-      filter.subject = { $regex: subject, $options: 'i' };
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      query.status = status;
     }
     
-    console.log('🔍 Complaints filter:', filter);
+    // Add type filter if provided
+    if (type && type !== 'all') {
+      // Ban appeals filter
+      if (type === 'ban-appeals') {
+        query.$or = [
+          { subject: { $regex: 'kháng cáo', $options: 'i' } },
+          { subject: { $regex: 'ban', $options: 'i' } },
+          { subject: { $regex: 'khóa', $options: 'i' } },
+          { description: { $regex: 'kháng cáo', $options: 'i' } }
+        ];
+      }
+      // Event reports filter
+      else if (type === 'event-reports') {
+        query.$or = [
+          { subject: { $regex: 'sự kiện', $options: 'i' } },
+          { subject: { $regex: 'event', $options: 'i' } }
+        ];
+      }
+      // Other types as needed
+    }
     
-    const complaints = await Complaint.find(filter)
-      .populate('user', 'username email fullName')
-      .populate('relatedEvent', 'title')
-      .populate('relatedUser', 'username email fullName')
-      .populate('resolvedBy', 'username email fullName')
+    // Add search filter if provided
+    if (searchTerm) {
+      query.$or = [
+        { subject: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
+
+    // Count total complaints with filters
+    const totalComplaints = await Complaint.countDocuments(query);
+    
+    // Get complaints with pagination
+    const complaints = await Complaint.find(query)
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-    
-    const total = await Complaint.countDocuments(filter);
-    
-    console.log(`📊 Found ${complaints.length}/${total} complaints`);
-    
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: 'user',
+        select: 'username email avatar status'
+      })
+      .populate({
+        path: 'relatedEvent',
+        select: 'title'
+      })
+      .populate({
+        path: 'relatedUser',
+        select: 'username email status'
+      })
+      .lean();
+      
+    // Tìm kiếm thêm thông tin người dùng bị ban trong các khiếu nại liên quan đến kháng cáo
+    const enhancedComplaints = await Promise.all(complaints.map(async (complaint) => {
+      // Chỉ xử lý cho các khiếu nại liên quan đến kháng cáo ban
+      if (complaint.subject && (
+          complaint.subject.toLowerCase().includes('kháng cáo') || 
+          complaint.subject.toLowerCase().includes('ban') ||
+          complaint.subject.toLowerCase().includes('khóa')
+        )) {
+        
+        // Tìm email trong nội dung
+        const description = complaint.description || '';
+        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+        const emails = description.match(emailRegex) || [];
+        
+        if (emails.length > 0) {
+          // Tìm thông tin người dùng qua email
+          const bannedUser = await User.findOne({ email: emails[0] }).lean().select('username email status banReason');
+          if (bannedUser) {
+            complaint.bannedUser = bannedUser;
+          }
+        }
+      }
+      
+      return complaint;
+    }));
+
+    // Calculate total pages
+    const totalPages = Math.ceil(totalComplaints / limit);
+
+    console.log(`✅ Đã tìm thấy ${totalComplaints} khiếu nại, trang ${page}/${totalPages}`);
+
+    // Return complaints with pagination info
     res.json({
-      complaints,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      total
+      complaints: enhancedComplaints,
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        totalItems: totalComplaints,
+        itemsPerPage: limit
+      }
     });
   } catch (error) {
-    console.error('❌ Error fetching complaints:', error);
-    res.status(500).json({ message: 'Error fetching complaints', error: error.message });
+    console.error('❌ Error getting complaints:', error);
+    res.status(500).json({ message: 'Error getting complaints', error: error.message });
   }
 };
 

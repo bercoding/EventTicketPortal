@@ -139,28 +139,31 @@ const ComplaintManagement = () => {
         }
     };
 
-    // Sửa hàm openModal để đặt giá trị cho editableEmail
+    // Sửa hàm openModal để không cần trích xuất email thủ công nữa
     const openModal = (complaint) => {
       setSelectedComplaint(complaint);
       setIsModalOpen(true);
       setResolution('');
       
-      // Tự động trích xuất email từ nội dung khiếu nại
-      const description = complaint.description || '';
-      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-      const emails = description.match(emailRegex) || [];
-      
-      // Ưu tiên email từ nội dung, nếu không có thì lấy từ người dùng
-      let foundEmail = '';
-      if (emails.length > 0) {
-        foundEmail = emails[0];
-      } else if (complaint.user && complaint.user.email) {
-        foundEmail = complaint.user.email;
+      // Ưu tiên dùng thông tin từ backend trước
+      if (complaint.bannedUser) {
+        // Dùng thông tin từ backend cho người bị ban
+        setEditableEmail(complaint.bannedUser.email);
+      } else {
+        // Nếu không có thông tin từ backend, thử trích xuất từ nội dung
+        const description = complaint.description || '';
+        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+        const emails = description.match(emailRegex) || [];
+        
+        let foundEmail = '';
+        if (emails.length > 0) {
+          foundEmail = emails[0];
+        } else if (complaint.user && complaint.user.email) {
+          foundEmail = complaint.user.email;
+        }
+        
+        setEditableEmail(foundEmail);
       }
-      
-      setExtractedEmail(foundEmail);
-      setEditableEmail(foundEmail); // Khởi tạo trường email có thể chỉnh sửa
-      console.log('📧 Email được trích xuất:', foundEmail);
     };
 
     const closeModal = () => {
@@ -225,7 +228,7 @@ const ComplaintManagement = () => {
       }
 
       try {
-        // Sử dụng email đã được chỉnh sửa
+        // Lấy email từ thông tin hiển thị
         let emailToUnban = editableEmail;
         
         // Kiểm tra nếu email hợp lệ
@@ -659,23 +662,51 @@ const ComplaintManagement = () => {
                         </div>
                         
                         <div className="mb-4">
-                            <p className="text-sm font-medium text-gray-500">Thông tin khiếu nại:</p>
+                            <p className="text-sm font-medium text-gray-500 mb-2">Thông tin khiếu nại:</p>
                             <div className="mt-1 bg-gray-50 p-3 rounded-md border border-gray-200">
                                 <p className="text-gray-700 mb-2">
-                                    <span className="font-medium">Người dùng:</span> {selectedComplaint.user?.username || 'Không có thông tin'}
+                                    <span className="font-medium">Người gửi khiếu nại:</span> {selectedComplaint.user?.username || 'Không có thông tin'}
                                 </p>
                                 
-                                {/* Thay thế dòng hiển thị email bằng input field */}
-                                <div className="flex items-center mb-2">
-                                  <span className="font-medium text-gray-700 mr-2">Email:</span>
-                                  <input 
-                                    type="email"
-                                    value={editableEmail}
-                                    onChange={(e) => setEditableEmail(e.target.value)}
-                                    placeholder="Nhập email cần mở khóa"
-                                    className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
+                                {/* Hiển thị thông tin người bị ban từ backend */}
+                                {selectedComplaint.bannedUser ? (
+                                    <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                                        <p className="text-gray-700 font-medium mb-1">Thông tin người bị khóa:</p>
+                                        <p className="text-gray-700">
+                                            <span className="font-medium">Username:</span> {selectedComplaint.bannedUser.username}
+                                        </p>
+                                        <p className="text-gray-700">
+                                            <span className="font-medium">Email:</span> {selectedComplaint.bannedUser.email}
+                                        </p>
+                                        <p className="text-gray-700">
+                                            <span className="font-medium">Trạng thái:</span> 
+                                            {selectedComplaint.bannedUser.status === 'banned' ? (
+                                                <span className="text-red-500 font-semibold"> Đang bị khóa</span>
+                                            ) : (
+                                                <span className="text-green-500 font-semibold"> Đang hoạt động</span>
+                                            )}
+                                        </p>
+                                        {selectedComplaint.bannedUser.banReason && (
+                                            <p className="text-gray-700">
+                                                <span className="font-medium">Lý do khóa:</span> {selectedComplaint.bannedUser.banReason}
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Hiển thị trường để nhập email */}
+                                        <div className="flex items-center mb-2">
+                                            <span className="font-medium text-gray-700 mr-2">Email cần mở khóa:</span>
+                                            <input 
+                                                type="email"
+                                                value={editableEmail}
+                                                onChange={(e) => setEditableEmail(e.target.value)}
+                                                placeholder="Nhập email cần mở khóa"
+                                                className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                    </>
+                                )}
                                 
                                 <p className="text-gray-700 mb-2">
                                     <span className="font-medium">Ngày tạo:</span> {new Date(selectedComplaint.createdAt).toLocaleDateString('vi-VN')}
