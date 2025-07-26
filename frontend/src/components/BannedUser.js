@@ -58,28 +58,27 @@ const BannedUser = ({ banReason }) => {
             return;
         }
         
-        // Kiểm tra nếu email đã được đề cập trong nội dung khiếu nại
-        if (!appealText.includes(emailInput)) {
-            // Tự động thêm email vào cuối nội dung nếu chưa có
-            setAppealText(appealText.trim() + `\n\nEmail cần mở khóa: ${emailInput}`);
-        }
-        
         setLoading(true);
         setError('');
         setEmailError('');
         
         try {
             // Sửa đường dẫn API endpoint
-            await api.post('/admin/complaints/appeal', { 
-                reason: appealText.includes(emailInput) ? appealText : `${appealText}\n\nEmail cần mở khóa: ${emailInput}`,
+            const response = await api.post('/admin/complaints/appeal', { 
+                reason: appealText,
                 type: 'ban_appeal',
-                email: emailInput // Thêm email vào payload API
+                email: emailInput // Luôn gửi email trong payload API
             });
+            
+            console.log('✅ Kháng cáo đã được gửi thành công:', response.data);
             
             // Gửi thành công
             setAppealSent(true);
+            
+            // Hiển thị thông báo chi tiết
+            setAppealText(''); // Xóa nội dung khiếu nại sau khi gửi thành công
         } catch (err) {
-            console.error('Lỗi khi gửi khiếu nại:', err);
+            console.error('❌ Lỗi khi gửi khiếu nại:', err);
             setError('Có lỗi xảy ra khi gửi khiếu nại. Vui lòng thử lại sau hoặc liên hệ trực tiếp với quản trị viên.');
             
             // Giả định thành công để demo

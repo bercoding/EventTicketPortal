@@ -1,11 +1,13 @@
-const User = require('../models/User');
 const Event = require('../models/Event');
-const Post = require('../models/Post');
+const User = require('../models/User');
 const Complaint = require('../models/Complaint');
-const ViolationReport = require('../models/ViolationReport');
+const Notification = require('../models/Notification');
+const Report = require('../models/Report');
+const Post = require('../models/Post');
 const OwnerRequest = require('../models/OwnerRequest');
+const mongoose = require('mongoose');
 const Ticket = require('../models/Ticket');
-const Notification = require('../models/Notification'); // Import Notification model
+const ViolationReport = require('../models/ViolationReport');
 
 // Get all users with pagination and filters
 exports.getUsers = async (req, res) => {
@@ -221,9 +223,10 @@ exports.getEvents = async (req, res) => {
   }
 };
 
-// Get all complaints
+// Get all complaints with pagination and filtering
 exports.getComplaints = async (req, res) => {
   try {
+    console.log('🔧 getComplaints được gọi với query:', req.query);
     const { page = 1, limit = 10, status, category, priority, subject } = req.query;
     const filter = {};
     
@@ -252,38 +255,91 @@ exports.getComplaints = async (req, res) => {
     console.log(`📊 Found ${complaints.length}/${total} complaints`);
     
     // Bổ sung thông tin người dùng bị ban từ nội dung khiếu nại
-    const processedComplaints = await Promise.all(complaints.map(async complaint => {
-      const complaintObj = complaint.toObject();
+    const processedComplaints = await Promise.all(complaints.map(async (complaint, index) => {
+      console.log(`🔄 Đang xử lý khiếu nại #${index+1}: ${complaint._id}`);
       
-      // Chỉ xử lý cho các khiếu nại liên quan đến kháng cáo ban
-      if (complaint.subject?.includes('Kháng cáo') || complaint.category === 'user_behavior') {
-        // Trích xuất email từ nội dung
-        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-        const emails = complaint.description.match(emailRegex);
+      try {
+        // Chuyển Mongoose document sang plain object
+        const complaintObj = complaint.toObject ? complaint.toObject() : JSON.parse(JSON.stringify(complaint));
         
-        if (emails && emails.length > 0) {
-          const extractedEmail = emails[0];
-          console.log(`📧 Đã trích xuất email từ khiếu nại ${complaint._id}:`, extractedEmail);
+        // Kiểm tra xem có phải là kháng cáo ban không
+        const isBanAppeal = 
+          complaint.subject?.toLowerCase().includes('kháng cáo') || 
+          complaint.subject?.toLowerCase().includes('ban') ||
+          complaint.subject?.toLowerCase().includes('khóa') ||
+          complaint.category === 'user_behavior';
+        
+        if (isBanAppeal) {
+          console.log(`📝 Đây là kháng cáo ban: ${complaint._id}`);
           
-          // Tìm user bị ban dựa trên email
-          const bannedUser = await User.findOne({ email: extractedEmail })
-            .select('username email status banReason banDate banExpiry avatar');
+          // In ra mô tả khiếu nại để debug
+          console.log(`📋 Mô tả khiếu nại: ${complaint.description?.substring(0, 100)}...`);
           
-          if (bannedUser) {
-            console.log(`👤 Đã tìm thấy user ${bannedUser.username} (${bannedUser.status})`);
-            complaintObj.bannedUserInfo = bannedUser.toObject();
+          // Trích xuất email từ nội dung - pattern cẩn thận hơn
+          const description = complaint.description || '';
+          const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+          const emails = description.match(emailRegex);
+          
+          console.log(`🔍 Các email tìm thấy trong nội dung:`, emails);
+          
+          if (emails && emails.length > 0) {
+            const extractedEmail = emails[0];
+            console.log(`📧 Đã trích xuất email từ khiếu nại ${complaint._id}:`, extractedEmail);
+            
+            // Tìm user bị ban dựa trên email
+            const bannedUser = await User.findOne({ email: extractedEmail })
+              .select('username email status banReason banDate banExpiry avatar');
+            
+            if (bannedUser) {
+              console.log(`👤 Đã tìm thấy user ${bannedUser.username} (${bannedUser.status})`);
+              complaintObj.bannedUserInfo = bannedUser.toObject ? bannedUser.toObject() : JSON.parse(JSON.stringify(bannedUser));
+            } else {
+              console.log(`❌ Không tìm thấy user với email ${extractedEmail}`);
+            }
+            
+            complaintObj.extractedEmail = extractedEmail;
           } else {
-            console.log(`❌ Không tìm thấy user với email ${extractedEmail}`);
+            console.log(`⚠️ Không thể trích xuất email từ khiếu nại ${complaint._id}`);
+            
+            // Thử kiểm tra trong subject
+            const subject = complaint.subject || '';
+            const subjectEmails = subject.match(emailRegex);
+            
+            if (subjectEmails && subjectEmails.length > 0) {
+              const extractedEmail = subjectEmails[0];
+              console.log(`📧 Đã trích xuất email từ tiêu đề khiếu nại:`, extractedEmail);
+              complaintObj.extractedEmail = extractedEmail;
+              
+              // Tìm user bị ban dựa trên email trong subject
+              const bannedUser = await User.findOne({ email: extractedEmail })
+                .select('username email status banReason banDate banExpiry avatar');
+                
+              if (bannedUser) {
+                console.log(`👤 Đã tìm thấy user ${bannedUser.username} (${bannedUser.status})`);
+                complaintObj.bannedUserInfo = bannedUser.toObject ? bannedUser.toObject() : JSON.parse(JSON.stringify(bannedUser));
+              }
+            }
           }
-          
-          complaintObj.extractedEmail = extractedEmail;
-        } else {
-          console.log(`⚠️ Không thể trích xuất email từ khiếu nại ${complaint._id}`);
         }
+        
+        return complaintObj;
+      } catch (err) {
+        console.error(`❌ Lỗi xử lý khiếu nại ${complaint._id}:`, err);
+        return complaint.toObject ? complaint.toObject() : JSON.parse(JSON.stringify(complaint));
       }
-      
-      return complaintObj;
     }));
+    
+    // Log một số thông tin cho debug
+    console.log(`✅ Đã xử lý ${processedComplaints.length} khiếu nại`);
+    console.log(`📊 Mẫu khiếu nại đầu tiên:`, 
+      processedComplaints.length > 0 ? 
+        {
+          id: processedComplaints[0]._id,
+          subject: processedComplaints[0].subject,
+          hasExtractedEmail: !!processedComplaints[0].extractedEmail,
+          hasBannedUserInfo: !!processedComplaints[0].bannedUserInfo
+        } : 'Không có khiếu nại nào'
+    );
     
     res.json({
       complaints: processedComplaints,
