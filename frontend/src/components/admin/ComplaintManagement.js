@@ -3,6 +3,8 @@ import { adminAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 import { FaEye, FaFilter, FaRedo, FaTimes, FaUser, FaTag, FaExclamationCircle, FaPaperPlane, FaUserSlash, FaUnlock, FaShieldAlt } from 'react-icons/fa';
 import { ClipLoader } from 'react-spinners';
+import axios from 'axios'; // Added axios import
+import { API_URL } from '../../config'; // Added API_URL import
 
 const ComplaintManagement = () => {
     const [complaints, setComplaints] = useState([]);
@@ -160,37 +162,72 @@ const ComplaintManagement = () => {
     };
     
     // Giải quyết nhanh kháng cáo và unban user
-    const handleQuickUnban = async (userId) => {
-        if (!userId) {
-            toast.error('Không tìm thấy ID người dùng!');
-            return;
-        }
-        
+    const handleQuickUnban = async () => {
         try {
             setIsSubmitting(true);
             
-            console.log('🔓 Đang mở khóa tài khoản cho user:', userId);
-            // Unban user
-            await adminAPI.unbanUser(userId);
-            toast.success('Đã mở khóa tài khoản người dùng thành công!');
+            // Lấy thông tin người bị khóa từ trường bannedUser trong model
+            const bannedUserId = selectedComplaint?.bannedUser?._id;
+            let bannedUserInfo = '';
+            
+            // Xác định người dùng cần mở khóa
+            if (bannedUserId && selectedComplaint?.bannedUser) {
+                // Nếu có thông tin người bị ban trong model
+                bannedUserInfo = selectedComplaint.bannedUser.email || selectedComplaint.bannedUser.username || '';
+                console.log('✅ Đã tìm thấy thông tin người bị khóa từ model:', bannedUserInfo);
+            } else {
+                // Nếu không có thông tin từ model, hiển thị thông báo
+                toast.warning('Không tìm thấy thông tin người bị khóa trong hệ thống!');
+                setIsSubmitting(false);
+                return;
+            }
+            
+            console.log('🔓 Đang mở khóa tài khoản người dùng:', bannedUserInfo);
+            
+            // Gọi API unban user
+            const token = localStorage.getItem('token');
+            const response = await axios.post(
+                `${API_URL}/admin/users/${bannedUserId}/unban`,
+                {},
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            
+            console.log('✅ Kết quả mở khóa:', response.data);
+            toast.success(`Đã mở khóa tài khoản ${bannedUserInfo} thành công!`);
             
             // Giải quyết khiếu nại
-            if (selectedComplaint) {
-                console.log('✅ Đang giải quyết khiếu nại:', selectedComplaint._id);
-                const resolutionText = 'Đã chấp nhận kháng cáo và mở khóa tài khoản.';
-                
-                // Sử dụng resolveComplaint API
-                await adminAPI.resolveComplaint(selectedComplaint._id, { 
-                    resolution: resolutionText 
-                });
+            if (selectedComplaint?._id) {
+                await axios.post(
+                    `${API_URL}/admin/complaints/${selectedComplaint._id}/resolve`,
+                    { 
+                        resolution: `Đã chấp nhận kháng cáo và mở khóa tài khoản ${bannedUserInfo}.` 
+                    },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
                 
                 toast.success('Đã giải quyết khiếu nại thành công!');
-                closeModal();
-                fetchComplaints();
             }
-        } catch (err) {
-            console.error('❌ Lỗi:', err);
-            toast.error('Không thể hoàn tất thao tác: ' + (err.response?.data?.message || err.message));
+            
+            closeModal();
+            fetchComplaints();
+        } catch (error) {
+            console.error('❌ Lỗi khi mở khóa:', error);
+            
+            if (error.response?.data) {
+                toast.error(`Không thể mở khóa: ${error.response.data.message || error.message}`);
+            } else {
+                toast.error(`Lỗi: ${error.message}`);
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -413,10 +450,73 @@ const ComplaintManagement = () => {
                         </div>
                        
                         <div className="mt-4 space-y-4 text-sm text-gray-600">
-                            <p><span className="font-semibold">Người dùng:</span> {selectedComplaint.user?.username}</p>
+                            <p><span className="font-semibold">Người gửi khiếu nại:</span> {selectedComplaint.user?.username || 'Không xác định'}</p>
+                            <p><span className="font-semibold">Email người gửi:</span> {selectedComplaint.user?.email || 'Không xác định'}</p>
                             <p><span className="font-semibold">Chủ đề:</span> {selectedComplaint.subject}</p>
-                            <p><span className="font-semibold">Mô tả:</span></p>
-                            <p className="p-2 bg-gray-50 border rounded-md">{selectedComplaint.description}</p>
+                            
+                            {/* Hiển thị thông tin người bị ban từ dữ liệu backend */}
+                            {(activeTab === 'ban-appeals' || selectedComplaint.subject?.includes('Kháng cáo')) && (
+                                <div className="p-4 mb-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <h4 className="text-sm font-semibold text-yellow-700 mb-2">Thông tin người cần mở khóa:</h4>
+                                    
+                                    {selectedComplaint.bannedUser ? (
+                                        <div className="space-y-1">
+                                            <div className="flex items-center">
+                                                <div className="flex-shrink-0">
+                                                    {selectedComplaint.bannedUser.avatar ? (
+                                                        <img 
+                                                            src={selectedComplaint.bannedUser.avatar} 
+                                                            alt="Avatar" 
+                                                            className="w-10 h-10 rounded-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                                            <span className="text-gray-500 font-medium">
+                                                                {selectedComplaint.bannedUser.username?.charAt(0)?.toUpperCase() || '?'}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="ml-3">
+                                                    <p className="text-sm font-medium text-gray-900">
+                                                        {selectedComplaint.bannedUser.username}
+                                                        {selectedComplaint.bannedUser.status === 'banned' ? (
+                                                            <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full">Đang bị khóa</span>
+                                                        ) : (
+                                                            <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">Đang hoạt động</span>
+                                                        )}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">{selectedComplaint.bannedUser.email}</p>
+                                                </div>
+                                            </div>
+                                            
+                                            {selectedComplaint.bannedUser.banReason && (
+                                                <div className="pt-2">
+                                                    <p className="text-xs text-gray-500">Lý do khóa tài khoản:</p>
+                                                    <p className="text-sm text-gray-700">{selectedComplaint.bannedUser.banReason}</p>
+                                                </div>
+                                            )}
+                                            
+                                            {selectedComplaint.bannedUser.bannedAt && (
+                                                <p className="text-xs text-gray-500">
+                                                    Thời điểm bị khóa: {new Date(selectedComplaint.bannedUser.bannedAt).toLocaleDateString('vi-VN')}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-red-600 italic">
+                                            Không tìm thấy thông tin người bị khóa trong hệ thống.
+                                            Vui lòng kiểm tra lại dữ liệu hoặc cập nhật thông tin người bị khóa.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                            
+                            <div>
+                                <p className="font-semibold">Mô tả khiếu nại:</p>
+                                <p className="p-3 bg-gray-50 border rounded-md whitespace-pre-wrap">{selectedComplaint.description}</p>
+                            </div>
+                            
                             {selectedComplaint.relatedEvent && <p><span className="font-semibold">Sự kiện liên quan:</span> {selectedComplaint.relatedEvent.title}</p>}
                             {selectedComplaint.relatedUser && <p><span className="font-semibold">Người dùng liên quan:</span> {selectedComplaint.relatedUser.username}</p>}
                         </div>
@@ -425,11 +525,11 @@ const ComplaintManagement = () => {
                         {(activeTab === 'ban-appeals' || selectedComplaint.subject?.includes('Kháng cáo')) && (
                             <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                                 <h4 className="font-medium text-blue-700 mb-2">Hành động nhanh:</h4>
-                                <div className="flex space-x-3">
+                                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                                     <button 
-                                        onClick={() => handleQuickUnban(selectedComplaint.user?._id)}
+                                        onClick={handleQuickUnban}
                                         disabled={isSubmitting}
-                                        className="flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="flex items-center justify-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {isSubmitting ? (
                                             <>
@@ -450,7 +550,7 @@ const ComplaintManagement = () => {
                                             setResolution('Kháng cáo bị từ chối. Tài khoản vẫn bị khóa theo quyết định ban đầu.');
                                         }}
                                         disabled={isSubmitting}
-                                        className="flex items-center px-3 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="flex items-center justify-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <FaUserSlash className="mr-1.5" /> Từ chối kháng cáo
                                     </button>

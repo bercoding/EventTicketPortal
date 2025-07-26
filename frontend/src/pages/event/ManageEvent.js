@@ -379,68 +379,7 @@ const ManageEvent = () => {
               />
             </div>
 
-            <div className="bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-700">
-              <h2 className="text-2xl font-bold mb-6 text-green-400 flex items-center">
-                <FontAwesomeIcon icon={faMoneyBillWave} className="mr-3" /> Thông tin thanh toán
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="bankName" className="block text-sm font-medium text-gray-300 mb-2">Tên ngân hàng</label>
-                  <input
-                    type="text"
-                    id="bankName"
-                    name="bankName"
-                    value={formData.payment?.bankName || ''}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-300 mb-2">Số tài khoản</label>
-                  <input
-                    type="text"
-                    id="accountNumber"
-                    name="accountNumber"
-                    value={formData.payment?.accountNumber || ''}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="accountHolderName" className="block text-sm font-medium text-gray-300 mb-2">Tên chủ tài khoản</label>
-                  <input
-                    type="text"
-                    id="accountHolderName"
-                    name="accountHolderName"
-                    value={formData.payment?.accountHolderName || ''}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="branch" className="block text-sm font-medium text-gray-300 mb-2">Chi nhánh</label>
-                  <input
-                    type="text"
-                    id="branch"
-                    name="branch"
-                    value={formData.payment?.branch || ''}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="swiftBic" className="block text-sm font-medium text-gray-300 mb-2">Mã SWIFT/BIC (nếu có)</label>
-                  <input
-                    type="text"
-                    id="swiftBic"
-                    name="swiftBic"
-                    value={formData.payment?.swiftBic || ''}
-                    onChange={handleChange}
-                    className="mt-1 block w-full rounded-lg border border-gray-600 bg-gray-700 text-white p-3 shadow-sm focus:border-green-500 focus:ring-green-500 transition-all duration-200"
-                  />
-                </div>
-              </div>
-            </div>
+
 
             <div className="mt-8 flex justify-end space-x-4">
               <button
@@ -526,19 +465,7 @@ const ManageEvent = () => {
 
 
 
-            {/* payment infor */}
-            <div className="bg-gray-800 p-8 rounded-2xl shadow-xl border border-gray-700">
-              <h2 className="text-2xl font-bold mb-6 text-green-400 flex items-center">
-                <FontAwesomeIcon icon={faMoneyBillWave} className="mr-3" /> Thông tin thanh toán
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300">
-                <p><strong>Tên ngân hàng:</strong> {event.payment?.bankName || 'N/A'}</p>
-                <p><strong>Số tài khoản:</strong> {event.payment?.accountNumber || 'N/A'}</p>
-                <p><strong>Tên chủ tài khoản:</strong> {event.payment?.accountHolderName || 'N/A'}</p>
-                <p><strong>Chi nhánh:</strong> {event.payment?.branch || 'N/A'}</p>
-                <p><strong>Mã SWIFT/BIC:</strong> {event.payment?.swiftBic || 'N/A'}</p>
-              </div>
-            </div>
+
           </div>
         )}
       </div>

@@ -8,7 +8,7 @@ const Complaint = require('../models/Complaint');
 // Endpoint khiếu nại ban - không yêu cầu xác thực
 router.post('/complaints/appeal', async (req, res) => {
   try {
-    const { reason, type, userId } = req.body;
+    const { reason, type, userId, email } = req.body;
     
     // Lấy thông tin user từ token nếu có
     const user = req.user ? req.user._id : (userId || null);
@@ -19,12 +19,20 @@ router.post('/complaints/appeal', async (req, res) => {
         message: 'Vui lòng cung cấp lý do khiếu nại'
       });
     }
+    
+    // Kiểm tra nếu có email, thêm vào nội dung nếu chưa có
+    let description = reason;
+    if (email && !description.includes(email)) {
+      description += `\n\nEmail cần mở khóa: ${email}`;
+    }
+    
+    console.log('📨 Tạo khiếu nại mới với email:', email);
 
     // Tạo khiếu nại mới với các trường bắt buộc
     const complaint = new Complaint({
       user: user || '64ff7978d0bdf7ed717156fb', // User ID mặc định nếu không có
       subject: 'Kháng cáo tài khoản bị ban',
-      description: reason,
+      description: description,
       category: 'user_behavior', // Đảm bảo khớp với enum trong model
       priority: 'high',
       status: 'pending'
@@ -114,6 +122,9 @@ router.get('/public/debug/events', async (req, res) => {
   }
 });
 
+// Debug route để tạo khiếu nại test
+router.get('/debug/create-test-complaint', adminController.createTestComplaint);
+
 // Dashboard stats
 router.get('/dashboard/stats', adminController.getDashboardStats);
 
@@ -121,6 +132,7 @@ router.get('/dashboard/stats', adminController.getDashboardStats);
 router.get('/users', adminController.getUsers);
 router.post('/users/:id/ban', adminController.banUser);
 router.post('/users/:id/unban', adminController.unbanUser);
+router.post('/users/unban-by-email', adminController.unbanUserByEmail);
 
 // Event management
 router.get('/events', adminController.getEvents);

@@ -23,15 +23,13 @@ const StepInstructions = ({ currentStep }) => {
   const instructions = {
     1: "Nhập tên sự kiện, mô tả và upload hình ảnh cho sự kiện.",
     2: "Cung cấp thời gian diễn ra và thông tin địa điểm sự kiện.",
-    3: "Thiết lập các loại vé và giá vé cho sự kiện.",
-    4: "Thiết kế sơ đồ chỗ ngồi và các cài đặt cuối cùng cho sự kiện."
+    3: "Thiết lập các loại vé, thiết kế sơ đồ chỗ ngồi và hoàn tất sự kiện."
   };
 
   const requirements = {
     1: "Thông tin bắt buộc: tên sự kiện, mô tả, thể loại.",
     2: "Thông tin bắt buộc: thời gian bắt đầu, kết thúc và địa điểm đầy đủ.",
-    3: "Thông tin bắt buộc: ít nhất một loại vé với tên, giá và số lượng.",
-    4: "Thiết kế sơ đồ chỗ ngồi và hoàn tất sự kiện."
+    3: "Thông tin bắt buộc: ít nhất một loại vé với tên, giá và số lượng."
   };
 
   return (
@@ -241,40 +239,7 @@ const CreateEventWithSeating = () => {
               </div>
             </FormSection>
             
-            <FormSection title="Danh mục & Tags">
-              <div className="form-group">
-                <label>Danh mục</label>
-                <select
-                  name="category"
-                  value={formData.category[0] || ''}
-                  onChange={handleCategoryChange}
-                  className="form-control"
-                >
-                  <option value="">-- Chọn danh mục --</option>
-                  <option value="music">Âm nhạc</option>
-                  <option value="theater">Sân khấu - Kịch</option>
-                  <option value="sports">Thể thao</option>
-                  <option value="seminar">Hội thảo - Khóa học</option>
-                  <option value="arts">Nghệ thuật - Triển lãm</option>
-                  <option value="entertainment">Giải trí</option>
-                  <option value="community">Cộng đồng</option>
-                  <option value="technology">Công nghệ</option>
-                  <option value="other">Khác</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label>Tags (phân cách bằng dấu phẩy)</label>
-                <input
-                  type="text"
-                  name="tags"
-                  value={formData.tags.join(', ')}
-                  onChange={handleTagsChange}
-                  placeholder="VD: nhạc rock, trực tiếp, cuối tuần"
-                  className="form-control"
-                />
-              </div>
-            </FormSection>
+
           </div>
         );
         
@@ -400,33 +365,7 @@ const CreateEventWithSeating = () => {
               )}
             </FormSection>
             
-            <FormSection title="Kiểu bố trí chỗ ngồi">
-              <div className="layout-options">
-                <div
-                  className={`layout-option ${formData.location.venueLayout === 'theater' ? 'selected' : ''}`}
-                  onClick={() => handleVenueLayoutChange('theater')}
-                >
-                  <div className="layout-icon theater-icon"></div>
-                  <div className="layout-name">Nhà hát</div>
-                </div>
-                
-                <div
-                  className={`layout-option ${formData.location.venueLayout === 'concert' ? 'selected' : ''}`}
-                  onClick={() => handleVenueLayoutChange('concert')}
-                >
-                  <div className="layout-icon concert-icon"></div>
-                  <div className="layout-name">Concert</div>
-                </div>
-                
-                <div
-                  className={`layout-option ${formData.location.venueLayout === 'stadium' ? 'selected' : ''}`}
-                  onClick={() => handleVenueLayoutChange('stadium')}
-                >
-                  <div className="layout-icon stadium-icon"></div>
-                  <div className="layout-name">SVĐ</div>
-                </div>
-              </div>
-            </FormSection>
+
           </div>
         );
         
@@ -580,15 +519,8 @@ const CreateEventWithSeating = () => {
                 </div>
               </div>
             </FormSection>
-          </div>
-        );
-        
-      case 4:
-        return (
-          <div className="create-event-step">
-            <h2 className="step-title">Thông tin chi tiết & Điều khoản</h2>
             
-            <FormSection title="Mô tả chi tiết">
+            <FormSection title="Thông tin chi tiết & Điều khoản">
               <div className="form-group">
                 <label>Chương trình chính</label>
                 <textarea
@@ -614,21 +546,7 @@ const CreateEventWithSeating = () => {
               </div>
               
               <div className="form-group">
-                <label>Trải nghiệm đặc biệt</label>
-                <textarea
-                  name="detailedDescription.specialExperiences"
-                  value={formData.detailedDescription.specialExperiences}
-                  onChange={handleChange}
-                  placeholder="Những trải nghiệm đặc biệt tại sự kiện"
-                  className="form-control"
-                  rows="3"
-                />
-              </div>
-            </FormSection>
-            
-            <FormSection title="Thông tin nhà tổ chức">
-              <div className="form-group">
-                <label>Tên nhà tổ chức</label>
+                <label>Thông tin nhà tổ chức</label>
                 <input
                   type="text"
                   name="organizer.name"
@@ -639,20 +557,6 @@ const CreateEventWithSeating = () => {
                 />
               </div>
               
-              <div className="form-group">
-                <label>Thông tin nhà tổ chức</label>
-                <textarea
-                  name="organizer.info"
-                  value={formData.organizer.info}
-                  onChange={handleChange}
-                  placeholder="Thông tin về nhà tổ chức"
-                  className="form-control"
-                  rows="3"
-                />
-              </div>
-            </FormSection>
-            
-            <FormSection title="Điều khoản và điều kiện">
               <div className="form-group">
                 <label>Điều khoản & quy định</label>
                 <textarea
@@ -701,11 +605,7 @@ const CreateEventWithSeating = () => {
         </div>
         <div className={`step-item ${currentStep >= 3 ? 'active' : ''}`}>
           <div className="step-number">3</div>
-          <div className="step-label">Vé & Sơ đồ chỗ ngồi</div>
-        </div>
-        <div className={`step-item ${currentStep >= 4 ? 'active' : ''}`}>
-          <div className="step-number">4</div>
-          <div className="step-label">Chi tiết & Điều khoản</div>
+          <div className="step-label">Vé, Sơ đồ & Hoàn tất</div>
         </div>
       </div>
       <form 
@@ -713,13 +613,13 @@ const CreateEventWithSeating = () => {
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          currentStep === 4 ? handleFinalSubmit(e) : handleNextStep(e);
+          currentStep === 3 ? handleFinalSubmit(e) : handleNextStep(e);
         }}
       >
         {renderStepContent()}
         <NavigationButtons
           currentStep={currentStep}
-          totalSteps={4}
+          totalSteps={3}
           onPrevStep={handlePrevStep}
           onNextStep={handleNextStep}
           onSubmit={handleFinalSubmit}
