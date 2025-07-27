@@ -104,7 +104,7 @@ const TicketboxHome = () => {
                 console.log('🔄 Fetching events from database...');
                 
                 // Fetch all events from your database
-                const response = await fetch('http://localhost:5001/api/events');
+                const response = await fetch('https://eventbackendacr-c4dhdsbhfug2hkb2.australiacentral-01.azurewebsites.net///events');
                 const data = await response.json();
                 
                 console.log('📊 API Response:', data);

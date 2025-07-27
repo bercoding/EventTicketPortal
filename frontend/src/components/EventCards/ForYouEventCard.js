@@ -45,7 +45,7 @@ const ForYouEventCard = ({ event, className = '' }) => {
         if (!event.images || !Array.isArray(event.images) || event.images.length === 0) {
             return '/images/placeholder-event.svg';
         }
-        return `http://localhost:5001${event.images[0]}`;
+        return `https://eventbackendacr-c4dhdsbhfug2hkb2.australiacentral-01.azurewebsites.net/${event.images[0]}`;
     };
 
     const formatTime = (dateString) => {

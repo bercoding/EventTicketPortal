@@ -73,7 +73,7 @@ const AdminEventManagement = () => {
     const fetchEvents = async () => {
         try {
             setLoading(true);
-            let url = 'http://localhost:5001/api/admin/events';
+            let url = 'https://eventbackendacr-c4dhdsbhfug2hkb2.australiacentral-01.azurewebsites.net///admin/events';
             // Add query parameters based on filter
             if (filter !== 'all') {
                 if (filter === 'pending') {
@@ -110,7 +110,7 @@ const AdminEventManagement = () => {
                 updateData[`${statusType}Order`] = order;
             }
 
-            const response = await fetch(`http://localhost:5001/api/events/${eventId}/admin-update`, {
+            const response = await fetch(`https://eventbackendacr-c4dhdsbhfug2hkb2.australiacentral-01.azurewebsites.net//api/events/${eventId}/admin-update`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

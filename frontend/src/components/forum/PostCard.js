@@ -36,7 +36,7 @@ const PostCard = ({
   useEffect(() => {
     const fetchCommentCount = async () => {
       try {
-        const res = await fetch(`http://localhost:5001/api/comments/count?postId=${post._id}`);
+        const res = await fetch(`https://eventbackendacr-c4dhdsbhfug2hkb2.australiacentral-01.azurewebsites.net//api/comments/count?postId=${post._id}`);
         const data = await res.json();
         if (data.success) setCommentCount(data.data.count);
       } catch (e) {

@@ -14,7 +14,7 @@ export default function useCommentFetch(postId, setTotalCount, onCommentsFetched
   const [loadingRepliesMap, setLoadingRepliesMap] = useState({});
 
   const api = axios.create({
-    baseURL: 'http://localhost:5001/api',
+    baseURL: 'https://eventbackendacr-c4dhdsbhfug2hkb2.australiacentral-01.azurewebsites.net//',
     headers: {
       'Authorization': `Bearer ${localStorage.getItem('token')}`,
       'Content-Type': 'application/json',

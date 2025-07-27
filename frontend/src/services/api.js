@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Lấy cấu hình API từ biến môi trường
-const API_URL = 'http://localhost:5001/api';
+const API_URL = 'https://eventbackendacr-c4dhdsbhfug2hkb2.australiacentral-01.azurewebsites.net//';
 const API_BASE_URL = API_URL;
 
 console.log('🔧 API Configuration:');

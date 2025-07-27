@@ -516,7 +516,7 @@ const vnpayCallback = asyncHandler(async (req, res) => {
         console.log(`Payment ${payment._id} processed with final status: ${payment.status}`);
 
         // Redirect user to frontend with payment result
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const frontendUrl = process.env.FRONTEND_URL || 'https://eventfrontend-htfdfzdhh4ftemaz.eastus-01.azurewebsites.net';
         
         if (payment.status === 'success') {
             console.log(`✅ Payment successful! Redirecting to success page`);
@@ -529,7 +529,7 @@ const vnpayCallback = asyncHandler(async (req, res) => {
     } catch (error) {
         console.error('VNPay callback error:', error);
         // Redirect to failure page if any internal error occurs
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const frontendUrl = process.env.FRONTEND_URL || 'https://eventfrontend-htfdfzdhh4ftemaz.eastus-01.azurewebsites.net';
         res.redirect(`${frontendUrl}/payment/failure?reason=internal&message=${encodeURIComponent(error.message)}`);
     }
 });
@@ -760,7 +760,7 @@ const handlePayOSReturn = asyncHandler(async (req, res) => {
 
         console.log('🔄 PayOS return:', { code, id, cancel, status, orderCode });
 
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const frontendUrl = process.env.FRONTEND_URL || 'https://eventfrontend-htfdfzdhh4ftemaz.eastus-01.azurewebsites.net';
 
         if (cancel === 'true') {
             // Payment was cancelled
@@ -799,7 +799,7 @@ const handlePayOSReturn = asyncHandler(async (req, res) => {
 
     } catch (error) {
         console.error('PayOS return error:', error);
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const frontendUrl = process.env.FRONTEND_URL || 'https://eventfrontend-htfdfzdhh4ftemaz.eastus-01.azurewebsites.net';
         res.redirect(`${frontendUrl}/payment/failure?reason=error`);
     }
 });

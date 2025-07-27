@@ -92,7 +92,7 @@ const EventCard = ({ event, size = 'normal', className = '' }) => {
         if (!imageUrl.startsWith('http') && !imageUrl.startsWith('https')) {
             // Nếu URL bắt đầu bằng /uploads thì thêm tiền tố
             if (imageUrl.startsWith('/uploads')) {
-                return `http://localhost:5001${imageUrl}`;
+                return `https://eventbackendacr-c4dhdsbhfug2hkb2.australiacentral-01.azurewebsites.net/${event.images[0]}`;
             }
         }
         return imageUrl;

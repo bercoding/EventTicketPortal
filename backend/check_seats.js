@@ -3,7 +3,7 @@ require('dotenv').config();
 const Event = require('./models/Event');
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/event-ticketing-platform')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://longtpit2573:Pass123%40@eventticketdb2025.global.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000')
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 

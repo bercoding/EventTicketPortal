@@ -305,7 +305,7 @@ const CreateEventWithSeating = () => {
     try {
       console.log('🔄 Generating preview...', { totalSeats, totalSections, venueType, stageSize });
       
-      const response = await axios.post('http://localhost:5001/api/events/preview-seating', {
+      const response = await axios.post('https://eventbackendacr-c4dhdsbhfug2hkb2.australiacentral-01.azurewebsites.net///events/preview-seating', {
         seatOptions: { totalSeats, totalSections, venueType },
         ticketTypes: ticketTypes.map(tt => ({ ...tt, _id: `temp_${tt.name}` }))
       }, {
@@ -709,7 +709,7 @@ const CreateEventWithSeating = () => {
         ticketTypes
       });
       
-      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/events/create-with-seating`;
+      const apiUrl = `${process.env.REACT_APP_API_URL || 'https://eventbackendacr-c4dhdsbhfug2hkb2.australiacentral-01.azurewebsites.net//'}/events/create-with-seating`;
       console.log('🔧 Using API URL:', apiUrl);
       
       const response = await axios.post(apiUrl, {

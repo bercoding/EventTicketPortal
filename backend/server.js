@@ -32,7 +32,7 @@ const app = express();
 const server = http.createServer(app); // Tạo HTTP server từ Express app
 const io = new Server(server, { // Khởi tạo Socket.IO server
     cors: {
-        origin: "http://localhost:3000", // Cho phép từ frontend localhost:3000
+        origin: "https://eventfrontend-htfdfzdhh4ftemaz.eastus-01.azurewebsites.net", // Cho phép từ frontend localhost:3000
         methods: ["GET", "POST"]
     }
 });

@@ -3,7 +3,7 @@ const { payOS } = require('../config/payos');
 class PayOSService {
     constructor() {
         this.payOS = payOS;
-        this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        this.frontendUrl = process.env.FRONTEND_URL || 'https://eventfrontend-htfdfzdhh4ftemaz.eastus-01.azurewebsites.net';
     }
 
     /**
