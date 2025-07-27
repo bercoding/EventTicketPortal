@@ -22,16 +22,25 @@ class PayOSService {
                 itemsCount: items.length
             });
 
+            // Giới hạn mô tả đơn hàng không quá 25 ký tự
+            const shortDescription = description && description.length > 25 
+                ? description.substring(0, 22) + '...' 
+                : description || 'Thanh toán';
+
             // Chuẩn bị dữ liệu đơn hàng
             const orderData = {
-                orderCode: orderCode, // Mã đơn hàng unique
-                amount: amount, // Số tiền
-                description: description, // Mô tả đơn hàng
-                items: items.length > 0 ? items : [
+                orderCode: Number(orderCode), // Đảm bảo orderCode là số
+                amount: Number(amount), // Đảm bảo amount là số
+                description: shortDescription, // Mô tả đơn hàng đã giới hạn độ dài
+                items: items.length > 0 ? items.map(item => ({
+                    name: item.name && item.name.length > 25 ? item.name.substring(0, 22) + '...' : item.name,
+                    quantity: Number(item.quantity) || 1,
+                    price: Number(item.price) || 0
+                })) : [
                     {
-                        name: description,
+                        name: shortDescription,
                         quantity: 1,
-                        price: amount
+                        price: Number(amount)
                     }
                 ],
                 returnUrl: `${this.frontendUrl}/payment/payos-return`,
@@ -47,31 +56,50 @@ class PayOSService {
                 };
             }
 
-            console.log('📦 PayOS order data:', orderData);
+            console.log('📦 PayOS order data:', JSON.stringify(orderData, null, 2));
+            console.log('🔑 PayOS API Key status:', this.payOS ? 'Initialized' : 'Not initialized');
 
             // Tạo payment link
-            const paymentLinkResponse = await this.payOS.createPaymentLink(orderData);
+            try {
+                console.log('🚀 Calling PayOS.createPaymentLink...');
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('PayOS API timeout after 10 seconds')), 10000)
+                );
+                const paymentLinkResponse = await Promise.race([
+                    this.payOS.createPaymentLink(orderData),
+                    timeoutPromise
+                ]);
+                
+                console.log('✅ PayOS payment link created:', {
+                    checkoutUrl: paymentLinkResponse.checkoutUrl,
+                    paymentLinkId: paymentLinkResponse.paymentLinkId
+                });
 
-            console.log('✅ PayOS payment link created:', {
-                checkoutUrl: paymentLinkResponse.checkoutUrl,
-                paymentLinkId: paymentLinkResponse.paymentLinkId
-            });
-
-            return {
-                success: true,
-                checkoutUrl: paymentLinkResponse.checkoutUrl,
-                paymentLinkId: paymentLinkResponse.paymentLinkId,
-                orderCode: orderCode,
-                qrCode: paymentLinkResponse.qrCode,
-                amount: amount,
-                description: description
-            };
+                return {
+                    success: true,
+                    checkoutUrl: paymentLinkResponse.checkoutUrl,
+                    paymentLinkId: paymentLinkResponse.paymentLinkId,
+                    orderCode: orderCode,
+                    qrCode: paymentLinkResponse.qrCode,
+                    amount: amount,
+                    description: shortDescription
+                };
+            } catch (apiError) {
+                console.error('❌ PayOS API Error:', apiError.message);
+                console.error('❌ PayOS API Error stack:', apiError.stack);
+                if (apiError.response) {
+                    console.error('Response status:', apiError.response.status);
+                    console.error('Response data:', JSON.stringify(apiError.response.data, null, 2));
+                }
+                throw apiError;
+            }
 
         } catch (error) {
             console.error('❌ PayOS payment creation failed:', error);
             return {
                 success: false,
-                error: error.message || 'PayOS service error'
+                error: error.message || 'PayOS service error',
+                details: error.toString()
             };
         }
     }
