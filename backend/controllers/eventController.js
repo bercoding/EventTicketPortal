@@ -55,7 +55,10 @@ const getEvents = asyncHandler(async (req, res) => {
     page = 1
   } = req.query;
   
-  const query = { status: 'approved' }; // Chỉ lấy sự kiện đã được phê duyệt
+  const query = { 
+    status: 'approved',
+    startDate: { $gt: new Date() } // Always filter out events that have already started
+  }; // Chỉ lấy sự kiện đã được phê duyệt và chưa diễn ra
   
   // Tìm kiếm theo category nếu có
   if (category) {
@@ -76,10 +79,12 @@ const getEvents = asyncHandler(async (req, res) => {
   if (trending === 'true') query.trending = true;
   if (special === 'true') query.special = true;
   
-  // Lọc sự kiện sắp diễn ra
-  if (upcoming === 'true') {
-    query.startDate = { $gte: new Date() };
-  }
+  // Lọc sự kiện sắp diễn ra - không cần vì đã lọc ở trên
+  // if (upcoming === 'true') {
+  //  query.startDate = { $gte: new Date() };
+  // }
+  
+  console.log('🔍 Fetching events with query:', JSON.stringify(query));
   
   const options = {
     page: parseInt(page),
@@ -130,6 +135,21 @@ const getEventById = asyncHandler(async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Không tìm thấy sự kiện'
+      });
+    }
+    
+    // Check if event has started and user is not admin or organizer
+    const eventHasStarted = new Date(event.startDate) <= new Date();
+    const isAdminOrOrganizer = req.user && 
+      (req.user.role === 'admin' || 
+       event.organizers.some(organizer => 
+         organizer._id.toString() === req.user._id.toString()
+       ));
+    
+    if (eventHasStarted && !isAdminOrOrganizer) {
+      return res.status(403).json({
+        success: false,
+        message: 'Sự kiện này đã bắt đầu và không còn khả dụng để đặt vé'
       });
     }
     

@@ -1,17 +1,17 @@
-const Payment = require('../models/Payment');
 const Event = require('../models/Event');
-const Ticket = require('../models/Ticket');
-const mongoose = require('mongoose');
-const VietQRService = require('../services/vietqrService');
-const PayOSService = require('../services/payosService');
+const Payment = require('../models/Payment');
 const Booking = require('../models/Booking');
-const TicketType = require('../models/TicketType');
+const Ticket = require('../models/Ticket');
 const User = require('../models/User');
-const { sanitizeOrderInfo } = require('../utils/helpers');
+const Notification = require('../models/Notification');
+const TicketType = require('../models/TicketType'); // Add TicketType model
+const mongoose = require('mongoose');
+const PayOSService = require('../services/payosService');
+const VietQRService = require('../services/vietqrService');
 const asyncHandler = require('express-async-handler');
 const crypto = require('crypto');
-const Notification = require('../models/Notification'); // Import Notification model
 const sendEmail = require('../config/email');
+const { sanitizeOrderInfo } = require('../utils/helpers');
 
 // Initialize services
 const vietqrService = new VietQRService();
@@ -1545,6 +1545,48 @@ const confirmPOSPayment = async (req, res) => {
             event.markModified('seatingMap');
             await event.save();
             console.log('✅ Seating map updated successfully');
+        } 
+        // Update ticket quantities if it's a simple ticket event (online/free)
+        else if (payment.bookingType === 'simple' && payment.selectedTickets && payment.selectedTickets.length > 0) {
+            console.log('🔄 Updating ticket quantities for simple booking...');
+            const event = payment.event;
+            
+            // Update ticket quantities in event ticketTypes
+            for (const selectedTicket of payment.selectedTickets) {
+                if (!selectedTicket.ticketTypeId) {
+                    console.log(`⚠️ Missing ticketTypeId for ticket: ${selectedTicket.ticketTypeName || 'unknown'}`);
+                    continue;
+                }
+                
+                try {
+                    // Find the ticket type in the event
+                    const TicketType = mongoose.model('TicketType');
+                    const ticketType = await TicketType.findById(selectedTicket.ticketTypeId);
+                    
+                    if (ticketType) {
+                        // Decrease available quantity
+                        const newAvailable = Math.max(0, (ticketType.availableQuantity || ticketType.totalQuantity) - selectedTicket.quantity);
+                        ticketType.availableQuantity = newAvailable;
+                        
+                        await ticketType.save();
+                        console.log(`✅ Updated ticket type ${ticketType.name}: ${selectedTicket.quantity} tickets sold, ${newAvailable} remaining`);
+                    } else {
+                        console.log(`❌ Ticket type not found: ${selectedTicket.ticketTypeId}`);
+                    }
+                } catch (error) {
+                    console.error(`❌ Error updating ticket type ${selectedTicket.ticketTypeId}:`, error);
+                }
+            }
+            
+            // Also update the event totalSoldTickets if available
+            if (typeof event.soldTickets === 'number') {
+                const ticketsSold = payment.selectedTickets.reduce((sum, t) => sum + t.quantity, 0);
+                event.soldTickets += ticketsSold;
+                await event.save();
+                console.log(`✅ Updated event soldTickets: ${event.soldTickets} (+${ticketsSold})`);
+            }
+            
+            console.log('✅ Ticket quantities updated successfully');
         }
 
         // --- Create Notification ---
@@ -1956,21 +1998,88 @@ const releaseSeatsAndTickets = async (payment) => {
     try {
         console.log('🔄 Releasing seats and tickets');
         
-        // Release ticket quantities back to available
-        if (payment.selectedTickets) {
+        // Get the event
+        const Event = mongoose.model('Event');
+        const event = await Event.findById(payment.event).populate('ticketTypes');
+        
+        if (!event) {
+            console.log('❌ Event not found for payment:', payment._id);
+            return;
+        }
+        
+        // Handle simple ticket type events
+        if (payment.bookingType === 'simple' && payment.selectedTickets && payment.selectedTickets.length > 0) {
+            console.log('🔄 Releasing tickets for simple booking...');
+            
+            const TicketType = mongoose.model('TicketType');
+            
             for (const ticketInfo of payment.selectedTickets) {
                 const ticketType = await TicketType.findById(ticketInfo.ticketTypeId);
+                
                 if (ticketType) {
-                    ticketType.quantity += ticketInfo.quantity;
+                    // Increase available quantity
+                    ticketType.availableQuantity += ticketInfo.quantity;
                     await ticketType.save();
-                    console.log(`🔄 Released ${ticketInfo.quantity} tickets for ${ticketInfo.ticketTypeName}`);
+                    console.log(`✅ Released ${ticketInfo.quantity} tickets for ${ticketInfo.ticketTypeName || ticketType.name}`);
+                    
+                    // Update event sold tickets count if applicable
+                    if (typeof event.soldTickets === 'number') {
+                        event.soldTickets = Math.max(0, event.soldTickets - ticketInfo.quantity);
+                    }
+                } else {
+                    console.log(`❌ Ticket type not found: ${ticketInfo.ticketTypeId}`);
                 }
             }
+            
+            // Save event updates
+            if (typeof event.soldTickets === 'number') {
+                await event.save();
+                console.log(`✅ Updated event soldTickets to ${event.soldTickets}`);
+            }
         }
-
-        // Note: For seating events, seats would be released based on your seating system
-        // This depends on how your seat reservation system works
         
+        // Handle seating events
+        if (payment.bookingType === 'seating' && payment.selectedSeats && payment.selectedSeats.length > 0) {
+            console.log('🔄 Releasing seats for seating booking...');
+            
+            for (const seatInfo of payment.selectedSeats) {
+                console.log(`Releasing seat: ${seatInfo.sectionName} - ${seatInfo.rowName} - ${seatInfo.seatNumber}`);
+                
+                // Find the section
+                const section = event.seatingMap?.sections?.find(s => s.name === seatInfo.sectionName);
+                if (section) {
+                    // Find the row
+                    const row = section.rows?.find(r => r.name === seatInfo.rowName);
+                    if (row) {
+                        // Find the seat and update status
+                        const seat = row.seats?.find(s => 
+                            s.number === seatInfo.seatNumber || 
+                            s.seatNumber === seatInfo.seatNumber ||
+                            (s._id && seatInfo._id && s._id.toString() === seatInfo._id.toString())
+                        );
+                        
+                        if (seat) {
+                            seat.status = 'available';
+                            seat.available = true;
+                            console.log(`✅ Seat ${seatInfo.sectionName}-${seatInfo.rowName}-${seatInfo.seatNumber} released`);
+                        } else {
+                            console.log(`❌ Seat not found: ${seatInfo.sectionName}-${seatInfo.rowName}-${seatInfo.seatNumber}`);
+                        }
+                    }
+                }
+            }
+            
+            // Update event available seats count
+            if (typeof event.availableSeats === 'number') {
+                event.availableSeats += payment.selectedSeats.length;
+                console.log(`✅ Updated event availableSeats to ${event.availableSeats}`);
+            }
+            
+            // Save event updates
+            event.markModified('seatingMap');
+            await event.save();
+            console.log('✅ Seating map updated successfully');
+        }
     } catch (error) {
         console.error('❌ Error releasing seats and tickets:', error);
         throw error;

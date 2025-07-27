@@ -17,6 +17,9 @@ const {
 } = require('../controllers/eventController');
 const { protect, requireAdmin: admin } = require('../middleware/auth');
 
+// Import middleware for optional authentication
+const optionalAuth = require('../middleware/optionalAuth');
+
 
 // --- LOGIC TẠM THỜI ĐƯỢC CHUYỂN VÀO ĐÂY ---
 const updateSeatingMapTemp = asyncHandler(async (req, res) => {
@@ -212,7 +215,7 @@ router.post('/upload-images', protect, uploadEventImages.fields([
 }));
 
 // Parametric routes LAST
-router.route('/:id').get(getEventById).put(protect, updateEvent).delete(protect, deleteEvent);
+router.route('/:id').get(optionalAuth, getEventById).put(protect, updateEvent).delete(protect, deleteEvent);
 router.route('/:id/update-seating-map').post(protect, admin, updateSeatingMapTemp); // Sử dụng hàm tạm thời
 router.route('/:eventId/ticket-stats').get(protect, getEventTicketStats); // Route để xem thống kê vé
 

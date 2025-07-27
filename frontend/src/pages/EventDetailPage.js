@@ -16,25 +16,13 @@ const EventDetailPage = () => {
 
     useEffect(() => {
         const fetchEvent = async () => {
-            if (!id) {
-                navigate('/');
-                return;
-            }
+            setLoading(true);
             try {
-                setLoading(true);
-                console.log('🔍 EventDetailPage: Fetching event with ID:', id);
+                console.log('🔍 EventDetailPage: Fetching event data for ID:', id);
                 const response = await eventAPI.getEventById(id);
                 
-                console.log('📊 EventDetailPage: Full response:', response);
-                
-                if (response.data?.success) {
-                    console.log('✅ EventDetailPage: Event loaded successfully:', response.data.data.title);
-                    setEvent(response.data.data);
-                } else if (response.success && response.data) {
-                    console.log('🔄 EventDetailPage: Using direct response structure');
-                    setEvent(response.data);
-                } else if (response.data) {
-                    console.log('🔄 EventDetailPage: Using response.data directly');
+                if (response && response.success && response.data) {
+                    console.log('✅ EventDetailPage: Event data loaded:', response.data);
                     setEvent(response.data);
                 } else {
                     console.log('❌ EventDetailPage: No valid data found in response');
@@ -43,7 +31,13 @@ const EventDetailPage = () => {
                 }
             } catch (error) {
                 console.error("❌ EventDetailPage: Error loading event:", error);
-                toast.error("Lỗi máy chủ, không thể tải dữ liệu sự kiện.");
+                
+                // Check if this is a 403 error (event has already started)
+                if (error.response && error.response.status === 403) {
+                    toast.error("Sự kiện này đã bắt đầu và không còn mở để đặt vé.");
+                } else {
+                    toast.error("Lỗi máy chủ, không thể tải dữ liệu sự kiện.");
+                }
                 navigate('/events');
             } finally {
                 setLoading(false);
