@@ -129,8 +129,7 @@ const changePassword = asyncHandler(async (req, res) => {
     }
 
     // Hash new password
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
+    user.password = newPassword;
 
     await user.save();
 
@@ -166,6 +165,13 @@ const submitOwnerRequest = asyncHandler(async (req, res) => {
         status: 'pending',
         createdAt: new Date()
     });
+
+    // --- Emit socket event cho admin ---
+    const io = req.app && req.app.get('io');
+    if (io) {
+        io.to('admin_room').emit('new_owner_request', { request });
+    }
+    // --- End emit ---
 
     res.json({ success: true, message: 'Đã gửi yêu cầu trở thành đối tác. Vui lòng chờ admin duyệt.', request });
 });

@@ -92,7 +92,26 @@ exports.unbanUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
+    // --- Gửi notification khi mở khóa tài khoản ---
+    const Notification = require('../models/Notification');
+    const notification = await Notification.create({
+      userId: user._id,
+      type: 'user_unbanned',
+      title: 'Tài khoản đã được mở khóa',
+      message: 'Tài khoản của bạn đã được mở khóa. Bạn có thể sử dụng lại hệ thống.',
+      relatedTo: {
+        type: 'user',
+        id: user._id
+      }
+    });
+    // Emit socket event nếu có socket.io
+    const io = req.app.get('io');
+    if (io) {
+      io.to(user._id.toString()).emit('new_notification', notification);
+    }
+    // --- End notification ---
+
     res.json({ message: 'User unbanned successfully', user });
   } catch (error) {
     res.status(500).json({ message: 'Error unbanning user', error: error.message });
