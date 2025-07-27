@@ -165,7 +165,7 @@ const ComplaintManagement = () => {
     const handleQuickUnban = async () => {
         try {
             setIsSubmitting(true);
-            
+
             // Lấy thông tin người bị khóa từ trường bannedUser trong model
             const bannedUserId = selectedComplaint?.bannedUser?._id;
             let bannedUserInfo = '';
@@ -178,8 +178,8 @@ const ComplaintManagement = () => {
             } else {
                 // Nếu không có thông tin từ model, hiển thị thông báo
                 toast.warning('Không tìm thấy thông tin người bị khóa trong hệ thống!');
-                setIsSubmitting(false);
-                return;
+                    setIsSubmitting(false);
+                    return;
             }
             
             console.log('🔓 Đang mở khóa tài khoản người dùng:', bannedUserInfo);

@@ -20,7 +20,28 @@ const PaymentCallback = () => {
             socketId: socket?.id
         });
         console.log('👤 User state:', user);
-    }, [socket, user]);
+        
+        // Kiểm tra nếu có tham số payment_success=true thì chuyển hướng về trang vé của tôi
+        const paymentSuccess = searchParams.get('payment_success');
+        const orderCode = searchParams.get('orderCode');
+        
+        if (paymentSuccess === 'true') {
+            console.log('🎫 Payment success detected in URL params. Order code:', orderCode);
+            toast.success('Thanh toán thành công! Đang chuyển hướng đến vé của bạn...');
+            
+            // Thêm timeout để đảm bảo toast message hiển thị
+            setTimeout(() => {
+                navigate('/my-tickets', { 
+                    state: { highlightNewTickets: true, paymentSuccess: true, orderCode },
+                    replace: true
+                });
+            }, 1500);
+            return;
+        }
+        
+        // Tiếp tục xử lý các trường hợp khác
+        handlePaymentCallback();
+    }, [searchParams, navigate, user]);
 
     // Xử lý socket connection và authentication
     useEffect(() => {
