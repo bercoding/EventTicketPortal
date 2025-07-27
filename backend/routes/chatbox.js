@@ -246,7 +246,7 @@ router.post('/openai-chat', async (req, res) => {
         searchDescription = `sự kiện ${category}`;
       }
       
-      systemPrompt += `\n\nDỮ LIỆU SỰ KIỆN THỰC TẾ TỪ DATABASE (${searchDescription}):
+      systemPrompt += `\n\nDỮ LIỆU SỰ KIỆN THỰC TẾ TỪ WEBSITE CỦA CHÚNG TÔI (${searchDescription}):
 
 ${eventContext}
 

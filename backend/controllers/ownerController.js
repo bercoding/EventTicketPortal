@@ -98,15 +98,7 @@ const getOwnerStatistics = async (req, res) => {
       months.push(`T${now.getMonth() - i + 1}`);
     }
 
-    // Tính sự kiện theo danh mục
-    const categoryStats = {};
-    events.forEach(event => {
-      const category = event.category || 'Khác';
-      categoryStats[category] = (categoryStats[category] || 0) + 1;
-    });
 
-    const categoryLabels = Object.keys(categoryStats);
-    const categoryData = Object.values(categoryStats);
 
     // Top sự kiện theo doanh thu
     const eventRevenue = {};
@@ -207,6 +199,42 @@ const getOwnerStatistics = async (req, res) => {
       ? ((currentMonthEvents - previousMonthEvents) / previousMonthEvents) * 100 
       : 0;
 
+    // Tính tickets growth
+    const previousMonthTickets = previousMonthPayments.reduce((sum, payment) => {
+      if (payment.bookingType === 'seating') {
+        return sum + (payment.selectedSeats?.length || 0);
+      } else {
+        return sum + payment.selectedTickets?.reduce((ticketSum, ticket) => ticketSum + (ticket.quantity || 0), 0) || 0;
+      }
+    }, 0);
+    
+    const currentMonthTickets = currentMonthPayments.reduce((sum, payment) => {
+      if (payment.bookingType === 'seating') {
+        return sum + (payment.selectedSeats?.length || 0);
+      } else {
+        return sum + payment.selectedTickets?.reduce((ticketSum, ticket) => ticketSum + (ticket.quantity || 0), 0) || 0;
+      }
+    }, 0);
+    
+    const ticketsGrowth = previousMonthTickets > 0 
+      ? ((currentMonthTickets - previousMonthTickets) / previousMonthTickets) * 100 
+      : 0;
+
+    // Tính views growth
+    const previousMonthEventsForViews = events.filter(event => 
+      event.createdAt >= previousMonthStart && event.createdAt <= previousMonthEnd
+    );
+    const currentMonthEventsForViews = events.filter(event => 
+      event.createdAt >= currentMonthStart
+    );
+    
+    const previousMonthViews = previousMonthEventsForViews.reduce((sum, event) => sum + (event.views || 0), 0);
+    const currentMonthViews = currentMonthEventsForViews.reduce((sum, event) => sum + (event.views || 0), 0);
+    
+    const viewsGrowth = previousMonthViews > 0 
+      ? ((currentMonthViews - previousMonthViews) / previousMonthViews) * 100 
+      : 0;
+
     // Thống kê khách hàng
     const uniqueCustomers = new Set(payments.map(payment => payment.user.toString())).size;
     const newCustomers = payments.filter(payment => 
@@ -277,10 +305,10 @@ const getOwnerStatistics = async (req, res) => {
         totalViews,
         revenueGrowth: Math.round(revenueGrowth * 100) / 100,
         eventsGrowth: Math.round(eventsGrowth * 100) / 100,
+        ticketsGrowth: Math.round(ticketsGrowth * 100) / 100,
+        viewsGrowth: Math.round(viewsGrowth * 100) / 100,
         monthlyRevenue,
         months,
-        categoryLabels,
-        categoryData,
         topEvents: topEvents.filter(Boolean),
         uniqueCustomers,
         newCustomers,

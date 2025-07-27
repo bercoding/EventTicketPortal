@@ -57,6 +57,8 @@ const OwnerStatistics = () => {
     totalViews: 0,
     revenueGrowth: 0,
     eventsGrowth: 0,
+    ticketsGrowth: 0,
+    viewsGrowth: 0,
     topEvents: [],
     monthlyRevenue: [],
     months: [],
@@ -84,33 +86,6 @@ const OwnerStatistics = () => {
         }
       } catch (error) {
         console.error('Error fetching statistics:', error);
-        // Fallback to mock data if API fails
-        setStats({
-          totalRevenue: 12500000,
-          totalEvents: 8,
-          totalTickets: 1250,
-          totalViews: 15420,
-          revenueGrowth: 15.5,
-          eventsGrowth: 8.2,
-          topEvents: [
-            { name: 'Concert Rock Night', revenue: 4500000, tickets: 450, views: 3200 },
-            { name: 'Jazz Festival 2024', revenue: 3800000, tickets: 380, views: 2800 },
-            { name: 'Classical Music Gala', revenue: 3200000, tickets: 320, views: 2400 },
-            { name: 'Pop Music Show', revenue: 2800000, tickets: 280, views: 2100 },
-            { name: 'Folk Music Night', revenue: 2200000, tickets: 220, views: 1800 }
-          ],
-          monthlyRevenue: [2.5, 3.2, 4.1, 3.8, 5.2, 6.1, 7.3, 8.5, 9.2, 10.1, 11.5, 12.5],
-          months: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'],
-          categoryLabels: ['Âm nhạc', 'Thể thao', 'Giáo dục', 'Văn hóa', 'Khác'],
-          categoryData: [45, 25, 15, 10, 5],
-          uniqueCustomers: 650,
-          newCustomers: 45,
-          recentActivities: [
-            { type: 'event_created', message: 'Sự kiện "Concert Rock Night" đã được tạo', time: new Date() },
-            { type: 'ticket_sold', message: 'Đã bán 50 vé cho "Jazz Festival 2024"', time: new Date() },
-            { type: 'review_received', message: 'Nhận được đánh giá mới cho "Classical Music Gala"', time: new Date() }
-          ]
-        });
       } finally {
         setLoading(false);
       }
@@ -216,43 +191,7 @@ const OwnerStatistics = () => {
     },
   };
 
-  // Chart data for Events by Category
-  const categoryChartData = {
-    labels: stats.categoryLabels,
-    datasets: [
-      {
-        data: stats.categoryData,
-        backgroundColor: [
-          'rgba(59, 130, 246, 0.8)',
-          'rgba(16, 185, 129, 0.8)',
-          'rgba(245, 158, 11, 0.8)',
-          'rgba(239, 68, 68, 0.8)',
-          'rgba(139, 92, 246, 0.8)',
-        ],
-        borderColor: [
-          'rgba(59, 130, 246, 1)',
-          'rgba(16, 185, 129, 1)',
-          'rgba(245, 158, 11, 1)',
-          'rgba(239, 68, 68, 1)',
-          'rgba(139, 92, 246, 1)',
-        ],
-        borderWidth: 2,
-      },
-    ],
-  };
 
-  const categoryChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom',
-      },
-      title: {
-        display: false,
-      },
-    },
-  };
 
   if (loading) {
     return (
@@ -412,7 +351,7 @@ const OwnerStatistics = () => {
                 <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalTickets)}</p>
                 <div className="flex items-center mt-2">
                   <FaArrowUp className="text-green-500 mr-1" />
-                  <span className="text-sm text-green-600">+12.3%</span>
+                  <span className="text-sm text-green-600">+{stats.ticketsGrowth || 0}%</span>
                 </div>
               </div>
               <div className="p-3 bg-purple-100 rounded-lg">
@@ -433,7 +372,7 @@ const OwnerStatistics = () => {
                 <p className="text-2xl font-bold text-gray-900">{formatNumber(stats.totalViews)}</p>
                 <div className="flex items-center mt-2">
                   <FaArrowUp className="text-green-500 mr-1" />
-                  <span className="text-sm text-green-600">+8.7%</span>
+                  <span className="text-sm text-green-600">+{stats.viewsGrowth || 0}%</span>
                 </div>
               </div>
               <div className="p-3 bg-orange-100 rounded-lg">
@@ -514,7 +453,7 @@ const OwnerStatistics = () => {
         </motion.div>
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="mb-8">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -523,17 +462,6 @@ const OwnerStatistics = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Doanh thu theo tháng</h3>
             <div className="h-64">
               <Line data={revenueChartData} options={revenueChartOptions} />
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-xl shadow-sm p-6 border border-gray-200"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Sự kiện theo danh mục</h3>
-            <div className="h-64">
-              <Doughnut data={categoryChartData} options={categoryChartOptions} />
             </div>
           </motion.div>
         </div>
