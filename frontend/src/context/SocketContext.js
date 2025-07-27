@@ -13,12 +13,34 @@ export const useSocket = () => {
 export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
-    const [messages, setMessages] = useState({}); 
-    const [conversations, setConversations] = useState([]); // Danh sách các cuộc trò chuyện
+    // Load messages from localStorage on initial render
+    const [messages, setMessages] = useState(() => {
+        const savedMessages = localStorage.getItem('chat_messages');
+        return savedMessages ? JSON.parse(savedMessages) : {};
+    }); 
+    // Load conversations from localStorage on initial render
+    const [conversations, setConversations] = useState(() => {
+        const savedConversations = localStorage.getItem('chat_conversations');
+        return savedConversations ? JSON.parse(savedConversations) : [];
+    });
     const [currentConversationId, setCurrentConversationId] = useState(null);
     const [onlineUsers, setOnlineUsers] = useState({}); // { userId: true }
     const [lastNotification, setLastNotification] = useState(null); // State cho thông báo mới
     const { user } = useAuth();
+
+    // Save messages to localStorage whenever they change
+    useEffect(() => {
+        if (Object.keys(messages).length > 0) {
+            localStorage.setItem('chat_messages', JSON.stringify(messages));
+        }
+    }, [messages]);
+
+    // Save conversations to localStorage whenever they change
+    useEffect(() => {
+        if (conversations.length > 0) {
+            localStorage.setItem('chat_conversations', JSON.stringify(conversations));
+        }
+    }, [conversations]);
 
     const connectSocket = useCallback(() => {
         if (user && !socket) {
@@ -62,11 +84,8 @@ export const SocketProvider = ({ children }) => {
             socket.disconnect();
             setSocket(null);
             setIsConnected(false);
-            // Reset all chat states
-            setConversations([]);
-            setMessages({});
-            setCurrentConversationId(null);
-            setOnlineUsers({});
+            // Don't reset chat data on disconnect to preserve messages across sessions
+            // The data will be loaded from localStorage on next connection
         }
     }, [socket]);
 
@@ -87,14 +106,35 @@ export const SocketProvider = ({ children }) => {
         if (!socket) return;
 
         const handleConversationsList = (convos) => {
-            setConversations(convos || []);
+            // Merge with existing conversations from localStorage if available
+            setConversations(prevConvos => {
+                const mergedConvos = [...convos];
+                // Keep only unique conversations based on _id
+                return mergedConvos.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+            });
         };
 
         const handleMessagesHistory = ({ conversationId, messages: historyMessages }) => {
-            setMessages(prev => ({
-                ...prev,
-                [conversationId]: historyMessages || []
-            }));
+            setMessages(prev => {
+                const existingMessages = prev[conversationId] || [];
+                const newMessages = historyMessages || [];
+                
+                // Combine existing and new messages, remove duplicates by _id
+                const messageMap = new Map();
+                [...existingMessages, ...newMessages].forEach(msg => {
+                    if (msg._id) {
+                        messageMap.set(msg._id, msg);
+                    }
+                });
+                
+                const combinedMessages = Array.from(messageMap.values());
+                combinedMessages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                
+                return {
+                    ...prev,
+                    [conversationId]: combinedMessages
+                };
+            });
         };
 
         const handleNewMessage = (payload) => {
@@ -105,10 +145,24 @@ export const SocketProvider = ({ children }) => {
                 return;
             }
 
-            setMessages(prev => ({
-                ...prev,
-                [actualMessage.conversationId]: [...(prev[actualMessage.conversationId] || []), actualMessage]
-            }));
+            setMessages(prev => {
+                const existingMessages = prev[actualMessage.conversationId] || [];
+                // Check if message already exists
+                const messageExists = existingMessages.some(msg => msg._id === actualMessage._id);
+                if (messageExists) {
+                    return prev;
+                }
+                
+                const updatedMessages = {
+                    ...prev,
+                    [actualMessage.conversationId]: [...existingMessages, actualMessage]
+                };
+                
+                // Save to localStorage
+                localStorage.setItem('chat_messages', JSON.stringify(updatedMessages));
+                
+                return updatedMessages;
+            });
             
             setConversations(prevConvos => {
                 const existingConvoIndex = prevConvos.findIndex(c => c._id === updatedConversation._id);
@@ -122,16 +176,18 @@ export const SocketProvider = ({ children }) => {
                 } else {
                     newConvos = [...prevConvos, { ...updatedConversation, lastMessage: actualMessage }];
                 }
-                return newConvos.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+                
+                const sortedConvos = newConvos.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+                
+                // Save to localStorage
+                localStorage.setItem('chat_conversations', JSON.stringify(sortedConvos));
+                
+                return sortedConvos;
             });
         };
         
         const handleMessageError = (error) => {
             console.error('Message error from server (SocketContext):', error.message);
-            // Consider a more user-friendly notification system than alert
-
-            // alert(`Lỗi gửi tin nhắn: ${error.message}`); 
-
         };
 
         socket.on('conversations_list', handleConversationsList);
@@ -219,11 +275,10 @@ export const SocketProvider = ({ children }) => {
     const requestMessagesForConversation = useCallback((conversationId) => {
         if (socket && conversationId) {
             setCurrentConversationId(conversationId);
-            if (!messages[conversationId] || messages[conversationId].length === 0) {
-                 socket.emit('request_messages', { conversationId });
-            }
+            // Always request messages from server to ensure we have the latest
+            socket.emit('request_messages', { conversationId });
         }
-    }, [socket, messages]);
+    }, [socket]);
 
     const value = {
         socket,
