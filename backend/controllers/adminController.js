@@ -1,14 +1,15 @@
 const Event = require('../models/Event');
+const TicketType = require('../models/TicketType');
 const User = require('../models/User');
-const Complaint = require('../models/Complaint');
-const Notification = require('../models/Notification');
-const Report = require('../models/Report');
-const Post = require('../models/Post');
 const OwnerRequest = require('../models/OwnerRequest');
+const Complaint = require('../models/Complaint');
+const ViolationReport = require('../models/ViolationReport');
+const Post = require('../models/Post');
+const Payment = require('../models/Payment');
+const Notification = require('../models/Notification');
 const mongoose = require('mongoose');
 const Ticket = require('../models/Ticket');
-const Payment = require('../models/Payment');
-const ViolationReport = require('../models/ViolationReport');
+const Report = require('../models/Report');
 
 // Get all users with pagination and filters
 exports.getUsers = async (req, res) => {
@@ -752,7 +753,43 @@ exports.approveOwnerRequest = async (req, res) => {
     await request.save();
     
     // Update user role to event_owner
-    await User.findByIdAndUpdate(request.user._id, { role: 'event_owner' });
+    await User.findByIdAndUpdate(request.user._id, { 
+      role: 'event_owner',
+      ownerRequestStatus: 'approved' 
+    });
+    
+    // Send approval email to user
+    try {
+      const sendEmail = require('../config/email');
+      await sendEmail({
+        email: user.email,
+        subject: 'Đăng ký trở thành nhà tổ chức sự kiện đã được chấp thuận',
+        message: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; border-radius: 5px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <img src="https://eventticketportal.com/logo.png" alt="Event Ticket Portal Logo" style="max-height: 80px;">
+            </div>
+            <h2 style="color: #2563eb; margin-bottom: 20px;">Xin chúc mừng ${user.fullName || user.username}!</h2>
+            <p>Yêu cầu đăng ký trở thành nhà tổ chức sự kiện của bạn đã được <strong style="color: #10b981;">chấp thuận</strong>.</p>
+            <p>Bạn hiện có thể tạo và quản lý các sự kiện trên nền tảng của chúng tôi.</p>
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 0;"><strong>Tên doanh nghiệp:</strong> ${request.businessName}</p>
+              <p style="margin: 8px 0 0;"><strong>Loại hình kinh doanh:</strong> ${request.businessType}</p>
+            </div>
+            <p>Để bắt đầu tạo sự kiện mới, hãy đăng nhập vào tài khoản của bạn và truy cập phần "Quản lý sự kiện" trong trang cá nhân.</p>
+            <div style="margin-top: 30px; text-align: center;">
+              <a href="https://eventticketportal.com/dashboard" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Truy cập Dashboard</a>
+            </div>
+            <p style="margin-top: 30px;">Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với đội ngũ hỗ trợ của chúng tôi.</p>
+            <p>Trân trọng,<br>Đội ngũ Event Ticket Portal</p>
+          </div>
+        `
+      });
+      console.log('✅ Approval email sent to owner:', user.email);
+    } catch (emailError) {
+      console.error('❌ Error sending approval email:', emailError);
+      // Continue with the response even if email fails
+    }
     
     res.json({ 
       message: 'Owner request approved successfully', 
@@ -773,19 +810,61 @@ exports.rejectOwnerRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    const request = await OwnerRequest.findByIdAndUpdate(
-      id,
-      { 
-        status: 'rejected',
-        rejectedAt: new Date(),
-        rejectedBy: req.user.id,
-        rejectionReason: reason
-      },
-      { new: true }
-    ).populate('user', 'username email fullName');
+    
+    // First find the request to get user information
+    const request = await OwnerRequest.findById(id).populate('user', 'username email fullName');
+    
     if (!request) {
       return res.status(404).json({ message: 'Request not found' });
     }
+    
+    // Update the request
+    request.status = 'rejected';
+    request.rejectedAt = new Date();
+    request.rejectedBy = req.user.id;
+    request.rejectionReason = reason;
+    await request.save();
+    
+    // Update user's ownerRequestStatus to reflect rejection
+    const user = await User.findByIdAndUpdate(
+      request.user._id, 
+      { ownerRequestStatus: 'rejected' },
+      { new: true }
+    );
+    
+    // Send rejection email to user
+    try {
+      const sendEmail = require('../config/email');
+      await sendEmail({
+        email: user.email,
+        subject: 'Phản hồi về yêu cầu trở thành nhà tổ chức sự kiện',
+        message: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; border-radius: 5px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <img src="https://eventticketportal.com/logo.png" alt="Event Ticket Portal Logo" style="max-height: 80px;">
+            </div>
+            <h2 style="color: #4b5563; margin-bottom: 20px;">Thông báo về yêu cầu đăng ký</h2>
+            <p>Kính gửi ${user.fullName || user.username},</p>
+            <p>Sau khi xem xét, chúng tôi tiếc phải thông báo rằng yêu cầu trở thành nhà tổ chức sự kiện của bạn hiện tại chưa được chấp nhận.</p>
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <p style="margin: 0;"><strong>Lý do:</strong></p>
+              <p style="margin: 8px 0 0;">${reason || 'Không đáp ứng đủ tiêu chí để trở thành nhà tổ chức sự kiện.'}</p>
+            </div>
+            <p>Bạn có thể gửi lại đơn đăng ký sau khi đã bổ sung thêm thông tin hoặc khắc phục các vấn đề được nêu trong phần lý do.</p>
+            <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với đội ngũ hỗ trợ của chúng tôi để được giải đáp.</p>
+            <div style="margin-top: 30px; text-align: center;">
+              <a href="https://eventticketportal.com/support" style="background-color: #6b7280; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Liên hệ hỗ trợ</a>
+            </div>
+            <p style="margin-top: 30px;">Trân trọng,<br>Đội ngũ Event Ticket Portal</p>
+          </div>
+        `
+      });
+      console.log('✅ Rejection email sent to user:', user.email);
+    } catch (emailError) {
+      console.error('❌ Error sending rejection email:', emailError);
+      // Continue with the response even if email fails
+    }
+    
     res.json({ message: 'Owner request rejected successfully', request });
   } catch (error) {
     res.status(500).json({ message: 'Error rejecting owner request', error: error.message });
