@@ -70,6 +70,9 @@ const NotificationDropdown = ({ onClose, onUpdateUnreadCount }) => {
           navigate('/friends', { state: { initialTab: 'requests' } }); 
         } else if (notification.type === 'friend_accept') {
           navigate('/friends', { state: { initialTab: 'friends' } });
+        } else if (notification.type === 'owner_request_approved' || notification.type === 'owner_request_rejected') {
+          // Chuyển đến trang profile hoặc dashboard để xem thông tin tài khoản
+          navigate('/profile');
         } else {
           // Mặc định cho các thông báo khác liên quan đến user
           navigate('/friends');

@@ -18,7 +18,7 @@ export const SocketProvider = ({ children }) => {
     const [currentConversationId, setCurrentConversationId] = useState(null);
     const [onlineUsers, setOnlineUsers] = useState({}); // { userId: true }
     const [lastNotification, setLastNotification] = useState(null); // State cho thông báo mới
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
 
     const connectSocket = useCallback(() => {
         if (user && !socket) {
@@ -181,6 +181,12 @@ export const SocketProvider = ({ children }) => {
         socket.on('new_notification', handleNewNotification);
         // --- Kết thúc lắng nghe ---
 
+        socket.on('owner_request_approved', () => {
+            if (typeof refreshUser === 'function') {
+                refreshUser();
+            }
+        });
+
         socket.on('disconnect', (reason) => {
             // console.log('Socket disconnected from context:', reason);
         });
@@ -195,10 +201,11 @@ export const SocketProvider = ({ children }) => {
             socket.off('new_private_message', handleNewMessage);
             socket.off('message_error', handleMessageError);
             socket.off('new_notification', handleNewNotification); // Cleanup
+            socket.off('owner_request_approved');
             socket.off('disconnect');
             socket.off('connect_error');
         };
-    }, [socket]);
+    }, [socket, refreshUser]);
 
     const sendMessage = useCallback((recipientId, content) => {
         const userId = user?.id || user?._id;

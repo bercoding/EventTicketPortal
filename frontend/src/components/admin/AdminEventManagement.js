@@ -11,6 +11,10 @@ const AdminEventManagement = () => {
     const [search, setSearch] = useState('');
     const { socket } = useSocket();
     const { user } = useAuth();
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [selectedEvent, setSelectedEvent] = useState(null);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const [isRejecting, setIsRejecting] = useState(false);
 
     useEffect(() => {
         fetchEvents();
@@ -145,6 +149,31 @@ const AdminEventManagement = () => {
             }
         } catch (error) {
             toast.error('Lỗi khi duyệt sự kiện');
+        }
+    };
+
+    // Thêm hàm từ chối event
+    const handleRejectEvent = async () => {
+        if (!rejectionReason.trim() || !selectedEvent) {
+            toast.error('Vui lòng nhập lý do từ chối');
+            return;
+        }
+        try {
+            setIsRejecting(true);
+            const response = await adminAPI.rejectEvent(selectedEvent._id, { reason: rejectionReason });
+            if (response.data && response.data.event) {
+                toast.success('Từ chối sự kiện thành công!');
+                setShowRejectModal(false);
+                setRejectionReason('');
+                setSelectedEvent(null);
+                fetchEvents();
+            } else {
+                toast.error('Không thể từ chối sự kiện');
+            }
+        } catch (error) {
+            toast.error('Lỗi khi từ chối sự kiện');
+        } finally {
+            setIsRejecting(false);
         }
     };
 
@@ -393,12 +422,20 @@ const AdminEventManagement = () => {
 
                                                     {/* Approve Button */}
                                                     {event.status === 'pending' && (
-                                                        <button
-                                                            onClick={() => handleApproveEvent(event._id)}
-                                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                                        >
-                                                            ✅ Duyệt
-                                                        </button>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => handleApproveEvent(event._id)}
+                                                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                                            >
+                                                                ✅ Duyệt
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { setSelectedEvent(event); setShowRejectModal(true); }}
+                                                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                                            >
+                                                                ❌ Từ chối
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -410,6 +447,55 @@ const AdminEventManagement = () => {
                     </div>
                 </div>
             </div>
+            {showRejectModal && selectedEvent && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900">Từ chối sự kiện</h3>
+                            <button
+                                onClick={() => { setShowRejectModal(false); setSelectedEvent(null); setRejectionReason(''); }}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="mb-4">
+                            <p className="text-sm text-gray-600 mb-2">
+                                Bạn đang từ chối sự kiện: <strong>{selectedEvent.title}</strong>
+                            </p>
+                            <label htmlFor="rejectionReason" className="block text-sm font-medium text-gray-700 mb-2">
+                                Lý do từ chối <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                                id="rejectionReason"
+                                rows="4"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                placeholder="Nhập lý do từ chối sự kiện..."
+                                value={rejectionReason}
+                                onChange={(e) => setRejectionReason(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => { setShowRejectModal(false); setSelectedEvent(null); setRejectionReason(''); }}
+                                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                                disabled={isRejecting}
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleRejectEvent}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-red-300"
+                                disabled={isRejecting || !rejectionReason.trim()}
+                            >
+                                {isRejecting ? 'Đang xử lý...' : 'Từ chối'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

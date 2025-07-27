@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { toast } from 'react-toastify';
 
 const BannedUser = ({ banReason }) => {
     const navigate = useNavigate();
@@ -13,6 +15,7 @@ const BannedUser = ({ banReason }) => {
     const [emailInput, setEmailInput] = useState('');
     const [emailError, setEmailError] = useState('');
     const { user } = useAuth();
+    const { socket } = useSocket();
     
     // Lấy banReason từ location.state nếu không có từ props
     const banReasonText = banReason || location.state?.banReason || 'Vi phạm điều khoản sử dụng';
@@ -23,6 +26,17 @@ const BannedUser = ({ banReason }) => {
             setEmailInput(user.email);
         }
     }, [user]);
+
+    useEffect(() => {
+        if (!socket) return;
+        const handler = (notification) => {
+            if (notification.type === 'user_unbanned') {
+                toast.success('Tài khoản của bạn đã được mở khóa!');
+            }
+        };
+        socket.on('new_notification', handler);
+        return () => socket.off('new_notification', handler);
+    }, [socket]);
 
     const handleLogout = () => {
         localStorage.removeItem('token');
