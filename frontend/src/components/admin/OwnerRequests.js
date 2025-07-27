@@ -3,6 +3,7 @@ import { adminAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 import { FaEye, FaCheck, FaTimes, FaUserTie } from 'react-icons/fa';
 import { ClipLoader } from 'react-spinners';
+import { useSocket } from '../../context/SocketContext';
 
 const OwnerRequests = () => {
     const [requests, setRequests] = useState([]);
@@ -14,6 +15,7 @@ const OwnerRequests = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { socket } = useSocket();
 
     const fetchRequests = useCallback(async () => {
         setLoading(true);
@@ -34,6 +36,16 @@ const OwnerRequests = () => {
     useEffect(() => {
         fetchRequests();
     }, [fetchRequests]);
+
+    // Lắng nghe socket event new_owner_request
+    useEffect(() => {
+        if (!socket) return;
+        const handler = () => {
+            fetchRequests();
+        };
+        socket.on('new_owner_request', handler);
+        return () => socket.off('new_owner_request', handler);
+    }, [socket, fetchRequests]);
 
     const handleAction = async (action, requestId, reason = '') => {
         setIsSubmitting(true);
