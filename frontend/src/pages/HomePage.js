@@ -253,9 +253,7 @@ const HomePage = () => {
                         const heroTimeFormatted = event.startDate
                             ? new Date(event.startDate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                             : null;
-                        const heroPriceRange = event.ticketTypes && event.ticketTypes.length > 0 
-                            ? `${Math.min(...event.ticketTypes.map(t => t.price || 0)).toLocaleString('vi-VN')} VNĐ`
-                            : 'Liên hệ để biết giá';
+                        const heroPriceRange = getPriceRange(event.ticketTypes);
                         const heroLocationDisplay = event.location?.venueName || event.location?.type === 'online' 
                             ? (event.location.type === 'online' ? '🌐 Trực tuyến' : event.location.venueName)
                             : null;

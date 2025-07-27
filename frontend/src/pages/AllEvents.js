@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { FaCalendarAlt, FaMapMarkerAlt, FaSearch, FaFilter, FaTicketAlt, FaHeart, FaStar, FaUsers, FaFireAlt, FaMoon, FaMagic } from 'react-icons/fa';
 import { eventAPI } from '../services/api';
 import { toast } from 'react-toastify';
+import { getPriceRange } from '../utils/eventHelpers';
 
 const AllEvents = () => {
     const [events, setEvents] = useState([]);
@@ -347,7 +348,7 @@ const AllEvents = () => {
                                     <div className="flex justify-between items-center">
                                         <div>
                                             <span className="text-blue-300 font-bold text-sm">
-                                                💰 Từ 0đ
+                                                💰 {getPriceRange(event.ticketTypes)}
                                             </span>
                                         </div>
                                         <Link
