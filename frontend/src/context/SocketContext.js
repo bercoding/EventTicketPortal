@@ -16,12 +16,52 @@ export const SocketProvider = ({ children }) => {
     // Load messages from localStorage on initial render
     const [messages, setMessages] = useState(() => {
         const savedMessages = localStorage.getItem('chat_messages');
-        return savedMessages ? JSON.parse(savedMessages) : {};
+        try {
+            const parsedMessages = savedMessages ? JSON.parse(savedMessages) : {};
+            // Kiểm tra xem nếu user ID trong localStorage có khớp với user hiện tại không
+            const savedUserId = localStorage.getItem('chat_user_id');
+            const currentUserId = user?.id || user?._id;
+            
+            // Nếu người dùng đã thay đổi, xóa tin nhắn cũ
+            if (savedUserId && currentUserId && savedUserId !== currentUserId) {
+                localStorage.removeItem('chat_messages');
+                localStorage.removeItem('chat_conversations');
+                localStorage.setItem('chat_user_id', currentUserId);
+                return {};
+            }
+            
+            if (currentUserId && !savedUserId) {
+                localStorage.setItem('chat_user_id', currentUserId);
+            }
+            
+            return parsedMessages;
+        } catch (error) {
+            console.error('Error parsing stored messages:', error);
+            localStorage.removeItem('chat_messages');
+            return {};
+        }
     }); 
     // Load conversations from localStorage on initial render
     const [conversations, setConversations] = useState(() => {
         const savedConversations = localStorage.getItem('chat_conversations');
-        return savedConversations ? JSON.parse(savedConversations) : [];
+        try {
+            const parsedConversations = savedConversations ? JSON.parse(savedConversations) : [];
+            
+            // Kiểm tra xem nếu user ID trong localStorage có khớp với user hiện tại không
+            const savedUserId = localStorage.getItem('chat_user_id');
+            const currentUserId = user?.id || user?._id;
+            
+            // Nếu người dùng đã thay đổi, trả về mảng rỗng (localStorage đã được xử lý ở trên)
+            if (savedUserId && currentUserId && savedUserId !== currentUserId) {
+                return [];
+            }
+            
+            return parsedConversations;
+        } catch (error) {
+            console.error('Error parsing stored conversations:', error);
+            localStorage.removeItem('chat_conversations');
+            return [];
+        }
     });
     const [currentConversationId, setCurrentConversationId] = useState(null);
     const [onlineUsers, setOnlineUsers] = useState({}); // { userId: true }
@@ -32,15 +72,25 @@ export const SocketProvider = ({ children }) => {
     useEffect(() => {
         if (Object.keys(messages).length > 0) {
             localStorage.setItem('chat_messages', JSON.stringify(messages));
+            // Đảm bảo lưu userId để xác thực khi load lại
+            const currentUserId = user?.id || user?._id;
+            if (currentUserId) {
+                localStorage.setItem('chat_user_id', currentUserId);
+            }
         }
-    }, [messages]);
+    }, [messages, user]);
 
     // Save conversations to localStorage whenever they change
     useEffect(() => {
         if (conversations.length > 0) {
             localStorage.setItem('chat_conversations', JSON.stringify(conversations));
+            // Đảm bảo lưu userId để xác thực khi load lại
+            const currentUserId = user?.id || user?._id;
+            if (currentUserId) {
+                localStorage.setItem('chat_user_id', currentUserId);
+            }
         }
-    }, [conversations]);
+    }, [conversations, user]);
 
     const connectSocket = useCallback(() => {
         if (user && !socket) {
@@ -108,7 +158,17 @@ export const SocketProvider = ({ children }) => {
         const handleConversationsList = (convos) => {
             // Merge with existing conversations from localStorage if available
             setConversations(prevConvos => {
-                const mergedConvos = [...convos];
+                // Lọc các cuộc hội thoại để đảm bảo chỉ hiển thị những cuộc hội thoại mà người dùng hiện tại tham gia
+                const currentUserId = user?.id || user?._id;
+                if (!currentUserId) return prevConvos;
+                
+                const filteredConvos = convos.filter(convo => 
+                    convo.participants && convo.participants.some(
+                        participant => participant._id === currentUserId
+                    )
+                );
+                
+                const mergedConvos = [...filteredConvos];
                 // Keep only unique conversations based on _id
                 return mergedConvos.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
             });
@@ -142,6 +202,31 @@ export const SocketProvider = ({ children }) => {
 
             if (!actualMessage || !actualMessage.conversationId) {
                 console.error('Invalid new message payload received in SocketContext:', payload);
+                return;
+            }
+            
+            // Kiểm tra quyền truy cập - xác nhận người dùng có phải là người tham gia
+            const currentUserId = user?.id || user?._id;
+            if (!currentUserId) return;
+            
+            // Kiểm tra xem người dùng hiện tại có phải là người gửi hoặc người nhận không
+            const isParticipant = 
+                actualMessage.senderId?._id === currentUserId || 
+                actualMessage.recipientId === currentUserId;
+                
+            // Nếu không phải là người tham gia vào cuộc trò chuyện này, bỏ qua tin nhắn
+            if (!isParticipant) {
+                console.log('Ignored message for conversation user is not part of:', actualMessage.conversationId);
+                return;
+            }
+            
+            // Kiểm tra xem cuộc trò chuyện có chứa người dùng hiện tại không
+            const isUserInConversation = updatedConversation.participants.some(
+                p => p._id === currentUserId
+            );
+            
+            if (!isUserInConversation) {
+                console.log('Ignored conversation update for conversation user is not part of:', updatedConversation._id);
                 return;
             }
 
@@ -261,7 +346,7 @@ export const SocketProvider = ({ children }) => {
             socket.off('disconnect');
             socket.off('connect_error');
         };
-    }, [socket, refreshUser]);
+    }, [socket, refreshUser, user]);
 
     const sendMessage = useCallback((recipientId, content) => {
         const userId = user?.id || user?._id;

@@ -67,6 +67,7 @@ module.exports = (io) => {
             const userId = socketToUserMap[socket.id];
             if (!userId) return;
             try {
+                // Chỉ lấy các cuộc trò chuyện mà người dùng hiện tại là thành viên
                 const conversations = await Conversation.find({ participants: userId })
                     .populate('participants', 'username avatar email') // Lấy thông tin người tham gia
                     .populate({
@@ -74,7 +75,15 @@ module.exports = (io) => {
                         populate: { path: 'senderId', select: 'username avatar' }
                     })
                     .sort({ updatedAt: -1 });
-                socket.emit('conversations_list', conversations);
+                
+                // Lọc lại một lần nữa để đảm bảo người dùng chỉ thấy cuộc trò chuyện của mình
+                const filteredConversations = conversations.filter(conversation => 
+                    conversation.participants.some(participant => 
+                        participant._id.toString() === userId
+                    )
+                );
+                
+                socket.emit('conversations_list', filteredConversations);
             } catch (error) {
                 console.error('Error fetching conversations for user:', userId, error);
                 socket.emit('error_fetching_conversations', { message: 'Không thể tải danh sách cuộc trò chuyện.' });
@@ -85,15 +94,37 @@ module.exports = (io) => {
             const userId = socketToUserMap[socket.id];
             if (!userId || !conversationId) return;
             try {
-                // Kiểm tra user có phải là participant của conversation này không (bảo mật)
-                const conversation = await Conversation.findOne({ _id: conversationId, participants: userId });
+                // Kiểm tra nghiêm ngặt xem user có phải là participant của conversation này không
+                const conversation = await Conversation.findOne({ 
+                    _id: conversationId, 
+                    participants: userId 
+                });
+                
                 if (!conversation) {
-                    return socket.emit('error_fetching_messages', { message: 'Không có quyền truy cập cuộc trò chuyện này.'});
+                    console.log(`❌ Denied access: User ${userId} tried to access conversation ${conversationId} but is not a participant`);
+                    return socket.emit('error_fetching_messages', { 
+                        message: 'Bạn không có quyền truy cập cuộc trò chuyện này.',
+                        error: 'unauthorized_access'
+                    });
+                }
+
+                // Xác thực thêm một lần nữa để đảm bảo an toàn
+                const isParticipant = conversation.participants.some(
+                    participantId => participantId.toString() === userId.toString()
+                );
+                
+                if (!isParticipant) {
+                    console.log(`❌ Security check failed: User ${userId} is not in participants list of conversation ${conversationId}`);
+                    return socket.emit('error_fetching_messages', { 
+                        message: 'Không có quyền truy cập cuộc trò chuyện này.',
+                        error: 'unauthorized_access'
+                    });
                 }
 
                 const messages = await Message.find({ conversationId })
                     .populate('senderId', 'username avatar')
                     .sort({ createdAt: 1 }); // Sắp xếp tin nhắn từ cũ đến mới
+                    
                 socket.emit('messages_history', { conversationId, messages });
             } catch (error) {
                 console.error('Error fetching messages for conversation:', conversationId, error);
