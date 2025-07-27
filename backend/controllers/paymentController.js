@@ -827,7 +827,10 @@ const handlePayOSWebhook = asyncHandler(async (req, res) => {
             // Payment successful
             console.log('✅ PayOS webhook: Payment successful');
             
-            const payment = await Payment.findOne({ payos_orderCode: orderCode }).populate('event user');
+            const payment = await Payment.findOne({ payos_orderCode: orderCode })
+                .populate('event')
+                .populate('user');
+                
             if (payment && payment.status !== 'completed') {
                 payment.payos_status = 'PAID';
                 payment.payos_transactionDateTime = new Date();
@@ -835,6 +838,212 @@ const handlePayOSWebhook = asyncHandler(async (req, res) => {
                 await payment.save();
                 
                 console.log('🎫 PayOS payment completed');
+                
+                // Tìm booking liên quan
+                const booking = await Booking.findOne({ payment: payment._id });
+                
+                if (booking) {
+                    // Cập nhật trạng thái booking
+                    booking.status = 'confirmed';
+                    await booking.save();
+                    
+                    // Cập nhật trạng thái các vé
+                    const tickets = await Ticket.find({ 
+                        $or: [
+                            { payment: payment._id },
+                            { paymentId: payment._id }
+                        ],
+                        status: 'pending'
+                    });
+                    
+                    for (const ticket of tickets) {
+                        ticket.status = 'active';
+                        await ticket.save();
+                        console.log(`✅ Updated ticket ${ticket._id} to active`);
+                    }
+                    
+                    // Gửi email thông báo
+                    if (payment.user && payment.user.email) {
+                        try {
+                            const sendEmail = require('../config/email');
+                            
+                            // Format helper functions
+                            const formatPrice = price => new Intl.NumberFormat('vi-VN').format(price);
+                            const formatDate = date => new Date(date).toLocaleDateString('vi-VN', { 
+                                day: '2-digit', 
+                                month: '2-digit', 
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                            
+                            // Generate ticket details HTML
+                            let ticketDetailsHtml = '';
+                            let ticketListHtml = '';
+                            
+                            if (payment.bookingType === 'seating' && payment.selectedSeats && payment.selectedSeats.length > 0) {
+                                // For events with seats
+                                payment.selectedSeats.forEach((seat, index) => {
+                                    ticketListHtml += `
+                                        <tr style="background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}">
+                                            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">${seat.sectionName || 'Phổ thông'}</td>
+                                            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">${seat.rowName} - ${seat.seatNumber}</td>
+                                            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">${formatPrice(seat.price)} VNĐ</td>
+                                        </tr>
+                                    `;
+                                });
+                                
+                                ticketDetailsHtml = `
+                                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 20px;">
+                                        <thead style="background-color: #4a90e2; color: white;">
+                                            <tr>
+                                                <th style="padding: 10px; text-align: left;">Khu vực</th>
+                                                <th style="padding: 10px; text-align: left;">Ghế</th>
+                                                <th style="padding: 10px; text-align: left;">Giá</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${ticketListHtml}
+                                        </tbody>
+                                    </table>
+                                `;
+                            } else if (payment.selectedTickets && payment.selectedTickets.length > 0) {
+                                // For general/online events - group tickets by type
+                                const ticketGroups = {};
+                                payment.selectedTickets.forEach(ticket => {
+                                    const type = ticket.name || 'Phổ thông';
+                                    if (!ticketGroups[type]) {
+                                        ticketGroups[type] = {
+                                            count: 0,
+                                            price: ticket.price
+                                        };
+                                    }
+                                    ticketGroups[type].count += ticket.quantity || 1;
+                                });
+                                
+                                Object.entries(ticketGroups).forEach(([type, details], index) => {
+                                    ticketListHtml += `
+                                        <tr style="background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}">
+                                            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">${type}</td>
+                                            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">${details.count}</td>
+                                            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">${formatPrice(details.price)} VNĐ</td>
+                                            <td style="padding: 10px; border-bottom: 1px solid #e9ecef;">${formatPrice(details.price * details.count)} VNĐ</td>
+                                        </tr>
+                                    `;
+                                });
+                                
+                                ticketDetailsHtml = `
+                                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 20px;">
+                                        <thead style="background-color: #4a90e2; color: white;">
+                                            <tr>
+                                                <th style="padding: 10px; text-align: left;">Loại vé</th>
+                                                <th style="padding: 10px; text-align: left;">Số lượng</th>
+                                                <th style="padding: 10px; text-align: left;">Đơn giá</th>
+                                                <th style="padding: 10px; text-align: left;">Thành tiền</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${ticketListHtml}
+                                        </tbody>
+                                        <tfoot style="background-color: #f0f4f8;">
+                                            <tr>
+                                                <td colspan="3" style="padding: 10px; text-align: right; font-weight: bold;">Tổng cộng:</td>
+                                                <td style="padding: 10px; font-weight: bold;">${formatPrice(payment.totalAmount)} VNĐ</td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                `;
+                            }
+                            
+                            // Special info for online events
+                            let onlineEventInfo = '';
+                            if (payment.event.location?.type === 'online') {
+                                const meetingLink = payment.event.location.meetingLink || '#';
+                                onlineEventInfo = `
+                                    <div style="margin: 20px 0; padding: 15px; background-color: #f0f7ff; border-left: 4px solid #4a90e2; border-radius: 4px;">
+                                        <h3 style="margin-top: 0; color: #2c5282;">Thông tin tham gia trực tuyến:</h3>
+                                        <p style="margin-bottom: 10px;">Nền tảng: ${payment.event.location.platform || 'Chưa xác định'}</p>
+                                        <p style="margin-bottom: 10px;">
+                                            <a href="${meetingLink}" style="display: inline-block; padding: 10px 20px; background-color: #4a90e2; color: white; text-decoration: none; border-radius: 4px;">
+                                                Nhấn vào đây để tham gia
+                                            </a>
+                                        </p>
+                                        <p style="font-size: 14px; color: #4a5568;">
+                                            Bạn cũng có thể tìm thấy link tham gia trong phần "Vé của tôi" trên trang web.
+                                        </p>
+                                    </div>
+                                `;
+                            }
+                            
+                            // Compose email message
+                            const emailMessage = `
+                                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333333;">
+                                    <div style="background-color: #4a90e2; padding: 20px; text-align: center;">
+                                        <h1 style="color: white; margin: 0;">Xác nhận đặt vé thành công</h1>
+                                    </div>
+                                    
+                                    <div style="padding: 20px; background-color: #ffffff; border: 1px solid #e9ecef; border-top: none;">
+                                        <p>Kính gửi <strong>${payment.user.fullName || payment.user.username || payment.user.email}</strong>,</p>
+                                        
+                                        <p>Chúc mừng! Vé của bạn cho sự kiện <strong>${payment.event.title}</strong> đã được xác nhận thành công.</p>
+                                        
+                                        <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 4px;">
+                                            <h3 style="margin-top: 0; color: #2c5282;">Thông tin sự kiện:</h3>
+                                            <p><strong>Tên sự kiện:</strong> ${payment.event.title}</p>
+                                            <p><strong>Thời gian:</strong> ${formatDate(payment.event.startDate)}</p>
+                                            <p><strong>Địa điểm:</strong> ${payment.event.location?.type === 'online' ? 'Trực tuyến' : (payment.event.location?.venueName || payment.event.location?.address || 'Chưa xác định')}</p>
+                                        </div>
+                                        
+                                        <h3 style="color: #2c5282;">Chi tiết vé:</h3>
+                                        ${ticketDetailsHtml}
+                                        
+                                        ${onlineEventInfo}
+                                        
+                                        <p style="margin-top: 20px;">Vé của bạn đã được kích hoạt và sẵn sàng sử dụng. Bạn có thể xem chi tiết vé trong phần "Vé của tôi" trên trang web của chúng tôi.</p>
+                                        
+                                        <p style="margin-top: 20px;">Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!</p>
+                                        
+                                        <p>Trân trọng,<br>Đội ngũ Event Ticketing Portal</p>
+                                    </div>
+                                    
+                                    <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d;">
+                                        <p>Đây là email tự động, vui lòng không trả lời email này.</p>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            await sendEmail({
+                                email: payment.user.email,
+                                subject: `Xác nhận đặt vé thành công - ${payment.event.title}`,
+                                message: emailMessage
+                            });
+                            
+                            console.log('✅ Payment confirmation email sent to:', payment.user.email);
+                        } catch (emailError) {
+                            console.error('❌ Error sending payment confirmation email:', emailError);
+                            // Don't fail the process if email sending fails
+                        }
+                    }
+                    
+                    // Gửi thông báo cho người dùng
+                    try {
+                        await Notification.create({
+                            userId: payment.user._id,
+                            type: 'ticket_purchased',
+                            title: 'Vé của bạn đã được xác nhận',
+                            message: `Thanh toán cho sự kiện "<strong>${payment.event.title}</strong>" đã thành công. Vé của bạn hiện đã có trong mục 'Vé của tôi'.`,
+                            relatedTo: {
+                                type: 'ticket',
+                                id: booking._id
+                            }
+                        });
+                        
+                        console.log('✅ Notification created for user:', payment.user._id);
+                    } catch (notificationError) {
+                        console.error('❌ Error creating notification:', notificationError);
+                        // Don't fail the process if notification creation fails
+                    }
+                }
             }
         } else {
             // Payment failed
