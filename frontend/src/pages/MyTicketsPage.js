@@ -3,7 +3,7 @@ import { ticketService } from '../services/ticketService';
 import { toast } from 'react-toastify';
 import QRCode from 'qrcode';
 import { useSearchParams } from 'react-router-dom';
-import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTicketAlt, FaQrcode, FaTimes, FaExclamationTriangle, FaCheckCircle, FaInfoCircle, FaUndo, FaMoneyBillWave, FaExchangeAlt } from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaMapMarkerAlt, FaTicketAlt, FaQrcode, FaTimes, FaExclamationTriangle, FaCheckCircle, FaInfoCircle, FaUndo, FaMoneyBillWave, FaExchangeAlt, FaLink, FaVideo } from 'react-icons/fa';
 import RefundRequestForm from '../components/RefundRequestForm';
 import { Link } from 'react-router-dom'; // Added Link import
 
@@ -228,6 +228,11 @@ const MyTicketsPage = () => {
         } else {
             setShowRefundRequestModal(ticket);
         }
+    };
+
+    // Hàm kiểm tra xem vé có phải cho sự kiện online không
+    const isOnlineEvent = (ticket) => {
+        return ticket.event?.location?.type === 'online';
     };
 
     return (
@@ -683,18 +688,46 @@ const MyTicketsPage = () => {
                                         {selectedTicket.event?.title}
                                     </h2>
 
-                                    {/* QR Code */}
-                                    {qrCodes[selectedTicket._id] && (
+                                    {/* QR Code hoặc Link tham gia */}
+                                    {isOnlineEvent(selectedTicket) ? (
                                         <div className="text-center mb-6">
-                                            <div className="bg-white/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-4 inline-block">
-                                                <img 
-                                                    src={qrCodes[selectedTicket._id]} 
-                                                    alt="QR Code" 
-                                                    className="w-32 h-32 mx-auto"
-                                                />
+                                            <div className="bg-blue-500/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-4">
+                                                <div className="flex flex-col items-center">
+                                                    <FaVideo className="text-3xl text-blue-400 mb-2" />
+                                                    <h3 className="text-lg font-semibold text-blue-300 mb-2">Tham gia trực tuyến</h3>
+                                                    {selectedTicket.event?.location?.meetingLink ? (
+                                                        <a 
+                                                            href={selectedTicket.event.location.meetingLink}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-medium py-2 px-4 rounded-lg flex items-center transition duration-300"
+                                                        >
+                                                            <FaLink className="mr-2" /> Nhấn để tham gia
+                                                        </a>
+                                                    ) : (
+                                                        <p className="text-yellow-400 italic">
+                                                            Link sẽ được mở trước khi sự kiện bắt đầu. Vui lòng kiểm tra lại sau.
+                                                        </p>
+                                                    )}
+                                                    <p className="text-sm text-blue-300/60 mt-2">
+                                                        Nền tảng: {selectedTicket.event?.location?.platform || 'Chưa xác định'}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <p className="text-sm text-blue-300/80 mt-2">Quét mã QR tại cổng vào</p>
                                         </div>
+                                    ) : (
+                                        qrCodes[selectedTicket._id] && (
+                                            <div className="text-center mb-6">
+                                                <div className="bg-white/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-4 inline-block">
+                                                    <img 
+                                                        src={qrCodes[selectedTicket._id]} 
+                                                        alt="QR Code" 
+                                                        className="w-32 h-32 mx-auto"
+                                                    />
+                                                </div>
+                                                <p className="text-sm text-blue-300/80 mt-2">Quét mã QR tại cổng vào</p>
+                                            </div>
+                                        )
                                     )}
 
                                     {/* Ticket Details */}

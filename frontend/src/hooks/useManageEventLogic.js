@@ -60,6 +60,7 @@ const useManageEventLogic = (eventId) => {
       guests: '',
       specialExperiences: ''
     },
+    ticketTypes: [], // Thêm mảng ticketTypes mặc định
 
   });
 
@@ -99,6 +100,7 @@ const useManageEventLogic = (eventId) => {
       setFormData({
         ...formData,
         ...eventData,
+        ticketTypes: eventData.ticketTypes || [], // Thêm ticketTypes từ dữ liệu sự kiện
         organizer: {
           name: eventData.organizer?.name || primaryOrganizer.username || '',
           info: eventData.organizer?.info || primaryOrganizer.email || '',
