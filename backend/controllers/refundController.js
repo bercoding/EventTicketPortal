@@ -210,7 +210,7 @@ exports.createRefundRequest = async (req, res) => {
                         for (const seat of row.seats) {
                           if (seat.number === seatNumber) {
                             seat.available = true;
-                            if (seat.status) seat.status = "available";
+                            seat.status = "available"; // Ensure status is set to "available"
                             updated = true;
                             console.log(`✅ Seat ${sectionName}-${rowName}-${seatNumber} marked as available (method 2)`);
                             break;
@@ -246,10 +246,8 @@ exports.createRefundRequest = async (req, res) => {
               // In thông tin ghế để kiểm tra
               const eventAfterUpdate = await Event.findById(event._id);
               console.log(`📊 Event available seats after update: ${eventAfterUpdate.availableSeats}`);
-              
             } catch (seatUpdateError) {
               console.error('❌ Error updating seat availability:', seatUpdateError);
-              // Không dừng quá trình, tiếp tục xử lý
             }
           }
         } catch (ticketError) {
@@ -439,6 +437,7 @@ exports.processRefundRequest = async (req, res) => {
                             if (seatIndex !== -1) {
                               // Đánh dấu ghế là available
                               event.seatingMap.sections[sectionIndex].rows[rowIndex].seats[seatIndex].available = true;
+                              event.seatingMap.sections[sectionIndex].rows[rowIndex].seats[seatIndex].status = "available"; // Ensure status is correctly set
                               await Event.updateOne(
                                 { _id: event._id },
                                 { $set: { 'seatingMap.sections': event.seatingMap.sections } }
